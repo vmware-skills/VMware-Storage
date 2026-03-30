@@ -1,21 +1,18 @@
 ---
 name: vmware-storage
 description: >
-  VMware vSphere storage management: datastores, iSCSI, vSAN.
-  Domain-focused skill split from vmware-aiops for lighter context.
-  11 MCP tools: datastore browsing/scanning, iSCSI adapter and target config,
-  vSAN health and capacity monitoring.
-  Use when user asks to "browse datastore", "enable iSCSI", "add iSCSI target",
-  "check vSAN health", "scan for OVA/ISO images", "rescan storage",
-  or mentions VMware storage, iSCSI, or vSAN operations.
-  For VM operations use vmware-aiops, for monitoring use vmware-monitor,
-  for Kubernetes use vmware-vks.
+  Use this skill whenever the user needs to manage VMware storage — datastores, iSCSI targets, and vSAN clusters.
+  Directly handles: browse datastores, scan for deployable images (OVA/ISO), configure iSCSI adapters and targets, check vSAN health and capacity.
+  Always use this skill for "list datastores", "add iSCSI target", "check vSAN health", "browse datastore files", "scan for OVA images", or any storage-related VMware task.
+  For VM operations use vmware-aiops, for networking use vmware-nsx.
 installer:
   kind: uv
   package: vmware-storage
 allowed-tools:
   - Bash
 metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
+compatibility: >
+  Requires vmware-policy (auto-installed). All operations audited to ~/.vmware/audit.db.
 ---
 
 # VMware Storage
@@ -240,6 +237,17 @@ Datastores / iSCSI / vSAN
 ```
 
 The MCP server uses stdio transport (local only, no network listener). Connections to vSphere use SSL/TLS on port 443.
+
+## Audit & Safety
+
+All operations are automatically audited via vmware-policy (`@vmware_tool` decorator):
+- Every tool call logged to `~/.vmware/audit.db` (SQLite, framework-agnostic)
+- Policy rules enforced via `~/.vmware/rules.yaml` (deny rules, maintenance windows, risk levels)
+- Risk classification: each tool tagged as low/medium/high/critical
+- View recent operations: `vmware-audit log --last 20`
+- View denied operations: `vmware-audit log --status denied`
+
+vmware-policy is automatically installed as a dependency — no manual setup needed.
 
 ## License
 
