@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 
+from vmware_policy import sanitize
+
 from vmware_storage.ops.inventory import find_host_by_name
 
 if TYPE_CHECKING:
@@ -110,7 +112,7 @@ def get_iscsi_status(si: ServiceInstance, host_name: str) -> dict:
         "host": host_name,
         "enabled": True,
         "hba_device": hba.device,
-        "iqn": hba.iScsiName,
+        "iqn": sanitize(hba.iScsiName) if hba.iScsiName else None,
         "send_targets": targets,
     }
 

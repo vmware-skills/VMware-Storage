@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 
+from vmware_policy import sanitize
+
 from vmware_storage.ops.inventory import find_cluster_by_name
 
 if TYPE_CHECKING:
@@ -76,8 +78,8 @@ def get_vsan_health(
                     cache_disk = dg.ssd
                     capacity_disks = dg.nonSsd
                     disk_groups.append({
-                        "host": host.name,
-                        "cache_disk": cache_disk.displayName if cache_disk else "N/A",
+                        "host": sanitize(host.name),
+                        "cache_disk": sanitize(cache_disk.displayName) if cache_disk else "N/A",
                         "cache_size_gb": round(
                             cache_disk.capacity.block * cache_disk.capacity.blockSize / (1024**3), 1
                         ) if cache_disk and cache_disk.capacity else 0,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
+from vmware_policy import sanitize
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -33,14 +34,14 @@ def list_datastores(si: ServiceInstance) -> list[dict]:
         used_gb = round(total_gb - free_gb, 1)
         usage_pct = round((used_gb / total_gb) * 100, 1) if total_gb > 0 else 0
         results.append({
-            "name": ds.name,
+            "name": sanitize(ds.name),
             "type": summary.type,
             "free_gb": free_gb,
             "used_gb": used_gb,
             "total_gb": total_gb,
             "usage_pct": usage_pct,
             "accessible": summary.accessible,
-            "url": summary.url,
+            "url": sanitize(summary.url) if summary.url else "",
             "vm_count": len(ds.vm) if ds.vm else 0,
         })
     return sorted(results, key=lambda x: x["name"])
