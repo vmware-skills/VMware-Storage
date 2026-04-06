@@ -71,7 +71,7 @@ vmware-storage doctor
 ### Set Up iSCSI Storage on a Host
 
 1. Enable iSCSI adapter → `vmware-storage iscsi enable esxi-01`
-2. Add target → `vmware-storage iscsi add-target esxi-01 10.0.0.100`
+2. Add target → `vmware-storage iscsi add-target esxi-01 &lt;iscsi-target-ip&gt;`
 3. Verify → `vmware-storage iscsi status esxi-01`
 
 The `add-target` command automatically rescans storage after adding the target. If you need an additional rescan later:
@@ -81,7 +81,7 @@ The `add-target` command automatically rescans storage after adding the target. 
 **Dry-run first**: Append `--dry-run` to any write command to preview without executing:
 ```bash
 vmware-storage iscsi enable esxi-01 --dry-run
-vmware-storage iscsi add-target esxi-01 10.0.0.100 --dry-run
+vmware-storage iscsi add-target esxi-01 &lt;iscsi-target-ip&gt; --dry-run
 ```
 
 ### Find Deployable Images Across Datastores
@@ -222,7 +222,8 @@ mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets
 
-echo "VMWARE_MY_VCENTER_PASSWORD=your_password" > ~/.vmware-storage/.env
+# Add to ~/.vmware-storage/.env (create if missing, chmod 600):
+# VMWARE_MY_VCENTER_PASSWORD=<your-password>
 chmod 600 ~/.vmware-storage/.env
 
 vmware-storage doctor
