@@ -158,7 +158,7 @@ docker run -d \
 
 ### Audit Logging
 
-All operations are logged to `~/.vmware-storage/audit.log` in JSON Lines format.
+All operations are logged to `~/.vmware/audit.db` (SQLite WAL mode, via vmware-policy).
 
 Each audit entry records:
 - **timestamp**: UTC ISO 8601
@@ -294,6 +294,6 @@ vmware-storage iscsi status lab-esxi --target lab-esxi
 |------|---------|
 | `~/.vmware-storage/config.yaml` | Connection targets and settings |
 | `~/.vmware-storage/.env` | Passwords (chmod 600) |
-| `~/.vmware-storage/audit.log` | Operation audit trail (JSON Lines) |
+| `~/.vmware/audit.db` | Operation audit trail (SQLite WAL, via vmware-policy) |
 | `~/.vmware-storage/image_registry.json` | Cached image scan results |
 | `~/.vmware-storage/scan.log` | Scanner log output |

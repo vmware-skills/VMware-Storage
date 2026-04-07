@@ -10,7 +10,7 @@ installer:
   package: vmware-storage
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
 compatibility: >
   Requires vmware-policy (auto-installed). All operations audited to ~/.vmware/audit.db.
 ---
@@ -205,7 +205,7 @@ The `doctor` command tests connectivity with a 5-second TCP timeout. If your vCe
 
 - **No VM operations**: This skill cannot power on/off, create, delete, or modify VMs — that scope belongs to `vmware-aiops`
 - **Read-heavy**: 6 of 11 tools are read-only (list, browse, scan, status, health, capacity)
-- **Audit logging**: All operations (including reads) are logged to `~/.vmware-storage/audit.log` in JSON Lines format with timestamp, user, target, operation, parameters, and result
+- **Audit logging**: All operations (including reads) are logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with timestamp, user, target, operation, parameters, and result
 - **Double confirmation**: CLI write commands (iSCSI enable, add/remove target) require two separate "Are you sure?" prompts before executing
 - **Dry-run mode**: All write commands support `--dry-run` to preview API calls without executing
 - **Input validation**: IP addresses validated via `ipaddress.ip_address()`, ports checked for 1-65535 range, host/cluster/datastore names looked up before operations
