@@ -1,6 +1,10 @@
 <!-- mcp-name: io.github.zw008/vmware-storage -->
 # VMware Storage
 
+> **Author**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+> This is a community-driven project by a VMware engineer, not an official VMware product.
+> For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).
+
 [English](README.md) | [中文](README-CN.md)
 
 VMware vSphere storage management: datastores, iSCSI, vSAN — 11 MCP tools, domain-focused and lightweight.

@@ -1,6 +1,10 @@
 <!-- mcp-name: io.github.zw008/vmware-storage -->
 # VMware Storage
 
+> **作者**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
+> 本项目由 VMware 工程师维护的社区项目，非 VMware 官方产品。
+> VMware 官方开发者工具请访问 [developer.broadcom.com](https://developer.broadcom.com)。
+
 [English](README.md) | [中文](README-CN.md)
 
 VMware vSphere 存储管理：数据存储、iSCSI、vSAN — 11 个 MCP 工具，领域专注、轻量级。

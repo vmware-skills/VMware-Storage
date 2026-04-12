@@ -4,7 +4,8 @@ description: >
   Use this skill whenever the user needs to manage VMware storage — datastores, iSCSI targets, and vSAN clusters.
   Directly handles: browse datastores, scan for deployable images (OVA/ISO), configure iSCSI adapters and targets, check vSAN health and capacity.
   Always use this skill for "list datastores", "add iSCSI target", "check vSAN health", "browse datastore files", "scan for OVA images", or any storage-related VMware task.
-  For VM operations use vmware-aiops, for networking use vmware-nsx. For load balancing/AVI/AKO use vmware-avi.
+  Do NOT use for VM lifecycle operations (use vmware-aiops), NSX networking (use vmware-nsx), or Kubernetes clusters (use vmware-vks).
+  For load balancing/AVI/AKO use vmware-avi.
 installer:
   kind: uv
   package: vmware-storage
@@ -12,7 +13,7 @@ allowed-tools:
   - Bash
 metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
 compatibility: >
-  Requires vmware-policy (auto-installed). All operations audited to ~/.vmware/audit.db.
+  vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
 ---
 
 # VMware Storage
@@ -89,6 +90,7 @@ vmware-storage iscsi add-target esxi-01 &lt;iscsi-target-ip&gt; --dry-run
 1. List all datastores → `vmware-storage datastore list`
 2. Scan a datastore for images → `vmware-storage datastore scan-images datastore01`
 3. Browse with a pattern → `vmware-storage datastore browse datastore01 --pattern "*.iso"`
+4. **If datastore not found** → verify name with `vmware-storage datastore list --target <vcenter>`. Datastore names are case-sensitive.
 
 To filter cached results by type or datastore, use the `list_cached_images` MCP tool with `image_type` and `datastore` parameters.
 
@@ -97,6 +99,7 @@ To filter cached results by type or datastore, use the `list_cached_images` MCP 
 1. Check health → `vmware-storage vsan health Cluster-Prod`
 2. Check capacity → `vmware-storage vsan capacity Cluster-Prod`
 3. If issues found, investigate with `vmware-monitor` for alarms and events
+4. **If vSAN not enabled** → this cluster may not use vSAN. Check cluster type with `vmware-monitor inventory clusters`
 
 ### Multi-Target Operations
 
@@ -119,7 +122,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (11)
+## MCP Tools (11 — 6 read, 5 write)
 
 All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to.
 

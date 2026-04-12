@@ -80,7 +80,7 @@ def _get_connection(target: str | None = None):
 @mcp.tool()
 @vmware_tool(risk_level="low")
 def list_all_datastores(target: str | None = None) -> list[dict]:
-    """List all datastores with capacity, usage percentage, and accessibility.
+    """[READ] List all datastores with capacity, usage percentage, and accessibility.
 
     Args:
         target: Optional vCenter/ESXi target name from config.
@@ -97,7 +97,7 @@ def browse_datastore(
     pattern: str = "*",
     target: str | None = None,
 ) -> list[dict]:
-    """Browse files in a datastore directory.
+    """[READ] Browse files in a datastore directory.
 
     Args:
         ds_name: Datastore name.
@@ -116,7 +116,7 @@ def scan_datastore_images(
     path: str = "",
     target: str | None = None,
 ) -> list[dict]:
-    """Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
+    """[READ] Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
 
     Args:
         ds_name: Datastore name.
@@ -133,7 +133,7 @@ def list_cached_images(
     image_type: str | None = None,
     datastore: str | None = None,
 ) -> list[dict]:
-    """List images from the local cache registry.
+    """[READ] List images from the local cache registry.
 
     Args:
         image_type: Filter by extension (e.g. "ova", "iso").
@@ -153,7 +153,7 @@ def storage_iscsi_enable(
     host_name: str,
     target: str | None = None,
 ) -> str:
-    """Enable the software iSCSI adapter on an ESXi host.
+    """[WRITE] Enable the software iSCSI adapter on an ESXi host.
 
     Args:
         host_name: ESXi host name.
@@ -172,7 +172,7 @@ def storage_iscsi_status(
     host_name: str,
     target: str | None = None,
 ) -> dict:
-    """Get iSCSI adapter status and configured send targets.
+    """[READ] Get iSCSI adapter status and configured send targets.
 
     Args:
         host_name: ESXi host name.
@@ -190,7 +190,7 @@ def storage_iscsi_add_target(
     port: int = 3260,
     target: str | None = None,
 ) -> str:
-    """Add an iSCSI send target to an ESXi host and rescan storage.
+    """[WRITE] Add an iSCSI send target to an ESXi host and rescan storage.
 
     Args:
         host_name: ESXi host name.
@@ -215,7 +215,7 @@ def storage_iscsi_remove_target(
     port: int = 3260,
     target: str | None = None,
 ) -> str:
-    """Remove an iSCSI send target from an ESXi host and rescan storage.
+    """[WRITE] Remove an iSCSI send target from an ESXi host and rescan storage.
 
     Args:
         host_name: ESXi host name.
@@ -238,7 +238,7 @@ def storage_rescan(
     host_name: str,
     target: str | None = None,
 ) -> str:
-    """Rescan all HBAs and VMFS volumes on an ESXi host.
+    """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host.
 
     Args:
         host_name: ESXi host name.
@@ -262,7 +262,7 @@ def vsan_health(
     cluster_name: str,
     target: str | None = None,
 ) -> dict:
-    """Get vSAN cluster health summary and disk groups.
+    """[READ] Get vSAN cluster health summary and disk groups.
 
     Args:
         cluster_name: Name of the vSAN-enabled cluster.
@@ -278,7 +278,7 @@ def vsan_capacity(
     cluster_name: str,
     target: str | None = None,
 ) -> dict:
-    """Get vSAN capacity overview (total/used/free) for a cluster.
+    """[READ] Get vSAN capacity overview (total/used/free) for a cluster.
 
     Args:
         cluster_name: Name of the vSAN-enabled cluster.
