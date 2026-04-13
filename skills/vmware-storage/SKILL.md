@@ -11,12 +11,15 @@ installer:
   package: vmware-storage
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_TARGET_PASSWORD"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_<TARGET>_PASSWORD"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
+  Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-storage/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD (e.g., target "my-vcenter" → VMWARE_MY_VCENTER_PASSWORD). No webhooks or outbound network calls — this skill is local-only (stdio MCP + vSphere API). Audit logs written to ~/.vmware/audit.db (SQLite WAL, local only).
 ---
 
 # VMware Storage
+
+> **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/zw008/VMware-Storage](https://github.com/zw008/VMware-Storage) under the MIT license.
 
 VMware vSphere storage management — 11 MCP tools for datastores, iSCSI, and vSAN.
 
