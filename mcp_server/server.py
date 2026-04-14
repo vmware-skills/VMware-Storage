@@ -77,7 +77,7 @@ def _get_connection(target: str | None = None):
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_all_datastores(target: str | None = None) -> list[dict]:
     """[READ] List all datastores with capacity, usage percentage, and accessibility.
@@ -85,11 +85,15 @@ def list_all_datastores(target: str | None = None) -> list[dict]:
     Args:
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return list_datastores(si)
+    try:
+        si = _get_connection(target)
+        return list_datastores(si)
+    except Exception as e:
+        logger.error("list_all_datastores failed: %s", e)
+        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def browse_datastore(
     ds_name: str,
@@ -105,11 +109,15 @@ def browse_datastore(
         pattern: Glob pattern to filter files (e.g. "*.ova", "*.iso").
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return datastore_browser.browse_datastore(si, ds_name, path=path, pattern=pattern)
+    try:
+        si = _get_connection(target)
+        return datastore_browser.browse_datastore(si, ds_name, path=path, pattern=pattern)
+    except Exception as e:
+        logger.error("browse_datastore failed: %s", e)
+        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def scan_datastore_images(
     ds_name: str,
@@ -123,11 +131,15 @@ def scan_datastore_images(
         path: Subdirectory path (empty for root).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return datastore_browser.scan_images(si, ds_name, path=path)
+    try:
+        si = _get_connection(target)
+        return datastore_browser.scan_images(si, ds_name, path=path)
+    except Exception as e:
+        logger.error("scan_datastore_images failed: %s", e)
+        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_cached_images(
     image_type: str | None = None,
@@ -139,7 +151,11 @@ def list_cached_images(
         image_type: Filter by extension (e.g. "ova", "iso").
         datastore: Filter by datastore name.
     """
-    return datastore_browser.list_images(image_type=image_type, datastore=datastore)
+    try:
+        return datastore_browser.list_images(image_type=image_type, datastore=datastore)
+    except Exception as e:
+        logger.error("list_cached_images failed: %s", e)
+        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +163,7 @@ def list_cached_images(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def storage_iscsi_enable(
     host_name: str,
@@ -159,14 +175,18 @@ def storage_iscsi_enable(
         host_name: ESXi host name.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    result = enable_software_iscsi(si, host_name)
-    _audit.log(target=target or "default", operation="iscsi_enable",
-               resource=host_name, parameters={"host_name": host_name}, result=result)
-    return result
+    try:
+        si = _get_connection(target)
+        result = enable_software_iscsi(si, host_name)
+        _audit.log(target=target or "default", operation="iscsi_enable",
+                   resource=host_name, parameters={"host_name": host_name}, result=result)
+        return result
+    except Exception as e:
+        logger.error("storage_iscsi_enable failed: %s", e)
+        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def storage_iscsi_status(
     host_name: str,
@@ -178,11 +198,15 @@ def storage_iscsi_status(
         host_name: ESXi host name.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return get_iscsi_status(si, host_name)
+    try:
+        si = _get_connection(target)
+        return get_iscsi_status(si, host_name)
+    except Exception as e:
+        logger.error("storage_iscsi_status failed: %s", e)
+        return {"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def storage_iscsi_add_target(
     host_name: str,
@@ -198,16 +222,20 @@ def storage_iscsi_add_target(
         port: iSCSI target port (default 3260).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    result = add_iscsi_target(si, host_name, address, port)
-    _audit.log(target=target or "default", operation="iscsi_add_target",
-               resource=host_name,
-               parameters={"host_name": host_name, "address": address, "port": port},
-               result=result)
-    return result
+    try:
+        si = _get_connection(target)
+        result = add_iscsi_target(si, host_name, address, port)
+        _audit.log(target=target or "default", operation="iscsi_add_target",
+                   resource=host_name,
+                   parameters={"host_name": host_name, "address": address, "port": port},
+                   result=result)
+        return result
+    except Exception as e:
+        logger.error("storage_iscsi_add_target failed: %s", e)
+        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def storage_iscsi_remove_target(
     host_name: str,
@@ -223,16 +251,20 @@ def storage_iscsi_remove_target(
         port: iSCSI target port (default 3260).
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    result = remove_iscsi_target(si, host_name, address, port)
-    _audit.log(target=target or "default", operation="iscsi_remove_target",
-               resource=host_name,
-               parameters={"host_name": host_name, "address": address, "port": port},
-               result=result)
-    return result
+    try:
+        si = _get_connection(target)
+        result = remove_iscsi_target(si, host_name, address, port)
+        _audit.log(target=target or "default", operation="iscsi_remove_target",
+                   resource=host_name,
+                   parameters={"host_name": host_name, "address": address, "port": port},
+                   result=result)
+        return result
+    except Exception as e:
+        logger.error("storage_iscsi_remove_target failed: %s", e)
+        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def storage_rescan(
     host_name: str,
@@ -244,11 +276,15 @@ def storage_rescan(
         host_name: ESXi host name.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    result = rescan_storage(si, host_name)
-    _audit.log(target=target or "default", operation="storage_rescan",
-               resource=host_name, parameters={"host_name": host_name}, result=result)
-    return result
+    try:
+        si = _get_connection(target)
+        result = rescan_storage(si, host_name)
+        _audit.log(target=target or "default", operation="storage_rescan",
+                   resource=host_name, parameters={"host_name": host_name}, result=result)
+        return result
+    except Exception as e:
+        logger.error("storage_rescan failed: %s", e)
+        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +292,7 @@ def storage_rescan(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def vsan_health(
     cluster_name: str,
@@ -268,11 +304,15 @@ def vsan_health(
         cluster_name: Name of the vSAN-enabled cluster.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return get_vsan_health(si, cluster_name)
+    try:
+        si = _get_connection(target)
+        return get_vsan_health(si, cluster_name)
+    except Exception as e:
+        logger.error("vsan_health failed: %s", e)
+        return {"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
-@mcp.tool()
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def vsan_capacity(
     cluster_name: str,
@@ -284,8 +324,12 @@ def vsan_capacity(
         cluster_name: Name of the vSAN-enabled cluster.
         target: Optional vCenter/ESXi target name from config.
     """
-    si = _get_connection(target)
-    return get_vsan_capacity(si, cluster_name)
+    try:
+        si = _get_connection(target)
+        return get_vsan_capacity(si, cluster_name)
+    except Exception as e:
+        logger.error("vsan_capacity failed: %s", e)
+        return {"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 # ---------------------------------------------------------------------------
