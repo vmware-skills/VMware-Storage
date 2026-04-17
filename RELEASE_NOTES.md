@@ -1,3 +1,7 @@
+## v1.5.12 (2026-04-17)
+
+- Align with VMware skill family v1.5.12 (security & bug fixes from code review by @yjs-2026)
+
 ## v1.5.11 (2026-04-17)
 
 - Align with VMware skill family v1.5.11 (AVI 22.x fixes from @timwangbc)
@@ -163,30 +167,4 @@ Domain-focused VMware storage skill, split from vmware-aiops for lighter context
 
 ### Datastore Management / 数据存储管理
 
-- `list_all_datastores` — List all datastores with capacity, usage %, accessibility
-- `browse_datastore` — Browse files in any datastore directory
-- `scan_datastore_images` — Find OVA, ISO, OVF, VMDK across datastores
-- `list_cached_images` — Query local image registry with filters
-
-### iSCSI Configuration / iSCSI 配置
-
-- `storage_iscsi_enable` — Enable software iSCSI adapter on ESXi hosts
-- `storage_iscsi_status` — Show adapter status and configured targets
-- `storage_iscsi_add_target` — Add iSCSI send target with auto-rescan
-- `storage_iscsi_remove_target` — Remove target with auto-rescan
-- `storage_rescan` — Force rescan all HBAs and VMFS volumes
-
-### vSAN Monitoring / vSAN 监控
-
-- `vsan_health` — Cluster health summary with disk group details
-- `vsan_capacity` — Total/used/free capacity with usage percentage
-
-### Infrastructure / 基础设施
-
-- CLI (`vmware-storage`) with typer — datastore/iscsi/vsan subcommands
-- MCP server (11 tools) via stdio transport
-- Docker one-command launch
-- `vmware-storage doctor` — 6-check environment diagnostics
-- Audit logging (JSON Lines)
-
-**PyPI**: `uv tool install vmware-storage==1.2.0`
+- `list_all_datastores` — List all datastores with capacity, usage 
