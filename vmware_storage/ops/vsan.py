@@ -75,7 +75,7 @@ def get_vsan_health(
                         "capacity_disks": len(capacity_disks) if capacity_disks else 0,
                     })
         except Exception as e:
-            _log.warning("Failed to read disk groups from host %s: %s", host.name, e)
+            _log.warning("Failed to read disk groups from host %s: %s", sanitize(host.name), e)
 
     return {
         "cluster_name": cluster_name,

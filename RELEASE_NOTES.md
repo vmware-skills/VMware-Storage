@@ -1,3 +1,10 @@
+## v1.5.14 (2026-04-21)
+
+**Bug fixes from code review by @yjs-2026 (follow-up)**
+
+- **fix(P0):** `__init__.py` — version synced to match pyproject.toml (was stuck at 1.5.12)
+- **fix(security):** `vsan.py` — log message now uses `sanitize(host.name)` to prevent prompt injection via log output
+
 ## v1.5.13 (2026-04-21)
 
 **Bug fixes from code review 2026-04-20**
