@@ -25,17 +25,6 @@ class VSANError(Exception):
     """Raised on vSAN operation failures."""
 
 
-def _get_vsan_cluster_system(si: ServiceInstance):
-    """Get the VsanVcClusterHealthSystem from the vSAN stub."""
-    try:
-        from pyVmomi import SoapStubAdapter  # noqa: F401
-        vc_mos = si.RetrieveContent().setting
-        # Try to access vSAN health system via extension manager
-        vsan_health = si.RetrieveContent().extensionManager
-        return vsan_health
-    except Exception:
-        return None
-
 
 def get_vsan_health(
     si: ServiceInstance,
@@ -91,10 +80,11 @@ def get_vsan_health(
     return {
         "cluster_name": cluster_name,
         "vsan_enabled": True,
-        "overall_health": "green",  # Basic check — full health requires VsanVcClusterHealthSystem
+        "overall_health": "unknown",  # Full health check requires VsanVcClusterHealthSystem
         "host_count": len(cluster.host) if cluster.host else 0,
         "disk_groups": disk_groups,
-        "message": "vSAN is enabled. Use vSAN Health Check via vCenter UI for detailed status.",
+        "message": "vSAN is enabled. overall_health is 'unknown' because full health check "
+                   "requires VsanVcClusterHealthSystem. Use vCenter UI for detailed status.",
     }
 
 

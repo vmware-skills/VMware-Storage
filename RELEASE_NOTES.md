@@ -1,3 +1,10 @@
+## v1.5.13 (2026-04-21)
+
+**Bug fixes from code review 2026-04-20**
+
+- **fix:** `vsan.py` — `overall_health` now returns `"unknown"` instead of hardcoded `"green"` when VsanVcClusterHealthSystem is not available; removed dead code `_get_vsan_cluster_system`
+- **fix(security):** `inventory.py` — `list_hosts` now sanitizes `host.name` via `vmware_policy.sanitize()` to prevent prompt injection (consistent with `list_datastores`)
+
 ## v1.5.12 (2026-04-17)
 
 - Align with VMware skill family v1.5.12 (security & bug fixes from code review by @yjs-2026)

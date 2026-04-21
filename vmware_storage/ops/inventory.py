@@ -52,7 +52,7 @@ def list_hosts(si: ServiceInstance) -> list[dict]:
     hosts = _get_objects(si, [vim.HostSystem])
     return [
         {
-            "name": host.name,
+            "name": sanitize(host.name),
             "connection_state": str(host.runtime.connectionState),
         }
         for host in sorted(hosts, key=lambda h: h.name)
