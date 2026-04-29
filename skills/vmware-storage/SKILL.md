@@ -207,6 +207,10 @@ chmod 600 ~/.vmware-storage/.env
 
 The `doctor` command tests connectivity with a 5-second TCP timeout. If your vCenter is on a high-latency network, the check may fail even though the connection works. Use `--skip-auth` to bypass both connectivity and auth checks, then test manually.
 
+### `invalid peer certificate: UnknownIssuer` when starting MCP via uvx
+
+Corporate TLS proxies inject certificates that uv's bundled CA store doesn't trust. Use the recommended `vmware-storage mcp` form (no PyPI re-resolve), or set `export UV_NATIVE_TLS=true` to make uv use system CAs.
+
 ## Safety
 
 - **No VM operations**: This skill cannot power on/off, create, delete, or modify VMs — that scope belongs to `vmware-aiops`

@@ -139,9 +139,14 @@ vmware-storage doctor
 
 ## MCP Server
 
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage` 后，**一条命令启动 MCP**：
+
 ```bash
-# 直接运行
-uvx --from vmware-storage vmware-storage-mcp
+# 推荐 — 单命令，无网络依赖
+vmware-storage mcp
+
+# 指定配置路径
+VMWARE_STORAGE_CONFIG=/path/to/config.yaml vmware-storage mcp
 
 # 或通过 Docker
 docker compose up -d
@@ -155,7 +160,8 @@ docker compose up -d
 {
   "mcpServers": {
     "vmware-storage": {
-      "command": "vmware-storage-mcp",
+      "command": "vmware-storage",
+      "args": ["mcp"],
       "env": {
         "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
       }
@@ -163,6 +169,22 @@ docker compose up -d
   }
 }
 ```
+
+<details>
+<summary>备选方案：uvx（不安装）或 legacy 入口</summary>
+
+```bash
+# 不想安装，临时运行（每次需要联网 resolve 依赖）
+uvx --from vmware-storage vmware-storage mcp
+
+# 旧 entry point（仍可用，向后兼容）
+vmware-storage-mcp
+```
+
+> **公司 TLS 代理网络下？** uvx 可能报 `invalid peer certificate: UnknownIssuer`。
+> 推荐使用上面的 `vmware-storage mcp`（无需联网），或 `export UV_NATIVE_TLS=true`。
+
+</details>
 
 更多 Agent 配置模板（Claude Code、Cursor、Goose、Continue 等）见 [examples/mcp-configs/](examples/mcp-configs/)。
 

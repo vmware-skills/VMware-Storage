@@ -111,7 +111,8 @@ Add to your MCP config (`~/.claude.json` or Claude Desktop settings):
 {
   "mcpServers": {
     "vmware-storage": {
-      "command": "vmware-storage-mcp",
+      "command": "vmware-storage",
+      "args": ["mcp"],
       "env": {
         "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
       }
@@ -119,6 +120,11 @@ Add to your MCP config (`~/.claude.json` or Claude Desktop settings):
   }
 }
 ```
+
+> v1.5.15+ recommends the single-command form `vmware-storage mcp`. Pre-1.5.15 used
+> `uvx --from vmware-storage vmware-storage-mcp`, which still works but re-resolves from
+> PyPI on each launch and breaks behind corporate TLS proxies. The legacy
+> `vmware-storage-mcp` entry point is also kept for backward compatibility.
 
 ### Goose
 
@@ -128,7 +134,9 @@ Add to `~/.config/goose/config.yaml`:
 extensions:
   vmware-storage:
     type: stdio
-    cmd: vmware-storage-mcp
+    cmd: vmware-storage
+    args:
+      - mcp
     env:
       VMWARE_STORAGE_CONFIG: "~/.vmware-storage/config.yaml"
 ```

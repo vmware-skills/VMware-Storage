@@ -103,9 +103,14 @@ vmware-storage doctor
 
 ## MCP Server
 
+**After `uv tool install vmware-storage`, start the MCP server with one command** (v1.5.15+):
+
 ```bash
-# Run directly
-uvx --from vmware-storage vmware-storage-mcp
+# Recommended — single command, no network re-resolve
+vmware-storage mcp
+
+# With a custom config path
+VMWARE_STORAGE_CONFIG=/path/to/config.yaml vmware-storage mcp
 
 # Or via Docker
 docker compose up -d
@@ -119,7 +124,8 @@ Add to your AI agent's MCP config:
 {
   "mcpServers": {
     "vmware-storage": {
-      "command": "vmware-storage-mcp",
+      "command": "vmware-storage",
+      "args": ["mcp"],
       "env": {
         "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
       }
@@ -127,6 +133,22 @@ Add to your AI agent's MCP config:
   }
 }
 ```
+
+<details>
+<summary>Alternative: uvx (no install) or legacy entry point</summary>
+
+```bash
+# Run without installing (requires PyPI access each launch)
+uvx --from vmware-storage vmware-storage mcp
+
+# Legacy entry point (still works, kept for backward compatibility)
+vmware-storage-mcp
+```
+
+> **Behind a corporate TLS proxy?** uvx may fail with `invalid peer certificate: UnknownIssuer`.
+> Use the recommended `vmware-storage mcp` form above (no network needed), or set `UV_NATIVE_TLS=true`.
+
+</details>
 
 ## Why a Separate Skill?
 

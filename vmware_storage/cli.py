@@ -289,3 +289,17 @@ def doctor(
     """Run environment diagnostics."""
     from vmware_storage.doctor import run_doctor
     sys.exit(run_doctor(skip_auth=skip_auth))
+
+
+@app.command("mcp")
+def mcp_cmd() -> None:
+    """Start the MCP server (stdio transport).
+
+    Single-command entry point for MCP clients:
+        vmware-storage mcp
+
+    Equivalent to the legacy `vmware-storage-mcp` console script.
+    """
+    from mcp_server.server import main as _mcp_main
+
+    _mcp_main()

@@ -52,11 +52,13 @@ vmware-storage can run alongside other VMware MCP skills simultaneously:
 {
   "mcpServers": {
     "vmware-monitor": {
-      "command": "vmware-monitor-mcp",
+      "command": "vmware-monitor",
+      "args": ["mcp"],
       "env": { "VMWARE_MONITOR_CONFIG": "~/.vmware-monitor/config.yaml" }
     },
     "vmware-storage": {
-      "command": "vmware-storage-mcp",
+      "command": "vmware-storage",
+      "args": ["mcp"],
       "env": { "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml" }
     }
   }
