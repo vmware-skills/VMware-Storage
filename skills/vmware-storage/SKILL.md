@@ -74,35 +74,40 @@ vmware-storage doctor
 
 ### Set Up iSCSI Storage on a Host
 
-1. Enable iSCSI adapter → `vmware-storage iscsi enable esxi-01`
-2. Add target → `vmware-storage iscsi add-target esxi-01 &lt;iscsi-target-ip&gt;`
-3. Verify → `vmware-storage iscsi status esxi-01`
+**Pre-flight (judgment)**:
+- Network reachability: `vmkping <iscsi-target-ip>` from the ESXi host must succeed BEFORE adding the target. Adding an unreachable target leaves the host in a degraded state, retrying forever.
+- Adapter sanity: `iscsi status` first — if already enabled, do not "re-enable"; just add the target.
+- Idempotency: `add-target` is idempotent (re-adding same IP is a no-op), but `remove-target` is not safely reversible mid-IO. Always verify no LUNs from this target are in use before removing.
+- Existing targets: list them first; some sites add targets one-per-host while others use cluster-wide. Check site convention.
 
-The `add-target` command automatically rescans storage after adding the target. If you need an additional rescan later:
-
-4. Rescan → `vmware-storage iscsi rescan esxi-01`
-
-**Dry-run first**: Append `--dry-run` to any write command to preview without executing:
-```bash
-vmware-storage iscsi enable esxi-01 --dry-run
-vmware-storage iscsi add-target esxi-01 &lt;iscsi-target-ip&gt; --dry-run
-```
+**Steps**:
+1. `iscsi status esxi-01` → confirm adapter state and existing targets
+2. `iscsi enable esxi-01 --dry-run` then real (skip if already enabled)
+3. `iscsi add-target esxi-01 <ip> --dry-run` then real (auto-rescans on success)
+4. `iscsi status esxi-01` again → confirm target listed AND devices appearing
+5. If devices missing 30+ sec after add: `iscsi rescan esxi-01` once more, then check ESXi-side `vmkping` and target ACL
 
 ### Find Deployable Images Across Datastores
 
-1. List all datastores → `vmware-storage datastore list`
-2. Scan a datastore for images → `vmware-storage datastore scan-images datastore01`
-3. Browse with a pattern → `vmware-storage datastore browse datastore01 --pattern "*.iso"`
-4. **If datastore not found** → verify name with `vmware-storage datastore list --target <vcenter>`. Datastore names are case-sensitive.
+**Judgment**: image search is read-only and safe, but blind scanning of every datastore is slow on large estates. Filter first.
 
-To filter cached results by type or datastore, use the `list_cached_images` MCP tool with `image_type` and `datastore` parameters.
+1. `datastore list` → get the inventory; ignore datastores marked `inaccessible` or low free space
+2. `datastore scan-images <ds>` on the datastore most likely to hold images (typically named `iso-*`, `templates`, or central `nfs-shared`)
+3. If unsure where images live: scan multiple in parallel via separate calls; results are cached in the local registry
+4. `datastore browse <ds> --pattern "*.iso"` for ad-hoc searches; pattern is glob, not regex
+5. **If datastore not found**: name is case-sensitive. `datastore list --target <vc>` to verify exact spelling.
+
+For filtered queries against the cache: use `list_cached_images` MCP tool with `image_type` and `datastore` parameters — avoids re-scanning.
 
 ### vSAN Health Assessment
 
-1. Check health → `vmware-storage vsan health Cluster-Prod`
-2. Check capacity → `vmware-storage vsan capacity Cluster-Prod`
-3. If issues found, investigate with `vmware-monitor` for alarms and events
-4. **If vSAN not enabled** → this cluster may not use vSAN. Check cluster type with `vmware-monitor inventory clusters`
+**Judgment**: vSAN problems often masquerade as vSphere problems and vice-versa. Check both planes — if vSAN is healthy but VMs are slow, the issue is at the compute or network layer, not storage.
+
+1. `vsan health <cluster>` → look beyond green/red — check disk group state, network partitioning, and cluster member counts. A "yellow" disk group is the early warning of a failure.
+2. `vsan capacity <cluster>` → utilization > 70% triggers slack-space risk; > 80% impedes resync; never let prod cross 80%.
+3. Cross-check `vmware-monitor health alarms` for vSAN-related alarms (HCL warnings, network anomalies)
+4. **If vSAN not enabled** on this cluster: check cluster type via `vmware-monitor inventory clusters`; vSAN is opt-in, not default
+5. For deep investigation, follow [`references/investigation-protocol.md`](../vmware-aria/skills/vmware-aria/references/investigation-protocol.md) (in companion skill) — vSAN issues frequently fail the Mechanism criterion (capacity is correlated, not causal)
 
 ### Multi-Target Operations
 

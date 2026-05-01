@@ -2,6 +2,23 @@
 
 All 11 MCP tools exposed by `vmware-storage-mcp`, organized by category.
 
+## Automation Level Reference
+
+Each operation is classified by autonomy level per the Enterprise Harness Engineering framework:
+
+| Level | Meaning | Agent autonomy | Examples in this skill |
+|:-:|---|---|---|
+| **L1** | Read-only, raw data | Always auto-run | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `storage_iscsi_status`, vSAN status queries |
+| **L2** | Read + analysis / recommendation | Always auto-run | datastore capacity analysis, image registry queries, iSCSI target health correlation |
+| **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm + `--dry-run` (see Confirm column) | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, vSAN cluster ops |
+| **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | *(roadmap — multi-host iSCSI rollout, vSAN expansion plans)* |
+| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | **planned PoC**: iSCSI target stale-link auto-rescan (low-risk, reversible, repeatable) |
+
+**Notes**:
+- L1/L2 tools are always safe for agents to call without confirmation.
+- L3 tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → double-confirm.
+- L5 PoC is tracked in the v1.5.x+ roadmap; iSCSI rescan is the first candidate because every parameter is observable and idempotent.
+
 ## Datastore (4 tools)
 
 | Tool | Description | Parameters | Risk | Confirm |

@@ -1,0 +1,95 @@
+# Auto-Remediation Pattern — iSCSI Target Stale Device Rescan
+#
+# Status: PoC reference pattern. NOT yet enforced by the runtime.
+# Schema and lifecycle docs:
+#   https://github.com/zw008/VMware-Policy/blob/main/docs/auto-remediation-patterns.md
+#
+# This pattern is the first L5 candidate from the Enterprise Harness Engineering
+# framework: an operation that has been performed enough times manually, with
+# enough consistency, that promoting it to automatic execution is justified.
+
+schema_version: 1
+pattern_id: iscsi-target-stale-rescan
+
+description: >
+  When an iSCSI target on an ESXi host shows stale device status (devices
+  listed but no longer accessible, or expected devices missing), rescan the
+  HBA adapters to refresh the device list. The rescan operation is idempotent
+  (re-running has no additional effect) and non-destructive (it does not
+  modify storage configuration or VM state).
+
+# Classification — all three must be TRUE to qualify as L5
+classification:
+  risk: low
+  reversible: true       # Idempotent operations are trivially reversible (re-run = no-op)
+  repeatable: true
+
+# What triggers this pattern: a previous audit row matching these conditions
+trigger:
+  skill: vmware-storage
+  tool: storage_iscsi_status
+  result_predicate:
+    # Stale device condition — at least one of:
+    any_of:
+      - devices_inaccessible_count: ">0"
+      - missing_expected_devices: true
+      - last_rescan_age_minutes: ">60"
+  # Cooldown — do not re-fire within this window for the same (host, target)
+  cooldown_minutes: 15
+
+# What action to perform when trigger fires
+action:
+  skill: vmware-storage
+  tool: storage_rescan
+  params_from_trigger:
+    host: "$.params.host"
+    target: "$.params.target"
+  # Maximum runtime before considering action stuck
+  timeout_seconds: 120
+
+# How to validate success
+validation:
+  delay_seconds: 30
+  re_check:
+    skill: vmware-storage
+    tool: storage_iscsi_status
+    params_from_trigger:
+      host: "$.params.host"
+      target: "$.params.target"
+  expect:
+    devices_inaccessible_count: "0"
+    missing_expected_devices: false
+
+# Failure mode
+on_validation_failure: escalate_l4
+# escalate_l4 — push to human-approval queue with full context
+# rollback     — invoke action's documented rollback (N/A here — rescan has no rollback)
+# retry_once   — single retry after extended delay, then escalate
+
+# Rate limiting (defense in depth — beyond cooldown)
+rate_limit:
+  max_per_hour_per_host: 4
+  max_per_day_per_cluster: 20
+
+# Circuit breaker
+circuit_breaker:
+  consecutive_validation_failures: 3
+  action_when_tripped: disable_pattern_and_page
+
+# Versioning — when does this pattern expire and require re-signing
+expires_at: "2027-04-30"   # 12 months from PoC creation
+applies_to_versions:
+  vsphere: ">=7.0"
+  storage_skill: ">=1.5.0"
+
+# Approval — TO BE FILLED when promoted from PoC to production
+approval:
+  status: poc_unsigned
+  signed_by: null
+  signed_at: null
+  reviewed_audit_runs: []
+  thresholds_at_signing:
+    success_count_required: 5
+    failure_count_max: 0
+    distinct_operators_required: 2
+    days_observed: 90
