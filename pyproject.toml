@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-storage"
-version = "1.5.19"
+version = "1.5.20"
 description = "VMware vSphere storage management: datastores, iSCSI, vSAN. Domain-focused MCP skill."
 readme = "README.md"
 license = "MIT"
