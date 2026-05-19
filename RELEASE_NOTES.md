@@ -1,3 +1,11 @@
+## v1.5.23 (2026-05-19)
+
+**VCF 9.0 / 9.1 compatibility declared** — family-wide docs sync.
+
+- **docs:** README + `references/setup-guide.md` version-compatibility tables now list vSphere 9.0 / 9.1 as ✅ Full. vSAN Management SDK (bundled in pyVmomi 8.0.3+) continues to work against vSphere 9. Note: vSAN ESA full feature coverage in VCF 9 may require future SDK updates.
+- **docs:** Added `Official Broadcom References` pointer to [VCF Python SDK](https://developer.broadcom.com/sdks) and [vSAN Management API docs](https://developer.broadcom.com/xapis).
+- **align:** Family v1.5.23 — all 9 skills tracking VCF 9.0 / 9.1 compatibility declaration.
+
 ## v1.5.22 (2026-05-08)
 
 **Family alignment** — no source changes in this skill.

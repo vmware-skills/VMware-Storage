@@ -160,11 +160,19 @@ vmware-storage-mcp
 
 ## Version Compatibility
 
-| vSphere | Support | Notes |
+| vSphere / VCF | Support | Notes |
 |---------|---------|-------|
+| VCF 9.1 / vSphere 9.1 | Full | Released 2026-05-12. pyVmomi+vSAN SDK `<10.0` works via SOAP. |
+| VCF 9.0 / vSphere 9.0 | Full | pyVmomi 8.0.3+ with bundled vSAN SDK connects to vSphere 9. |
 | 8.0 | Full | vSAN SDK built into pyVmomi 8.0.3+ |
 | 7.0 | Full | All storage APIs work |
 | 6.7 | Compatible | iSCSI + datastore features work; vSAN limited |
+
+#### Official Broadcom References
+
+- **SDKs**: <https://developer.broadcom.com/sdks> — VCF Python SDK, vSAN Management SDK (bundled in pyVmomi)
+- **REST APIs**: <https://developer.broadcom.com/xapis> — vSAN Management API, VCF API
+- **CLI Tools**: <https://developer.broadcom.com/tools> — PowerCLI 9.1, ESXCLI
 
 ## Safety
 
