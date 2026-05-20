@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import vmware_tool
@@ -56,7 +56,7 @@ _audit = AuditLogger()
 # Connection management (lazy-init singleton)
 # ---------------------------------------------------------------------------
 
-_conn_mgr: ConnectionManager | None = None
+_conn_mgr: Optional[ConnectionManager] = None
 
 
 def _get_conn_mgr() -> ConnectionManager:
@@ -68,7 +68,7 @@ def _get_conn_mgr() -> ConnectionManager:
     return _conn_mgr
 
 
-def _get_connection(target: str | None = None):
+def _get_connection(target: Optional[str] = None):
     return _get_conn_mgr().connect(target)
 
 
@@ -79,7 +79,7 @@ def _get_connection(target: str | None = None):
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_all_datastores(target: str | None = None) -> list[dict]:
+def list_all_datastores(target: Optional[str] = None) -> list[dict]:
     """[READ] List all datastores with capacity, usage percentage, and accessibility.
 
     Args:
@@ -99,7 +99,7 @@ def browse_datastore(
     ds_name: str,
     path: str = "",
     pattern: str = "*",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> list[dict]:
     """[READ] Browse files in a datastore directory.
 
@@ -122,7 +122,7 @@ def browse_datastore(
 def scan_datastore_images(
     ds_name: str,
     path: str = "",
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> list[dict]:
     """[READ] Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
 
@@ -142,8 +142,8 @@ def scan_datastore_images(
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def list_cached_images(
-    image_type: str | None = None,
-    datastore: str | None = None,
+    image_type: Optional[str] = None,
+    datastore: Optional[str] = None,
 ) -> list[dict]:
     """[READ] List images from the local cache registry.
 
@@ -167,7 +167,7 @@ def list_cached_images(
 @vmware_tool(risk_level="medium")
 def storage_iscsi_enable(
     host_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Enable the software iSCSI adapter on an ESXi host.
 
@@ -190,7 +190,7 @@ def storage_iscsi_enable(
 @vmware_tool(risk_level="medium")
 def storage_iscsi_status(
     host_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[READ] Get iSCSI adapter status and configured send targets.
 
@@ -212,7 +212,7 @@ def storage_iscsi_add_target(
     host_name: str,
     address: str,
     port: int = 3260,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Add an iSCSI send target to an ESXi host and rescan storage.
 
@@ -241,7 +241,7 @@ def storage_iscsi_remove_target(
     host_name: str,
     address: str,
     port: int = 3260,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Remove an iSCSI send target from an ESXi host and rescan storage.
 
@@ -268,7 +268,7 @@ def storage_iscsi_remove_target(
 @vmware_tool(risk_level="medium")
 def storage_rescan(
     host_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> str:
     """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host.
 
@@ -296,7 +296,7 @@ def storage_rescan(
 @vmware_tool(risk_level="low")
 def vsan_health(
     cluster_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[READ] Get vSAN cluster health summary and disk groups.
 
@@ -316,7 +316,7 @@ def vsan_health(
 @vmware_tool(risk_level="low")
 def vsan_capacity(
     cluster_name: str,
-    target: str | None = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[READ] Get vSAN capacity overview (total/used/free) for a cluster.
 
