@@ -21,7 +21,6 @@ Source: https://github.com/zw008/VMware-Storage
 License: MIT
 """
 
-from __future__ import annotations
 
 import logging
 import os
