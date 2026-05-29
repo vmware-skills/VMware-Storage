@@ -1,3 +1,13 @@
+## v1.5.29 (2026-05-29) — Pattern Library PoC Documentation
+
+### Documentation
+- README.md / README-CN.md: new "Auto-Remediation Patterns (PoC)" section pointing at `patterns/iscsi-target-stale-rescan.yaml` (framed as schema reference design, runtime not yet wired).
+- SKILL.md: safety bullet referencing `patterns/` library with `risk:low + reversible:true + repeatable:true` classification.
+- capabilities.md: L5 row links the PoC YAML with scan target, action, and risk classification; new "Runtime Requirements" table with Python 3.10+ minimum (v1.5.27).
+
+### No code changes
+Documentation-only release.
+
 ## v1.5.28 (2026-05-20)
 
 **Fix `subclass() arg 1 must be a class` in goose/old mcp environments** —
