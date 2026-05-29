@@ -227,6 +227,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 - **Input validation**: IP addresses validated via `ipaddress.ip_address()`, ports checked for 1-65535 range, host/cluster/datastore names looked up before operations
 - **Prompt injection defense**: Datastore file names and paths from vSphere are sanitized via `_sanitize()` — strips control characters (C0/C1), truncates to 500 chars — preventing malicious file names from injecting instructions into downstream LLM agents
 - **Credential safety**: Passwords loaded only from environment variables (`.env` file), never from `config.yaml`; `.env` permissions are checked at startup
+- **L5 auto-remediation patterns (PoC)**: The [`patterns/`](../../patterns/) directory hosts L5 auto-remediation **candidate** patterns under the Enterprise Harness Engineering framework. First PoC: [`patterns/iscsi-target-stale-rescan.yaml`](../../patterns/iscsi-target-stale-rescan.yaml) — iSCSI HBA rescan classified as `risk:low` + `reversible:true` + `repeatable:true`. Schema only; **not yet enforced by the runtime**. See `references/capabilities.md` § Automation Level Reference for the full L1–L5 table.
 
 > Full security details: see `references/setup-guide.md`
 

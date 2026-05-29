@@ -56,6 +56,10 @@ vmware-storage doctor
 | iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` | Read/Write |
 | vSAN | `vsan_health`, `vsan_capacity` | Read |
 
+## Auto-Remediation Patterns (PoC)
+
+The [`patterns/`](patterns/) directory hosts L5 auto-remediation candidate patterns from the Enterprise Harness Engineering framework. The first PoC pattern, [`patterns/iscsi-target-stale-rescan.yaml`](patterns/iscsi-target-stale-rescan.yaml), describes an iSCSI HBA rescan as a low-risk, reversible, repeatable operation. The pattern schema is documented here only — runtime enforcement is **not yet wired up**, so this is a reference design, not production auto-remediation.
+
 ## Common Workflows
 
 ### Set Up iSCSI Storage on a Host
@@ -159,6 +163,8 @@ vmware-storage-mcp
 - **Composable** — use alongside vmware-monitor or vmware-aiops as needed
 
 ## Version Compatibility
+
+**Python**: 3.10+ (since v1.5.27 — previously 3.11+). Tested on 3.10 / 3.11 / 3.12.
 
 | vSphere / VCF | Support | Notes |
 |---------|---------|-------|

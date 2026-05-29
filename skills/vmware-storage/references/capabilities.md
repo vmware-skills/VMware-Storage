@@ -12,12 +12,12 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | **L2** | Read + analysis / recommendation | Always auto-run | datastore capacity analysis, image registry queries, iSCSI target health correlation |
 | **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm + `--dry-run` (see Confirm column) | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, vSAN cluster ops |
 | **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | *(roadmap — multi-host iSCSI rollout, vSAN expansion plans)* |
-| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | **planned PoC**: iSCSI target stale-link auto-rescan (low-risk, reversible, repeatable) |
+| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | **PoC pattern (v1.5.16+)**: [`patterns/iscsi-target-stale-rescan.yaml`](../../../patterns/iscsi-target-stale-rescan.yaml) — scans for stale iSCSI devices (`devices_inaccessible_count > 0`, missing expected devices, or `last_rescan_age_minutes > 60`); action: invoke `storage_rescan` on the affected `(host, target)`; classified low-risk because the rescan is idempotent and non-destructive (no data, config, or VM state is modified). Schema only — **not yet enforced by the runtime**. |
 
 **Notes**:
 - L1/L2 tools are always safe for agents to call without confirmation.
 - L3 tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → double-confirm.
-- L5 PoC is tracked in the v1.5.x+ roadmap; iSCSI rescan is the first candidate because every parameter is observable and idempotent.
+- L5 PoC pattern (`patterns/iscsi-target-stale-rescan.yaml`, v1.5.16+) is a **reference design**: it documents the candidate trigger / action / validation / circuit-breaker shape under `schema_version: 1` (see [vmware-policy auto-remediation pattern docs](https://github.com/zw008/VMware-Policy/blob/main/docs/auto-remediation-patterns.md)). The pattern is `approval.status: poc_unsigned` and will only become live after `success_count_required: 5` + `failure_count_max: 0` + `distinct_operators_required: 2` + `days_observed: 90` are met and the pattern is signed.
 
 ## Datastore (4 tools)
 
@@ -96,3 +96,10 @@ All 11 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 | ESXi host access | Via vCenter | Direct or via vCenter | Via vCenter |
 | pyVmomi | Required | Required | Required |
 | vSAN SDK | Not required | Not required | Recommended (for full health) |
+
+## Runtime Requirements
+
+| Requirement | Minimum | Notes |
+|-------------|---------|-------|
+| Python | 3.10+ | Lowered from 3.11 in v1.5.27 for Goose sandbox / Ubuntu 22.04 compatibility. Tested on 3.10 / 3.11 / 3.12. |
+| OS | macOS, Linux | stdio MCP transport — no network listener required |

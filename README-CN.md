@@ -90,6 +90,10 @@ targets:
 - `vsan_health` — 获取 vSAN 集群健康摘要和磁盘组详情
 - `vsan_capacity` — 获取 vSAN 容量概览（总量/已用/空闲）
 
+## 自动修复模式（PoC）
+
+[`patterns/`](patterns/) 目录存放企业级 Harness Engineering 框架下的 L5 自动修复**候选**模式。首个 PoC 模式 [`patterns/iscsi-target-stale-rescan.yaml`](patterns/iscsi-target-stale-rescan.yaml) 描述了 iSCSI HBA 重扫这一低风险、可逆、可重复的操作。当前仅定义了模式 schema，**运行时尚未集成**，因此是参考设计，并非生产可用的自动修复。
+
 ## 常见工作流
 
 ### 在主机上配置 iSCSI 存储
@@ -198,6 +202,8 @@ vmware-storage-mcp
 - **可组合** — 可与 vmware-monitor 或 vmware-aiops 同时运行
 
 ## 版本兼容性
+
+**Python**: 3.10+ （自 v1.5.27 起；此前要求 3.11+）。已在 3.10 / 3.11 / 3.12 测试通过。
 
 | vSphere | 支持 | 说明 |
 |---------|------|------|
