@@ -144,11 +144,18 @@ def list_cached_images(
     image_type: Optional[str] = None,
     datastore: Optional[str] = None,
 ) -> list[dict]:
-    """[READ] List images from the local cache registry.
+    """[READ] List deployable images (OVA/OVF/ISO/VMDK) from the local cache registry — instant, no vCenter connection or datastore I/O.
+
+    Reads ~/.vmware-storage/image_registry.json, populated by prior datastore
+    scans; results may be stale or empty if no scan has run. For a live,
+    authoritative listing of one datastore use scan_datastore_images instead.
+    Returns a list of {datastore, name, ds_path, size_mb, type, modified};
+    empty list if nothing matches. No side effects.
 
     Args:
-        image_type: Filter by extension (e.g. "ova", "iso").
-        datastore: Filter by datastore name.
+        image_type: Filter by file extension without the dot, e.g. "ova",
+            "iso", "ovf", "vmdk" (case-insensitive). Omit for all types.
+        datastore: Filter by exact datastore name. Omit for all datastores.
     """
     try:
         return datastore_browser.list_images(image_type=image_type, datastore=datastore)
@@ -168,11 +175,20 @@ def storage_iscsi_enable(
     host_name: str,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Enable the software iSCSI adapter on an ESXi host.
+    """[WRITE] Enable the software iSCSI adapter (vmhba) on an ESXi host.
+
+    Required prerequisite before storage_iscsi_add_target. Idempotent: if the
+    adapter is already enabled, returns its HBA device and IQN without making
+    changes. Modifies host storage configuration but is non-disruptive (no
+    reboot, no impact on existing datastores). Audit-logged to
+    ~/.vmware/audit.db. Check current state first with storage_iscsi_status.
+    Returns a confirmation string; errors include remediation hints.
 
     Args:
-        host_name: ESXi host name.
-        target: Optional vCenter/ESXi target name from config.
+        host_name: ESXi host name exactly as shown in vCenter inventory
+            (FQDN or IP). Errors if not found.
+        target: Optional vCenter/ESXi target name from config; omit to use
+            the default target.
     """
     try:
         si = _get_connection(target)
@@ -191,11 +207,19 @@ def storage_iscsi_status(
     host_name: str,
     target: Optional[str] = None,
 ) -> dict:
-    """[READ] Get iSCSI adapter status and configured send targets.
+    """[READ] Get the software iSCSI adapter state and configured send targets for an ESXi host.
+
+    Returns {host, enabled, hba_device, iqn, send_targets: [{address, port}]};
+    when the adapter is disabled, enabled=false with null device/IQN and an
+    empty target list. No side effects. Use this before storage_iscsi_enable /
+    storage_iscsi_add_target / storage_iscsi_remove_target to check
+    prerequisites, and afterwards to verify the change took effect.
 
     Args:
-        host_name: ESXi host name.
-        target: Optional vCenter/ESXi target name from config.
+        host_name: ESXi host name exactly as shown in vCenter inventory
+            (FQDN or IP). Errors if not found.
+        target: Optional vCenter/ESXi target name from config; omit to use
+            the default target.
     """
     try:
         si = _get_connection(target)
@@ -213,13 +237,21 @@ def storage_iscsi_add_target(
     port: int = 3260,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Add an iSCSI send target to an ESXi host and rescan storage.
+    """[WRITE] Add an iSCSI send (dynamic discovery) target to an ESXi host's software iSCSI adapter, then automatically rescan all HBAs and VMFS volumes to discover new LUNs.
+
+    Prerequisite: software iSCSI must be enabled first (storage_iscsi_enable);
+    otherwise returns an error with guidance. Idempotent: a duplicate
+    address:port returns "already configured" without changes. No separate
+    storage_rescan call is needed afterwards. Audit-logged to
+    ~/.vmware/audit.db. Returns a confirmation string.
 
     Args:
-        host_name: ESXi host name.
-        address: iSCSI target IP address.
-        port: iSCSI target port (default 3260).
-        target: Optional vCenter/ESXi target name from config.
+        host_name: ESXi host name as shown in vCenter inventory.
+        address: iSCSI portal IP address (IPv4/IPv6 literal; hostnames are
+            rejected with a validation error).
+        port: iSCSI TCP port, 1-65535 (default 3260).
+        target: Optional vCenter/ESXi target name from config; omit for the
+            default target.
     """
     try:
         si = _get_connection(target)
@@ -242,13 +274,22 @@ def storage_iscsi_remove_target(
     port: int = 3260,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Remove an iSCSI send target from an ESXi host and rescan storage.
+    """[WRITE] Remove an iSCSI send target from an ESXi host's software iSCSI adapter, then rescan all HBAs and VMFS volumes.
+
+    Destructive: LUNs served only by this target become inaccessible after the
+    rescan — first verify the target exists (storage_iscsi_status) and that no
+    datastores depend on it (list_all_datastores). Errors if the address:port
+    pair is not configured or software iSCSI is disabled. Reversible only by
+    re-adding via storage_iscsi_add_target. Audit-logged to
+    ~/.vmware/audit.db. Returns a confirmation string.
 
     Args:
-        host_name: ESXi host name.
-        address: iSCSI target IP address.
-        port: iSCSI target port (default 3260).
-        target: Optional vCenter/ESXi target name from config.
+        host_name: ESXi host name as shown in vCenter inventory.
+        address: Configured iSCSI portal IP (IPv4/IPv6 literal; hostnames
+            rejected). Must match the existing entry exactly.
+        port: Configured iSCSI TCP port, 1-65535 (default 3260).
+        target: Optional vCenter/ESXi target name from config; omit for the
+            default target.
     """
     try:
         si = _get_connection(target)
@@ -269,11 +310,21 @@ def storage_rescan(
     host_name: str,
     target: Optional[str] = None,
 ) -> str:
-    """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host.
+    """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host to discover newly presented LUNs and datastores.
+
+    Use after a storage array presents new LUNs or after out-of-band SAN
+    changes. Not needed after storage_iscsi_add_target /
+    storage_iscsi_remove_target — those rescan automatically. Non-destructive:
+    only triggers device and VMFS discovery (deletes nothing), but it is
+    I/O-visible on the host and may take a minute or two with many paths.
+    Audit-logged to ~/.vmware/audit.db. Returns a confirmation string; errors
+    include remediation hints.
 
     Args:
-        host_name: ESXi host name.
-        target: Optional vCenter/ESXi target name from config.
+        host_name: ESXi host name as shown in vCenter inventory (FQDN or IP).
+            Errors if not found.
+        target: Optional vCenter/ESXi target name from config; omit for the
+            default target.
     """
     try:
         si = _get_connection(target)
@@ -297,11 +348,21 @@ def vsan_health(
     cluster_name: str,
     target: Optional[str] = None,
 ) -> dict:
-    """[READ] Get vSAN cluster health summary and disk groups.
+    """[READ] Get vSAN enablement status, host count, and per-host disk-group layout for a cluster.
+
+    Returns {cluster_name, vsan_enabled, overall_health, host_count,
+    disk_groups: [{host, cache_disk, cache_size_gb, capacity_disks}]}.
+    Note: overall_health is reported as "unknown" — full health checks require
+    vCenter's VsanVcClusterHealthSystem; use the vCenter UI for detailed
+    health. If vSAN is not enabled, returns vsan_enabled=false with a message
+    rather than an error. Use vsan_capacity for space usage instead. No side
+    effects.
 
     Args:
-        cluster_name: Name of the vSAN-enabled cluster.
-        target: Optional vCenter/ESXi target name from config.
+        cluster_name: Cluster name exactly as shown in vCenter. Errors if the
+            cluster is not found.
+        target: Optional vCenter/ESXi target name from config; omit to use
+            the default target.
     """
     try:
         si = _get_connection(target)
@@ -317,11 +378,20 @@ def vsan_capacity(
     cluster_name: str,
     target: Optional[str] = None,
 ) -> dict:
-    """[READ] Get vSAN capacity overview (total/used/free) for a cluster.
+    """[READ] Get space usage of a cluster's vSAN datastore for capacity planning.
+
+    Returns {cluster_name, vsan_enabled, datastore_name, total_gb, used_gb,
+    free_gb, usage_pct}. If vSAN is not enabled on the cluster, returns
+    vsan_enabled=false with an explanatory message rather than an error;
+    errors only if the cluster name is not found. Use vsan_health for
+    disk-group layout and host details; use list_all_datastores for non-vSAN
+    (VMFS/NFS) datastore usage. No side effects.
 
     Args:
-        cluster_name: Name of the vSAN-enabled cluster.
-        target: Optional vCenter/ESXi target name from config.
+        cluster_name: Cluster name exactly as shown in vCenter. Errors if the
+            cluster is not found.
+        target: Optional vCenter/ESXi target name from config; omit to use
+            the default target.
     """
     try:
         si = _get_connection(target)
