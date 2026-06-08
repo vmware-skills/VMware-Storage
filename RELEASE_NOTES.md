@@ -1,3 +1,15 @@
+## v1.5.32 (2026-06-08) — Audit-clean confirmation + hardened test suite
+
+The 2026-06-08 family-wide pyVmomi introspection audit verified every iSCSI
+and vSAN property chain and method in this codebase against SDK metadata —
+no findings (the only skill in the family to pass clean).
+
+### Tests
+- vim-attribute conformance regression added (prevents future invented
+  pyVmomi names — the failure mode found in sibling skills).
+- Safety test repointed at the CLI commands that own the double-confirm
+  guards (was asserting the wrong layer and failing permanently).
+
 ## v1.5.30 (2026-06-07) — Tool description quality (Glama TDQS)
 
 ### Improved
