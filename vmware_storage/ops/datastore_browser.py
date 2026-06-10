@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -31,6 +32,19 @@ IMAGE_REGISTRY_FILE = CONFIG_DIR / "image_registry.json"
 
 # File patterns for deployable images
 IMAGE_PATTERNS = ("*.ova", "*.ovf", "*.iso", "*.vmdk")
+
+
+def _validate_ds_path(path: str) -> None:
+    """Reject traversal/injection in a datastore-relative browse path.
+
+    The path is interpolated into a ``[datastore] <path>`` spec for the vSphere
+    DatastoreBrowser API. Block ``..`` traversal, absolute paths, and null bytes
+    so a caller cannot try to escape the datastore root.
+    """
+    if ".." in path or path.startswith(("/", "\\")) or "\x00" in path:
+        raise ValueError(
+            f"Invalid datastore path {path!r}: no '..', absolute paths, or null bytes"
+        )
 
 
 def _wait_for_task(task, timeout: int = 120) -> object:
@@ -81,6 +95,7 @@ def browse_datastore(
         vim.host.DatastoreBrowser.FolderQuery(),
     ]
 
+    _validate_ds_path(path)
     ds_path = f"[{ds_name}] {path}".rstrip()
     task = browser.SearchDatastoreSubFolders_Task(
         datastorePath=ds_path,
@@ -151,10 +166,20 @@ def _load_registry() -> dict:
 
 
 def _save_registry(registry: dict) -> None:
-    """Save the image registry to disk."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    """Save the image registry to disk (owner-only — infra topology metadata)."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        os.chmod(CONFIG_DIR, 0o700)
+    except OSError:
+        pass
+    existed = IMAGE_REGISTRY_FILE.exists()
     with open(IMAGE_REGISTRY_FILE, "w") as f:
         json.dump(registry, f, indent=2, ensure_ascii=False)
+    if not existed:
+        try:
+            os.chmod(IMAGE_REGISTRY_FILE, 0o600)
+        except OSError:
+            pass
 
 
 def update_registry(si: ServiceInstance) -> dict:

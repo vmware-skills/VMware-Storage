@@ -1,3 +1,12 @@
+## v1.5.35 (2026-06-10) — security hardening: safe errors, datastore path guard
+
+### Fixed
+- **MCP tools route errors through `_safe_error()`** (no raw exception text to the agent).
+- **Datastore browse path** rejects `..`, absolute paths, and null bytes.
+- **Image registry** written 0600; **audit** dir 0700 / log 0600.
+
+This release aligns the whole family back to a single version (1.5.35); vmware-policy and vmware-pilot return to the shared number after sitting at 1.5.22.
+
 ## v1.5.32 (2026-06-08) — Audit-clean confirmation + hardened test suite
 
 The 2026-06-08 family-wide pyVmomi introspection audit verified every iSCSI

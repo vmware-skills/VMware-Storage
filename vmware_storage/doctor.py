@@ -16,7 +16,7 @@ from vmware_storage.config import CONFIG_DIR, CONFIG_FILE, ENV_FILE
 
 console = Console()
 
-_PASS = "[green]\u2713[/]"
+_PASS = "[green]\u2713[/]"  # nosec B105 — rich color markup, not a password
 _FAIL = "[red]\u2717[/]"
 _INFO = "[cyan]i[/]"
 

@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
-from vmware_policy import vmware_tool
+from vmware_policy import sanitize, vmware_tool
 
 from vmware_storage.config import load_config
 from vmware_storage.connection import ConnectionManager
@@ -46,6 +46,20 @@ from vmware_storage.notify.audit import AuditLogger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vmware-storage.mcp")
+
+def _safe_error(exc: Exception, tool: str) -> str:
+    """Return an agent-safe error string; log full detail server-side only.
+
+    Raw exception text can carry API response bodies, internal paths, or
+    host:port pairs. Full traceback goes to the server log; the agent sees only
+    a control-char-stripped, length-capped message. Intentional validation
+    errors (ValueError/FileNotFoundError/KeyError/PermissionError) pass through.
+    """
+    logger.error("Tool %s failed", tool, exc_info=True)
+    if isinstance(exc, (ValueError, FileNotFoundError, KeyError, PermissionError)):
+        return sanitize(str(exc), 300)
+    return f"{type(exc).__name__}: operation failed."
+
 
 mcp = FastMCP("VMware Storage")
 
@@ -89,7 +103,7 @@ def list_all_datastores(target: Optional[str] = None) -> list[dict]:
         return list_datastores(si)
     except Exception as e:
         logger.error("list_all_datastores failed: %s", e)
-        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -113,7 +127,7 @@ def browse_datastore(
         return datastore_browser.browse_datastore(si, ds_name, path=path, pattern=pattern)
     except Exception as e:
         logger.error("browse_datastore failed: %s", e)
-        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -135,7 +149,7 @@ def scan_datastore_images(
         return datastore_browser.scan_images(si, ds_name, path=path)
     except Exception as e:
         logger.error("scan_datastore_images failed: %s", e)
-        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -161,7 +175,7 @@ def list_cached_images(
         return datastore_browser.list_images(image_type=image_type, datastore=datastore)
     except Exception as e:
         logger.error("list_cached_images failed: %s", e)
-        return [{"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +212,7 @@ def storage_iscsi_enable(
         return result
     except Exception as e:
         logger.error("storage_iscsi_enable failed: %s", e)
-        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
+        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -226,7 +240,7 @@ def storage_iscsi_status(
         return get_iscsi_status(si, host_name)
     except Exception as e:
         logger.error("storage_iscsi_status failed: %s", e)
-        return {"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -263,7 +277,7 @@ def storage_iscsi_add_target(
         return result
     except Exception as e:
         logger.error("storage_iscsi_add_target failed: %s", e)
-        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
+        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -301,7 +315,7 @@ def storage_iscsi_remove_target(
         return result
     except Exception as e:
         logger.error("storage_iscsi_remove_target failed: %s", e)
-        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
+        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -334,7 +348,7 @@ def storage_rescan(
         return result
     except Exception as e:
         logger.error("storage_rescan failed: %s", e)
-        return f"Error: {e}. Run 'vmware-storage doctor' to verify connectivity."
+        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +383,7 @@ def vsan_health(
         return get_vsan_health(si, cluster_name)
     except Exception as e:
         logger.error("vsan_health failed: %s", e)
-        return {"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -398,7 +412,7 @@ def vsan_capacity(
         return get_vsan_capacity(si, cluster_name)
     except Exception as e:
         logger.error("vsan_capacity failed: %s", e)
-        return {"error": str(e), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 # ---------------------------------------------------------------------------
