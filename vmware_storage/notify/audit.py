@@ -6,6 +6,7 @@ import getpass
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,12 +21,13 @@ class AuditLogger:
 
     def __init__(self, log_file: str = "~/.vmware-storage/audit.log") -> None:
         self._path = Path(log_file).expanduser()
-        self._path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        # mkdir mode is masked by umask; enforce owner-only explicitly.
         try:
+            self._path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            # mkdir mode is masked by umask; enforce owner-only explicitly.
             os.chmod(self._path.parent, 0o700)
-        except OSError:
-            pass
+        except OSError as e:
+            # Audit must never block startup; log() degrades to stderr too.
+            print(f"WARNING: audit log dir setup failed ({e}).", file=sys.stderr)
         self._logger = logging.getLogger("vmware-storage.audit")
 
     def log(
@@ -55,14 +57,19 @@ class AuditLogger:
             "user": user or _current_user(),
         }
 
-        existed = self._path.exists()
-        with open(self._path, "a") as fh:
-            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        if not existed:
-            try:
-                os.chmod(self._path, 0o600)
-            except OSError:
-                pass
+        # Family rule: audit failure never blocks the main operation —
+        # degrade to a stderr warning and keep going.
+        try:
+            existed = self._path.exists()
+            with open(self._path, "a") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            if not existed:
+                try:
+                    os.chmod(self._path, 0o600)
+                except OSError:
+                    pass
+        except OSError as e:
+            print(f"WARNING: audit log write failed ({e}); operation continues.", file=sys.stderr)
 
         self._logger.info(
             "[AUDIT] %s %s on %s (%s) -> %s",

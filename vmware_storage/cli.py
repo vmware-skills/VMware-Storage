@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import sys
 from pathlib import Path
@@ -13,6 +14,8 @@ from rich.table import Table
 from vmware_storage.config import load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
+from vmware_storage.ops.iscsi_config import HostNotFoundError, ISCSIError
+from vmware_storage.ops.vsan import VSANError
 
 app = typer.Typer(
     name="vmware-storage",
@@ -27,6 +30,34 @@ _audit = AuditLogger()
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
+# Expected operational failures: print a red teaching line, exit 1 — never a
+# raw traceback (the message itself already carries the remediation hint).
+_EXPECTED_ERRORS = (
+    HostNotFoundError,
+    ISCSIError,
+    VSANError,
+    ValueError,
+    OSError,            # includes FileNotFoundError, PermissionError, socket errors
+    FileNotFoundError,  # explicit for readability (subclass of OSError)
+    KeyError,
+)
+
+
+def handle_cli_errors(fn):
+    """Decorator: translate expected errors into a red message + exit code 1."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except typer.Exit:
+            raise
+        except _EXPECTED_ERRORS as e:
+            # KeyError stringifies to just the quoted key — add context.
+            msg = f"missing key {e}" if isinstance(e, KeyError) else str(e)
+            console.print(f"[bold red]Error:[/] {msg}")
+            raise typer.Exit(1) from None
+    return wrapper
 
 
 def _get_connection(target: str | None, config_path: str | None = None):
@@ -63,6 +94,7 @@ app.add_typer(ds_app, name="datastore")
 
 
 @ds_app.command("list")
+@handle_cli_errors
 def ds_list(
     target: str | None = typer.Option(None, help="Target name"),
     config: str | None = typer.Option(None, "--config", help="Config file path"),
@@ -91,6 +123,7 @@ def ds_list(
 
 
 @ds_app.command("browse")
+@handle_cli_errors
 def ds_browse(
     ds_name: str = typer.Argument(help="Datastore name"),
     path: str = typer.Option("", help="Subdirectory path"),
@@ -107,6 +140,7 @@ def ds_browse(
 
 
 @ds_app.command("scan-images")
+@handle_cli_errors
 def ds_scan_images(
     ds_name: str = typer.Argument(help="Datastore name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -129,6 +163,7 @@ app.add_typer(iscsi_app, name="iscsi")
 
 
 @iscsi_app.command("enable")
+@handle_cli_errors
 def iscsi_enable(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
@@ -153,6 +188,7 @@ def iscsi_enable(
 
 
 @iscsi_app.command("status")
+@handle_cli_errors
 def iscsi_status(
     host_name: str = typer.Argument(help="ESXi host name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -165,6 +201,7 @@ def iscsi_status(
 
 
 @iscsi_app.command("add-target")
+@handle_cli_errors
 def iscsi_add_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -196,6 +233,7 @@ def iscsi_add_target(
 
 
 @iscsi_app.command("remove-target")
+@handle_cli_errors
 def iscsi_remove_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -227,6 +265,7 @@ def iscsi_remove_target(
 
 
 @iscsi_app.command("rescan")
+@handle_cli_errors
 def iscsi_rescan(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
@@ -254,6 +293,7 @@ app.add_typer(vsan_app, name="vsan")
 
 
 @vsan_app.command("health")
+@handle_cli_errors
 def vsan_health_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -266,6 +306,7 @@ def vsan_health_cmd(
 
 
 @vsan_app.command("capacity")
+@handle_cli_errors
 def vsan_capacity_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -283,6 +324,7 @@ def vsan_capacity_cmd(
 
 
 @app.command()
+@handle_cli_errors
 def doctor(
     skip_auth: bool = typer.Option(False, "--skip-auth", help="Skip auth check"),
 ) -> None:
@@ -292,6 +334,7 @@ def doctor(
 
 
 @app.command("mcp")
+@handle_cli_errors
 def mcp_cmd() -> None:
     """Start the MCP server (stdio transport).
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
@@ -9,6 +10,22 @@ from vmware_policy import sanitize
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
+
+
+def not_found_hint(name: str, available: list[str], limit: int = 10) -> str:
+    """Teaching suffix for not-found errors: closest match or available names.
+
+    Returns '' when there is nothing useful to suggest, so callers can append
+    the result unconditionally.
+    """
+    matches = difflib.get_close_matches(name, available, n=1)
+    if matches:
+        return f" Did you mean '{matches[0]}'?"
+    if available:
+        shown = ", ".join(sorted(available)[:limit])
+        more = f", … ({len(available) - limit} more)" if len(available) > limit else ""
+        return f" Available: {shown}{more}."
+    return ""
 
 
 def _get_objects(si: ServiceInstance, obj_type: list, recursive: bool = True) -> list:

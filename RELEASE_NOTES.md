@@ -1,3 +1,17 @@
+## v1.5.36 (2026-06-12) — OVA scanning fix + destructive-op gating
+
+### Fixed
+- **OVA/OVF discovery returned nothing** — the datastore-browser query list excluded generic files;
+  `scan-images` and `browse` now surface `.ova`/`.ovf` (added the generic FileQuery).
+- **iSCSI remove-target now hits the confirmation gate via MCP** — it was `risk_level=medium`, below
+  the policy gate; raised to `high`, and the four MCP write tools gained `dry_run` preview.
+- **Audit-write failure no longer flips a successful write to a reported failure** (degrades to stderr).
+- `get_vsan_capacity` returns an explicit message instead of healthy-looking zeros when the vSAN
+  datastore isn't found; not-found errors include name suggestions; CLI teaching-error decorator.
+
+### Changed
+- SKILL.md tool split corrected to **7 read / 4 write** (was mislabeled 6R/5W).
+
 ## v1.5.35 (2026-06-10) — security hardening: safe errors, datastore path guard
 
 ### Fixed

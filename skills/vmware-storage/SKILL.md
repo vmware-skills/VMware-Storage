@@ -131,9 +131,9 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (11 — 6 read, 5 write)
+## MCP Tools (11 — 7 read, 4 write)
 
-All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to.
+All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools also accept `dry_run: true` to preview the change without executing it.
 
 | Category | Tool | Type | Description |
 |----------|------|:----:|-------------|
@@ -149,7 +149,7 @@ All MCP tools accept an optional `target` parameter to select which vCenter/ESXi
 | vSAN | `vsan_health` | Read | Cluster health summary and disk group details |
 | | `vsan_capacity` | Read | Total/used/free capacity in GB and usage % |
 
-**Read/write split**: 6 tools are read-only, 5 modify state. Write tools require explicit parameters (host name, IP address) and are audit-logged.
+**Read/write split**: 7 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
 ## CLI Quick Reference
 
@@ -220,7 +220,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Safety
 
 - **No VM operations**: This skill cannot power on/off, create, delete, or modify VMs — that scope belongs to `vmware-aiops`
-- **Read-heavy**: 6 of 11 tools are read-only (list, browse, scan, status, health, capacity)
+- **Read-heavy**: 7 of 11 tools are read-only (list, browse, scan, cached images, status, health, capacity)
 - **Audit logging**: All operations (including reads) are logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with timestamp, user, target, operation, parameters, and result
 - **Double confirmation**: CLI write commands (iSCSI enable, add/remove target) require two separate "Are you sure?" prompts before executing
 - **Dry-run mode**: All write commands support `--dry-run` to preview API calls without executing

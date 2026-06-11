@@ -21,7 +21,13 @@ from pyVmomi import vim
 from vmware_policy import sanitize
 
 from vmware_storage.config import CONFIG_DIR
-from vmware_storage.ops.inventory import find_datastore_by_name
+from vmware_storage.ops.inventory import (
+    find_datastore_by_name,
+    list_datastores,
+)
+from vmware_storage.ops.inventory import (
+    not_found_hint as _not_found_hint,
+)
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -79,7 +85,10 @@ def browse_datastore(
     """
     ds = find_datastore_by_name(si, ds_name)
     if ds is None:
-        raise ValueError(f"Datastore '{ds_name}' not found.")
+        raise ValueError(
+            f"Datastore '{ds_name}' not found."
+            f"{_not_found_hint(ds_name, [d['name'] for d in list_datastores(si)])}"
+        )
 
     browser = ds.browser
     search_spec = vim.host.DatastoreBrowser.SearchSpec()
@@ -93,6 +102,10 @@ def browse_datastore(
         vim.host.DatastoreBrowser.IsoImageQuery(),
         vim.host.DatastoreBrowser.VmDiskQuery(),
         vim.host.DatastoreBrowser.FolderQuery(),
+        # Generic file query — without it the browser only returns ISO/VMDK/
+        # folder entries, so .ova/.ovf (and any other plain file) are silently
+        # dropped from browse_datastore and scan_images results.
+        vim.host.DatastoreBrowser.Query(),
     ]
 
     _validate_ds_path(path)
@@ -136,8 +149,6 @@ def scan_images(
 
 def scan_all_datastores(si: ServiceInstance) -> dict[str, list[dict]]:
     """Scan all accessible datastores for deployable images."""
-    from vmware_storage.ops.inventory import list_datastores
-
     datastores = list_datastores(si)
     result: dict[str, list[dict]] = {}
     for ds in datastores:

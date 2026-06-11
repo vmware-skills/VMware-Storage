@@ -10,10 +10,9 @@ import logging
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-
 from vmware_policy import sanitize
 
-from vmware_storage.ops.inventory import find_cluster_by_name
+from vmware_storage.ops.inventory import _get_objects, find_cluster_by_name, not_found_hint
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -23,6 +22,17 @@ _log = logging.getLogger("vmware-storage.vsan")
 
 class VSANError(Exception):
     """Raised on vSAN operation failures."""
+
+
+def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterComputeResource:
+    """Find a cluster or raise VSANError with a teaching hint."""
+    cluster = find_cluster_by_name(si, cluster_name)
+    if cluster is None:
+        names = [sanitize(c.name) for c in _get_objects(si, [vim.ClusterComputeResource])]
+        raise VSANError(
+            f"Cluster '{cluster_name}' not found.{not_found_hint(cluster_name, names)}"
+        )
+    return cluster
 
 
 
@@ -40,9 +50,7 @@ def get_vsan_health(
         dict with overall_health, test_groups (list of group results),
         and cluster_name.
     """
-    cluster = find_cluster_by_name(si, cluster_name)
-    if cluster is None:
-        raise VSANError(f"Cluster '{cluster_name}' not found")
+    cluster = _require_cluster(si, cluster_name)
 
     # Check if vSAN is enabled
     vsan_config = cluster.configurationEx.vsanConfigInfo
@@ -101,9 +109,7 @@ def get_vsan_capacity(
     Returns:
         dict with total/used/free capacity in GB.
     """
-    cluster = find_cluster_by_name(si, cluster_name)
-    if cluster is None:
-        raise VSANError(f"Cluster '{cluster_name}' not found")
+    cluster = _require_cluster(si, cluster_name)
 
     vsan_config = cluster.configurationEx.vsanConfigInfo
     if not vsan_config or not vsan_config.enabled:
@@ -125,6 +131,24 @@ def get_vsan_capacity(
             free_gb = round(summary.freeSpace / (1024**3), 1) if summary.freeSpace else 0
             vsan_ds_name = ds.name
             break
+
+    if vsan_ds_name is None:
+        # vSAN is flagged enabled but no vSAN datastore is attached to the
+        # cluster — don't fake healthy-looking zeros; say so explicitly.
+        return {
+            "cluster_name": cluster_name,
+            "vsan_enabled": True,
+            "datastore_name": None,
+            "total_gb": None,
+            "used_gb": None,
+            "free_gb": None,
+            "usage_pct": None,
+            "message": (
+                f"vSAN is enabled on cluster '{cluster_name}' but no vSAN datastore "
+                "was found. The datastore may still be forming or inaccessible — "
+                "check vsan_health and the vCenter UI."
+            ),
+        }
 
     used_gb = round(total_gb - free_gb, 1)
     usage_pct = round((used_gb / total_gb) * 100, 1) if total_gb > 0 else 0

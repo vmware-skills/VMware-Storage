@@ -9,7 +9,7 @@ import atexit
 import ssl
 from typing import TYPE_CHECKING
 
-from pyVmomi import vim, vmodl
+from pyVmomi import vim
 from pyVmomi.VmomiSupport import VmomiJSONEncoder  # noqa: F401
 
 if TYPE_CHECKING:
@@ -43,7 +43,9 @@ class ConnectionManager:
             try:
                 _ = si.content.sessionManager.currentSession
                 return si
-            except (vmodl.fault.NotAuthenticated, Exception):
+            except Exception:
+                # Any failure (NotAuthenticated, socket error, …) means the
+                # cached session is unusable — drop it and reconnect below.
                 del self._connections[target.name]
 
         si = self._create_connection(target)
@@ -90,7 +92,14 @@ class ConnectionManager:
             sslContext=context,
             disableSslCertValidation=not target.verify_ssl,
         )
-        atexit.register(Disconnect, si)
+        def _cleanup(_si: ServiceInstance = si) -> None:
+            # Guarded: a dead session at interpreter exit must not raise.
+            try:
+                Disconnect(_si)
+            except Exception:
+                pass
+
+        atexit.register(_cleanup)
         return si
 
 

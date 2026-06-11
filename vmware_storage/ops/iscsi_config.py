@@ -6,10 +6,9 @@ import ipaddress
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-
 from vmware_policy import sanitize
 
-from vmware_storage.ops.inventory import find_host_by_name
+from vmware_storage.ops.inventory import find_host_by_name, list_hosts, not_found_hint
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -27,7 +26,10 @@ def _require_host(si: ServiceInstance, host_name: str) -> vim.HostSystem:
     """Find a host or raise HostNotFoundError."""
     host = find_host_by_name(si, host_name)
     if host is None:
-        raise HostNotFoundError(f"Host '{host_name}' not found")
+        raise HostNotFoundError(
+            f"Host '{host_name}' not found."
+            f"{not_found_hint(host_name, [h['name'] for h in list_hosts(si)])}"
+        )
     return host
 
 

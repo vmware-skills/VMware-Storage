@@ -65,6 +65,18 @@ mcp = FastMCP("VMware Storage")
 
 _audit = AuditLogger()
 
+
+def _safe_audit(**kwargs: Any) -> None:
+    """Audit a write operation; never let audit failure mask the op result.
+
+    Family rule: audit failure never blocks — the operation already happened,
+    so the agent must see the authoritative result, not an audit traceback.
+    """
+    try:
+        _audit.log(**kwargs)
+    except Exception as e:
+        logger.warning("Audit logging failed (operation succeeded): %s", e)
+
 # ---------------------------------------------------------------------------
 # Connection management (lazy-init singleton)
 # ---------------------------------------------------------------------------
@@ -175,7 +187,8 @@ def list_cached_images(
         return datastore_browser.list_images(image_type=image_type, datastore=datastore)
     except Exception as e:
         logger.error("list_cached_images failed: %s", e)
-        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return [{"error": _safe_error(e, "storage"),
+                 "hint": "Local image registry may be missing or corrupt — re-run scan_datastore_images to rebuild it (no vCenter connectivity is involved here)."}]
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +200,7 @@ def list_cached_images(
 @vmware_tool(risk_level="medium")
 def storage_iscsi_enable(
     host_name: str,
+    dry_run: bool = False,
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Enable the software iSCSI adapter (vmhba) on an ESXi host.
@@ -201,14 +215,17 @@ def storage_iscsi_enable(
     Args:
         host_name: ESXi host name exactly as shown in vCenter inventory
             (FQDN or IP). Errors if not found.
+        dry_run: If true, return a preview of the change without executing it.
         target: Optional vCenter/ESXi target name from config; omit to use
             the default target.
     """
     try:
+        if dry_run:
+            return f"[DRY-RUN] Would enable software iSCSI on host '{host_name}'. No changes made."
         si = _get_connection(target)
         result = enable_software_iscsi(si, host_name)
-        _audit.log(target=target or "default", operation="iscsi_enable",
-                   resource=host_name, parameters={"host_name": host_name}, result=result)
+        _safe_audit(target=target or "default", operation="iscsi_enable",
+                    resource=host_name, parameters={"host_name": host_name}, result=result)
         return result
     except Exception as e:
         logger.error("storage_iscsi_enable failed: %s", e)
@@ -216,7 +233,7 @@ def storage_iscsi_enable(
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(risk_level="low")
 def storage_iscsi_status(
     host_name: str,
     target: Optional[str] = None,
@@ -249,6 +266,7 @@ def storage_iscsi_add_target(
     host_name: str,
     address: str,
     port: int = 3260,
+    dry_run: bool = False,
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Add an iSCSI send (dynamic discovery) target to an ESXi host's software iSCSI adapter, then automatically rescan all HBAs and VMFS volumes to discover new LUNs.
@@ -264,16 +282,20 @@ def storage_iscsi_add_target(
         address: iSCSI portal IP address (IPv4/IPv6 literal; hostnames are
             rejected with a validation error).
         port: iSCSI TCP port, 1-65535 (default 3260).
+        dry_run: If true, return a preview of the change without executing it.
         target: Optional vCenter/ESXi target name from config; omit for the
             default target.
     """
     try:
+        if dry_run:
+            return (f"[DRY-RUN] Would add iSCSI target {address}:{port} to host "
+                    f"'{host_name}' and rescan storage. No changes made.")
         si = _get_connection(target)
         result = add_iscsi_target(si, host_name, address, port)
-        _audit.log(target=target or "default", operation="iscsi_add_target",
-                   resource=host_name,
-                   parameters={"host_name": host_name, "address": address, "port": port},
-                   result=result)
+        _safe_audit(target=target or "default", operation="iscsi_add_target",
+                    resource=host_name,
+                    parameters={"host_name": host_name, "address": address, "port": port},
+                    result=result)
         return result
     except Exception as e:
         logger.error("storage_iscsi_add_target failed: %s", e)
@@ -281,11 +303,12 @@ def storage_iscsi_add_target(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(risk_level="high")
 def storage_iscsi_remove_target(
     host_name: str,
     address: str,
     port: int = 3260,
+    dry_run: bool = False,
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Remove an iSCSI send target from an ESXi host's software iSCSI adapter, then rescan all HBAs and VMFS volumes.
@@ -302,16 +325,20 @@ def storage_iscsi_remove_target(
         address: Configured iSCSI portal IP (IPv4/IPv6 literal; hostnames
             rejected). Must match the existing entry exactly.
         port: Configured iSCSI TCP port, 1-65535 (default 3260).
+        dry_run: If true, return a preview of the change without executing it.
         target: Optional vCenter/ESXi target name from config; omit for the
             default target.
     """
     try:
+        if dry_run:
+            return (f"[DRY-RUN] Would remove iSCSI target {address}:{port} from host "
+                    f"'{host_name}' and rescan storage. No changes made.")
         si = _get_connection(target)
         result = remove_iscsi_target(si, host_name, address, port)
-        _audit.log(target=target or "default", operation="iscsi_remove_target",
-                   resource=host_name,
-                   parameters={"host_name": host_name, "address": address, "port": port},
-                   result=result)
+        _safe_audit(target=target or "default", operation="iscsi_remove_target",
+                    resource=host_name,
+                    parameters={"host_name": host_name, "address": address, "port": port},
+                    result=result)
         return result
     except Exception as e:
         logger.error("storage_iscsi_remove_target failed: %s", e)
@@ -322,6 +349,7 @@ def storage_iscsi_remove_target(
 @vmware_tool(risk_level="medium")
 def storage_rescan(
     host_name: str,
+    dry_run: bool = False,
     target: Optional[str] = None,
 ) -> str:
     """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host to discover newly presented LUNs and datastores.
@@ -337,14 +365,18 @@ def storage_rescan(
     Args:
         host_name: ESXi host name as shown in vCenter inventory (FQDN or IP).
             Errors if not found.
+        dry_run: If true, return a preview of the change without executing it.
         target: Optional vCenter/ESXi target name from config; omit for the
             default target.
     """
     try:
+        if dry_run:
+            return (f"[DRY-RUN] Would rescan all HBAs and VMFS volumes on host "
+                    f"'{host_name}'. No changes made.")
         si = _get_connection(target)
         result = rescan_storage(si, host_name)
-        _audit.log(target=target or "default", operation="storage_rescan",
-                   resource=host_name, parameters={"host_name": host_name}, result=result)
+        _safe_audit(target=target or "default", operation="storage_rescan",
+                    resource=host_name, parameters={"host_name": host_name}, result=result)
         return result
     except Exception as e:
         logger.error("storage_rescan failed: %s", e)
