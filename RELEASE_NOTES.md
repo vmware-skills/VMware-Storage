@@ -1,3 +1,14 @@
+## v1.5.37 (2026-06-12) — backlog: faster datastore listing, iSCSI race, ops tests
+
+### Fixed
+- `list_datastores` no longer does a per-datastore `ds.vm` round-trip on the default (busiest) path;
+  `vm_count` is now opt-in. (#8)
+- `enable_software_iscsi` polls for the HBA to materialize before returning success, fixing a race where
+  an immediate `add_target` hit "Software iSCSI is not enabled". (#10)
+
+### Added
+- Behavioral (mocked-pyVmomi) unit tests for `iscsi_config`, `vsan`, and `datastore_browser`. (#9)
+
 ## v1.5.36 (2026-06-12) — OVA scanning fix + destructive-op gating
 
 ### Fixed

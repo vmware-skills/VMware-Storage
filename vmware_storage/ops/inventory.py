@@ -40,8 +40,14 @@ def _get_objects(si: ServiceInstance, obj_type: list, recursive: bool = True) ->
         container.Destroy()
 
 
-def list_datastores(si: ServiceInstance) -> list[dict]:
-    """List all datastores with capacity info."""
+def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> list[dict]:
+    """List all datastores with capacity info.
+
+    ``vm_count`` is opt-in (``include_vm_count=True``) because reading ``ds.vm``
+    is a separate property round-trip per datastore. This is the most-called
+    read path, so the default skips it; the ``vm_count`` key is present only
+    when requested.
+    """
     datastores = _get_objects(si, [vim.Datastore])
     results = []
     for ds in datastores:
@@ -50,7 +56,7 @@ def list_datastores(si: ServiceInstance) -> list[dict]:
         free_gb = round(summary.freeSpace / (1024**3), 1) if summary.freeSpace else 0
         used_gb = round(total_gb - free_gb, 1)
         usage_pct = round((used_gb / total_gb) * 100, 1) if total_gb > 0 else 0
-        results.append({
+        entry = {
             "name": sanitize(ds.name),
             "type": summary.type,
             "free_gb": free_gb,
@@ -59,8 +65,10 @@ def list_datastores(si: ServiceInstance) -> list[dict]:
             "usage_pct": usage_pct,
             "accessible": summary.accessible,
             "url": sanitize(summary.url) if summary.url else "",
-            "vm_count": len(ds.vm) if ds.vm else 0,
-        })
+        }
+        if include_vm_count:
+            entry["vm_count"] = len(ds.vm) if ds.vm else 0
+        results.append(entry)
     return sorted(results, key=lambda x: x["name"])
 
 

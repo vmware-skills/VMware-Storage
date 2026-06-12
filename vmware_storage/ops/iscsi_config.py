@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import time
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
@@ -12,6 +13,12 @@ from vmware_storage.ops.inventory import find_host_by_name, list_hosts, not_foun
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
+
+
+# After UpdateSoftwareInternetScsiEnabled the HBA materializes asynchronously;
+# poll briefly so an immediate add_target doesn't race into "not enabled".
+_HBA_POLL_TIMEOUT_SEC = 5.0
+_HBA_POLL_INTERVAL_SEC = 0.5
 
 
 class HostNotFoundError(Exception):
@@ -82,7 +89,43 @@ def enable_software_iscsi(si: ServiceInstance, host_name: str) -> str:
         )
 
     storage_system.UpdateSoftwareInternetScsiEnabled(enabled=True)
-    return f"Software iSCSI enabled on host '{host_name}'."
+
+    # The software HBA appears asynchronously after the enable call returns.
+    # Poll for it so a follow-up add_target doesn't race into "Software iSCSI
+    # is not enabled". A timeout here is not fatal — the adapter is enabling,
+    # it just hasn't surfaced yet, so report that rather than raising.
+    hba = _wait_for_iscsi_hba(host)
+    if hba is None:
+        return (
+            f"Software iSCSI enable requested on host '{host_name}'. The adapter "
+            f"did not appear within {_HBA_POLL_TIMEOUT_SEC:.0f}s — re-check with: "
+            "vmware-storage iscsi status"
+        )
+    return f"Software iSCSI enabled on host '{host_name}' (HBA: {hba.device})."
+
+
+def _wait_for_iscsi_hba(
+    host: vim.HostSystem,
+    timeout: float | None = None,
+    interval: float | None = None,
+) -> vim.host.InternetScsiHba | None:
+    """Poll for the software iSCSI HBA to materialize, up to ``timeout`` seconds.
+
+    Returns the HBA once it appears, or None if it hasn't surfaced in time.
+    Defaults read the module constants at call time so they stay overridable.
+    """
+    if timeout is None:
+        timeout = _HBA_POLL_TIMEOUT_SEC
+    if interval is None:
+        interval = _HBA_POLL_INTERVAL_SEC
+    deadline = time.monotonic() + timeout
+    while True:
+        hba = _get_iscsi_hba(host)
+        if hba is not None:
+            return hba
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(interval)
 
 
 # ─── Status ───────────────────────────────────────────────────────────────────

@@ -102,7 +102,7 @@ def ds_list(
     """List all datastores with capacity info."""
     from vmware_storage.ops.inventory import list_datastores
     si = _get_connection(target, config)
-    result = list_datastores(si)
+    result = list_datastores(si, include_vm_count=True)
     _audit.log_query(target=target or "default", resource="datastores", query_type="list")
     table = Table(title="Datastores")
     table.add_column("Name", style="bold")
