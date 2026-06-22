@@ -200,6 +200,7 @@ vmware-storage-mcp
 | Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
 | "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
 | Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |
+| "Datastore browse did not finish within Ns" | The datastore is very large or busy. Narrow the search with a sub-path and a specific pattern (e.g. `datastore browse ds01 --path templates --pattern "*.ova"`) instead of browsing the root — do not just retry the same broad browse. |
 
 ## License
 

@@ -53,12 +53,24 @@ def _validate_ds_path(path: str) -> None:
         )
 
 
-def _wait_for_task(task, timeout: int = 120) -> object:
-    """Wait for a vSphere task to complete."""
+def _wait_for_task(task, timeout: int = 300) -> object:
+    """Wait for a datastore-browse task to complete.
+
+    Browsing a large or busy datastore (and scan_images, which browses once per
+    image pattern) can legitimately take a while, so the budget is 300s. On
+    timeout the message is actionable — narrow the search rather than retrying
+    the same broad browse — because a search task has no pollable result to
+    resume (unlike a write task, where the operation keeps running).
+    """
     start = time.time()
     while task.info.state in (vim.TaskInfo.State.running, vim.TaskInfo.State.queued):
         if time.time() - start > timeout:
-            raise TimeoutError(f"Datastore browse timed out after {timeout}s")
+            raise TimeoutError(
+                f"Datastore browse did not finish within {timeout}s — the datastore "
+                "is very large or busy. Narrow the search with a sub-path and a "
+                "specific pattern (e.g. path='templates', pattern='*.ova') instead "
+                "of browsing the root; do not just retry the same broad browse."
+            )
         time.sleep(1)
     if task.info.state == vim.TaskInfo.State.success:
         return task.info.result

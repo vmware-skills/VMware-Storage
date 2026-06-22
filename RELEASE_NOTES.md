@@ -1,3 +1,13 @@
+## v1.5.39 (2026-06-22) — datastore browse: honest timeout
+
+### Fixed
+- **Datastore browse timeout is honest and actionable.** `browse_datastore` waited 120s then raised a
+  bare `TimeoutError` on a large/busy datastore (and `scan_images` browses once per image pattern, so the
+  budget compounded). Bumped to 300s, and the timeout message now tells the caller to narrow the search
+  (sub-path + specific pattern) instead of retrying the same broad browse — the same agent token-burn
+  class fixed in AIops snapshot-delete this release. Family sweep of the sync-wait-raises-on-timeout
+  pattern (踩坑 #21): VKS/NSX/NSX-Security/Aria/AVI were already safe (fire-and-forget or graceful poll).
+
 ## v1.5.38 (2026-06-12) — release alignment
 
 No functional changes — version bumped to keep the VMware skill family aligned at v1.5.38.
