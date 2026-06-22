@@ -1,3 +1,12 @@
+## v1.6.0 (2026-06-22) — trust architecture: undo tokens
+
+### Added
+- **Undo-token recording** (vmware-policy 1.6.0): `storage_iscsi_add_target`↔`storage_iscsi_remove_target`.
+- Inherits harness budget guard, audit accountability fields, and graduated risk tiers.
+
+### Changed
+- Requires **vmware-policy >= 1.6.0**.
+
 ## v1.5.39 (2026-06-22) — datastore browse: honest timeout
 
 ### Fixed

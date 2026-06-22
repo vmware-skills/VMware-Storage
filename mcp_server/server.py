@@ -261,7 +261,20 @@ def storage_iscsi_status(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="medium")
+@vmware_tool(
+    risk_level="medium",
+    undo=lambda params, result: {
+        "tool": "storage_iscsi_remove_target",
+        "params": {
+            "host_name": params.get("host_name"),
+            "address": params.get("address"),
+            "port": params.get("port", 3260),
+            "target": params.get("target"),
+        },
+        "skill": "storage",
+        "note": "Inverse of storage_iscsi_add_target: remove the iSCSI send target that was added.",
+    },
+)
 def storage_iscsi_add_target(
     host_name: str,
     address: str,
@@ -303,7 +316,20 @@ def storage_iscsi_add_target(
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
-@vmware_tool(risk_level="high")
+@vmware_tool(
+    risk_level="high",
+    undo=lambda params, result: {
+        "tool": "storage_iscsi_add_target",
+        "params": {
+            "host_name": params.get("host_name"),
+            "address": params.get("address"),
+            "port": params.get("port", 3260),
+            "target": params.get("target"),
+        },
+        "skill": "storage",
+        "note": "Inverse of storage_iscsi_remove_target: re-add the iSCSI send target that was removed.",
+    },
+)
 def storage_iscsi_remove_target(
     host_name: str,
     address: str,
