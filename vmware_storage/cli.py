@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import json
+import ssl
 import sys
 from pathlib import Path
 
@@ -38,25 +39,62 @@ _EXPECTED_ERRORS = (
     ISCSIError,
     VSANError,
     ValueError,
-    OSError,            # includes FileNotFoundError, PermissionError, socket errors
+    OSError,  # includes FileNotFoundError, PermissionError, socket errors
     FileNotFoundError,  # explicit for readability (subclass of OSError)
     KeyError,
+    ssl.SSLError,  # TLS cert verification — teach verify_ssl: false toggle
 )
 
 
+def _expected_error_types() -> tuple[type[BaseException], ...]:
+    """Expected error types, including the lazily-imported SOAP auth fault."""
+    from pyVmomi import vim
+
+    return (*_EXPECTED_ERRORS, vim.fault.InvalidLogin)
+
+
 def handle_cli_errors(fn):
-    """Decorator: translate expected errors into a red message + exit code 1."""
+    """Decorator: translate expected errors into a red message + exit code 1.
+
+    Bad host names, missing config/password env vars, login failures, and TLS
+    cert problems print a single teaching message instead of a Python
+    traceback, pointing at the exact file + env var to fix.
+    """
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
         except typer.Exit:
             raise
-        except _EXPECTED_ERRORS as e:
-            # KeyError stringifies to just the quoted key — add context.
-            msg = f"missing key {e}" if isinstance(e, KeyError) else str(e)
+        except _expected_error_types() as e:
+            from pyVmomi import vim
+
+            if isinstance(e, KeyError):
+                # KeyError stringifies to just the quoted key — add context.
+                msg = f"missing key {e}"
+            elif isinstance(e, vim.fault.InvalidLogin):
+                # The SDK message ("incorrect user name or password") doesn't
+                # say WHERE to fix it — point at the exact file + env var. Use a
+                # clean base so an unset SDK msg doesn't leak the raw fault repr.
+                msg = (
+                    "Login failed (incorrect username or password). → Check the "
+                    "password in ~/.vmware-storage/.env (env var "
+                    "VMWARE_<TARGET>_PASSWORD) and the username in "
+                    "~/.vmware-storage/config.yaml. Re-run 'vmware-storage init' to reset both."
+                )
+            elif isinstance(e, ssl.SSLError):
+                # Self-signed lab certs are the usual cause; teach the toggle.
+                msg = (
+                    f"TLS certificate verification failed: {e} → For a "
+                    "self-signed lab, set verify_ssl: false on the target in "
+                    "~/.vmware-storage/config.yaml (or re-run 'vmware-storage init')."
+                )
+            else:
+                msg = str(e)
             console.print(f"[bold red]Error:[/] {msg}")
             raise typer.Exit(1) from None
+
     return wrapper
 
 
@@ -78,7 +116,9 @@ def _double_confirm(action: str, detail: str) -> bool:
     if not first:
         console.print("[dim]Cancelled.[/]")
         return False
-    second = typer.confirm("This modifies host storage configuration. Confirm again?", default=False)
+    second = typer.confirm(
+        "This modifies host storage configuration. Confirm again?", default=False
+    )
     if not second:
         console.print("[dim]Cancelled.[/]")
         return False
@@ -101,6 +141,7 @@ def ds_list(
 ) -> None:
     """List all datastores with capacity info."""
     from vmware_storage.ops.inventory import list_datastores
+
     si = _get_connection(target, config)
     result = list_datastores(si, include_vm_count=True)
     _audit.log_query(target=target or "default", resource="datastores", query_type="list")
@@ -114,8 +155,10 @@ def ds_list(
     for ds in result:
         usage_style = "red" if ds["usage_pct"] > 85 else ""
         table.add_row(
-            ds["name"], ds["type"],
-            str(ds["total_gb"]), str(ds["free_gb"]),
+            ds["name"],
+            ds["type"],
+            str(ds["total_gb"]),
+            str(ds["free_gb"]),
             f"[{usage_style}]{ds['usage_pct']}%[/]",
             str(ds["vm_count"]),
         )
@@ -133,6 +176,7 @@ def ds_browse(
 ) -> None:
     """Browse files in a datastore."""
     from vmware_storage.ops.datastore_browser import browse_datastore
+
     si = _get_connection(target, config)
     result = browse_datastore(si, ds_name, path=path, pattern=pattern)
     _audit.log_query(target=target or "default", resource=ds_name, query_type="browse")
@@ -148,6 +192,7 @@ def ds_scan_images(
 ) -> None:
     """Scan a datastore for deployable images (OVA/ISO/OVF/VMDK)."""
     from vmware_storage.ops.datastore_browser import scan_images
+
     si = _get_connection(target, config)
     result = scan_images(si, ds_name)
     _audit.log_query(target=target or "default", resource=ds_name, query_type="scan_images")
@@ -180,10 +225,16 @@ def iscsi_enable(
     ):
         return
     from vmware_storage.ops.iscsi_config import enable_software_iscsi
+
     si = _get_connection(target, config)
     result = enable_software_iscsi(si, host_name)
-    _audit.log(target=target or "default", operation="iscsi_enable",
-               resource=host_name, parameters={"host_name": host_name}, result=result)
+    _audit.log(
+        target=target or "default",
+        operation="iscsi_enable",
+        resource=host_name,
+        parameters={"host_name": host_name},
+        result=result,
+    )
     console.print(result)
 
 
@@ -196,6 +247,7 @@ def iscsi_status(
 ) -> None:
     """Show iSCSI adapter status and targets."""
     from vmware_storage.ops.iscsi_config import get_iscsi_status
+
     si = _get_connection(target, config)
     _print_json(get_iscsi_status(si, host_name))
 
@@ -223,12 +275,16 @@ def iscsi_add_target(
     ):
         return
     from vmware_storage.ops.iscsi_config import add_iscsi_target
+
     si = _get_connection(target, config)
     result = add_iscsi_target(si, host_name, address, port)
-    _audit.log(target=target or "default", operation="iscsi_add_target",
-               resource=host_name,
-               parameters={"host_name": host_name, "address": address, "port": port},
-               result=result)
+    _audit.log(
+        target=target or "default",
+        operation="iscsi_add_target",
+        resource=host_name,
+        parameters={"host_name": host_name, "address": address, "port": port},
+        result=result,
+    )
     console.print(result)
 
 
@@ -255,12 +311,16 @@ def iscsi_remove_target(
     ):
         return
     from vmware_storage.ops.iscsi_config import remove_iscsi_target
+
     si = _get_connection(target, config)
     result = remove_iscsi_target(si, host_name, address, port)
-    _audit.log(target=target or "default", operation="iscsi_remove_target",
-               resource=host_name,
-               parameters={"host_name": host_name, "address": address, "port": port},
-               result=result)
+    _audit.log(
+        target=target or "default",
+        operation="iscsi_remove_target",
+        resource=host_name,
+        parameters={"host_name": host_name, "address": address, "port": port},
+        result=result,
+    )
     console.print(result)
 
 
@@ -277,10 +337,16 @@ def iscsi_rescan(
         console.print(f"[dim][DRY-RUN] Would rescan all HBAs and VMFS on host '{host_name}'[/]")
         return
     from vmware_storage.ops.iscsi_config import rescan_storage
+
     si = _get_connection(target, config)
     result = rescan_storage(si, host_name)
-    _audit.log(target=target or "default", operation="storage_rescan",
-               resource=host_name, parameters={"host_name": host_name}, result=result)
+    _audit.log(
+        target=target or "default",
+        operation="storage_rescan",
+        resource=host_name,
+        parameters={"host_name": host_name},
+        result=result,
+    )
     console.print(result)
 
 
@@ -301,6 +367,7 @@ def vsan_health_cmd(
 ) -> None:
     """Get vSAN cluster health summary."""
     from vmware_storage.ops.vsan import get_vsan_health
+
     si = _get_connection(target, config)
     _print_json(get_vsan_health(si, cluster_name))
 
@@ -314,8 +381,26 @@ def vsan_capacity_cmd(
 ) -> None:
     """Get vSAN capacity overview."""
     from vmware_storage.ops.vsan import get_vsan_capacity
+
     si = _get_connection(target, config)
     _print_json(get_vsan_capacity(si, cluster_name))
+
+
+# ---------------------------------------------------------------------------
+# Onboarding
+# ---------------------------------------------------------------------------
+
+
+@app.command("init")
+@handle_cli_errors
+def init(
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing config"),
+    skip_test: bool = typer.Option(False, "--skip-test", help="Skip the connection test"),
+) -> None:
+    """Interactive first-run setup: write config.yaml + .env (grep-safe), then verify."""
+    from vmware_storage.init_wizard import run_init
+
+    sys.exit(run_init(force=force, skip_test=skip_test))
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +415,7 @@ def doctor(
 ) -> None:
     """Run environment diagnostics."""
     from vmware_storage.doctor import run_doctor
+
     sys.exit(run_doctor(skip_auth=skip_auth))
 
 
@@ -344,6 +430,7 @@ def mcp_cmd() -> None:
     Equivalent to the legacy `vmware-storage-mcp` console script.
     """
     import sys
+
     if sys.version_info < (3, 10):
         msg = (
             f"ERROR: vmware-storage MCP server requires Python >= 3.10 "
