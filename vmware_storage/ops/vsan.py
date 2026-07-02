@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from pyVmomi import vim
 from vmware_policy import sanitize
 
-from vmware_storage.ops.inventory import _get_objects, find_cluster_by_name, not_found_hint
+from vmware_storage.ops.inventory import _collect, find_cluster_by_name, not_found_hint
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -28,7 +28,10 @@ def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterCompu
     """Find a cluster or raise VSANError with a teaching hint."""
     cluster = find_cluster_by_name(si, cluster_name)
     if cluster is None:
-        names = [sanitize(c.name) for c in _get_objects(si, [vim.ClusterComputeResource])]
+        names = [
+            sanitize(p.get("name", ""))
+            for _obj, p in _collect(si, [vim.ClusterComputeResource], ["name"])
+        ]
         raise VSANError(
             f"Cluster '{cluster_name}' not found.{not_found_hint(cluster_name, names)}"
         )
@@ -62,7 +65,9 @@ def get_vsan_health(
             "message": f"vSAN is not enabled on cluster '{cluster_name}'",
         }
 
-    # Collect disk groups per host
+    # Collect disk groups per host. Bounded to one cluster's hosts, and each
+    # host's vsanSystem.config chain is a distinct managed object (not batchable
+    # via a single PropertyCollector path), so per-host reads are acceptable here.
     disk_groups = []
     for host in cluster.host or []:
         vsan_sys = host.configManager.vsanSystem
@@ -119,7 +124,9 @@ def get_vsan_capacity(
             "message": f"vSAN is not enabled on cluster '{cluster_name}'",
         }
 
-    # Get capacity from vSAN datastores
+    # Get capacity from vSAN datastores. Bounded to one cluster's datastores
+    # (typically a handful), and we early-exit on the first vsan datastore, so
+    # per-datastore summary reads are acceptable here.
     total_gb = 0.0
     free_gb = 0.0
     vsan_ds_name = None

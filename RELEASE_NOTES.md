@@ -1,3 +1,15 @@
+## v1.7.2 (2026-07-02) — datastore/host inventory scale (issue #31 port)
+
+### Fixed
+- **Datastore & host inventory at scale.** `list_datastores` (the most-called
+  read path, backing the datastore browser and iSCSI/vSAN hints), `list_hosts`,
+  and the `find_*_by_name` helpers read lazy `.summary` / `.name` / `len(ds.vm)`
+  per object — a separate SOAP round-trip each, so large estates (thousands of
+  datastores/hosts) timed out. Ported the `PropertyCollector.RetrievePropertiesEx`
+  batching from the AIops issue-#31 fix. Output shape unchanged (`vm_count` stays
+  opt-in). This also removes the timeout that `vmware-harden` scans inherited
+  through `list_datastores`.
+
 ## v1.7.1 (2026-07-02) — family version alignment
 
 No code changes. Version bump to stay aligned with the v1.7.1 family release
