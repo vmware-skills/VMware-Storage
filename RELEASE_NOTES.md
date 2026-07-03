@@ -1,3 +1,5 @@
+## v1.7.3 (2026-07-03) — family version alignment
+
 ## v1.7.2 (2026-07-02) — datastore/host inventory scale (issue #31 port)
 
 ### Fixed
