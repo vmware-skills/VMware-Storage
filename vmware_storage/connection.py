@@ -41,12 +41,16 @@ class ConnectionManager:
         if target.name in self._connections:
             si = self._connections[target.name]
             try:
-                _ = si.content.sessionManager.currentSession
-                return si
+                # Probe liveness; expired tokens can surface as a None
+                # currentSession instead of raising.
+                alive = si.content.sessionManager.currentSession is not None
             except Exception:
                 # Any failure (NotAuthenticated, socket error, …) means the
                 # cached session is unusable — drop it and reconnect below.
-                del self._connections[target.name]
+                alive = False
+            if alive:
+                return si
+            del self._connections[target.name]
 
         si = self._create_connection(target)
         self._connections[target.name] = si
