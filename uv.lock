@@ -1175,7 +1175,7 @@ wheels = [
 
 [[package]]
 name = "vmware-storage"
-version = "1.7.5"
+version = "1.7.7"
 source = { editable = "." }
 dependencies = [
     { name = "mcp", extra = ["cli"] },
