@@ -28,9 +28,15 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
-from vmware_policy import sanitize, vmware_tool
+from vmware_policy import (
+    apply_read_only_gate,
+    mtime_cached_loader,
+    sanitize,
+    set_environment_resolver,
+    vmware_tool,
+)
 
-from vmware_storage.config import load_config
+from vmware_storage.config import CONFIG_FILE, load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.ops import datastore_browser
 from vmware_storage.ops.inventory import list_datastores
@@ -104,8 +110,12 @@ def _get_connection(target: Optional[str] = None):
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_all_datastores(target: Optional[str] = None) -> list[dict]:
+def list_all_datastores(target: Optional[str] = None) -> dict:
     """[READ] List all datastores with capacity, usage percentage, and accessibility.
+
+    Returns the list envelope: 'items' holds one row per datastore, and
+    'returned'/'total'/'truncated' state whether the listing is complete.
+    Every datastore is enumerated in one pass, so truncated is always false.
 
     Args:
         target: Optional vCenter/ESXi target name from config.
@@ -115,7 +125,7 @@ def list_all_datastores(target: Optional[str] = None) -> list[dict]:
         return list_datastores(si)
     except Exception as e:
         logger.error("list_all_datastores failed: %s", e)
-        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -125,8 +135,13 @@ def browse_datastore(
     path: str = "",
     pattern: str = "*",
     target: Optional[str] = None,
-) -> list[dict]:
+) -> dict:
     """[READ] Browse files in a datastore directory.
+
+    Returns the list envelope: 'items' holds one row per file, and
+    'returned'/'total'/'truncated' state whether the listing is complete.
+    Every match in the searched folders is returned, so truncated is
+    always false.
 
     Args:
         ds_name: Datastore name.
@@ -139,7 +154,7 @@ def browse_datastore(
         return datastore_browser.browse_datastore(si, ds_name, path=path, pattern=pattern)
     except Exception as e:
         logger.error("browse_datastore failed: %s", e)
-        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -148,8 +163,12 @@ def scan_datastore_images(
     ds_name: str,
     path: str = "",
     target: Optional[str] = None,
-) -> list[dict]:
+) -> dict:
     """[READ] Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
+
+    Returns the list envelope: 'items' holds one row per image, and
+    'returned'/'total'/'truncated' state whether the listing is complete.
+    Every image pattern is browsed in full, so truncated is always false.
 
     Args:
         ds_name: Datastore name.
@@ -161,7 +180,7 @@ def scan_datastore_images(
         return datastore_browser.scan_images(si, ds_name, path=path)
     except Exception as e:
         logger.error("scan_datastore_images failed: %s", e)
-        return [{"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}]
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -169,14 +188,17 @@ def scan_datastore_images(
 def list_cached_images(
     image_type: Optional[str] = None,
     datastore: Optional[str] = None,
-) -> list[dict]:
+) -> dict:
     """[READ] List deployable images (OVA/OVF/ISO/VMDK) from the local cache registry — instant, no vCenter connection or datastore I/O.
 
     Reads ~/.vmware-storage/image_registry.json, populated by prior datastore
     scans; results may be stale or empty if no scan has run. For a live,
     authoritative listing of one datastore use scan_datastore_images instead.
-    Returns a list of {datastore, name, ds_path, size_mb, type, modified};
-    empty list if nothing matches. No side effects.
+    Returns the list envelope: 'items' holds {datastore, name, ds_path,
+    size_mb, type, modified} and is empty if nothing matches, while
+    'returned'/'total'/'truncated' state whether the listing is complete. The
+    whole registry is filtered in memory, so truncated is always false. No
+    side effects.
 
     Args:
         image_type: Filter by file extension without the dot, e.g. "ova",
@@ -187,8 +209,8 @@ def list_cached_images(
         return datastore_browser.list_images(image_type=image_type, datastore=datastore)
     except Exception as e:
         logger.error("list_cached_images failed: %s", e)
-        return [{"error": _safe_error(e, "storage"),
-                 "hint": "Local image registry may be missing or corrupt — re-run scan_datastore_images to rebuild it (no vCenter connectivity is involved here)."}]
+        return {"error": _safe_error(e, "storage"),
+                "hint": "Local image registry may be missing or corrupt — re-run scan_datastore_images to rebuild it (no vCenter connectivity is involved here)."}
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +493,68 @@ def vsan_capacity(
     except Exception as e:
         logger.error("vsan_capacity failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+
+
+# ---------------------------------------------------------------------------
+# Read-only gate
+# ---------------------------------------------------------------------------
+
+
+def _config_read_only() -> Optional[bool]:
+    """Best-effort read of ``read_only`` from the config file.
+
+    Runs at import time, when no config file need exist yet (tests, ``--help``,
+    smoke checks), so every failure degrades to "not configured" and lets the
+    env vars decide. None and False are equivalent here — config is the last
+    link in the precedence chain — but None keeps 'not configured'
+    distinguishable from 'configured off' in logs and debugging.
+
+    Resolved through the same VMWARE_STORAGE_CONFIG override the connection layer
+    uses. Reading the default path instead would silently ignore settings in an
+    operator's custom config file — a control that appears configured and does
+    nothing, which is the exact failure this work exists to remove.
+    """
+    try:
+        _cfg_path = os.environ.get("VMWARE_STORAGE_CONFIG")
+        return load_config(Path(_cfg_path) if _cfg_path else None).read_only
+    except Exception:  # noqa: BLE001 — absent/unreadable config is not an error here
+        return None
+
+
+# Applied once, after every tool module above has registered. In read-only mode
+# the write tools are removed from the registry, so list_tools() never offers
+# them — the guarantee is structural rather than a prompt instruction the model
+# may ignore (VMware-AIops issue #31).
+WITHHELD_WRITE_TOOLS: list[str] = apply_read_only_gate(
+    mcp, "vmware-storage", config_flag=_config_read_only()
+)
+
+
+# ---------------------------------------------------------------------------
+# Environment declaration
+# ---------------------------------------------------------------------------
+
+
+_cached_config = mtime_cached_loader("VMWARE_STORAGE_CONFIG", CONFIG_FILE, load_config)
+
+
+def _environment_for(target: Optional[str]) -> str:
+    """Report the environment a target declares, for policy scoping.
+
+    Policy rules scope by environment ("irreversible work in production needs a
+    second person"), and vmware-policy cannot read this skill's config itself.
+    Registering this lookup is what lets those rules fire at all. Reloaded on
+    config.yaml mtime change so an edit takes effect without restarting the
+    server. The config is cached via :func:`vmware_policy.mtime_cached_loader`,
+    so repeated tool calls pay one ``os.stat`` instead of a full YAML parse.
+    """
+    try:
+        return _cached_config().environment_for(target)
+    except Exception:  # noqa: BLE001 — an unreadable config means "undeclared"
+        return ""
+
+
+set_environment_resolver(_environment_for)
 
 
 # ---------------------------------------------------------------------------

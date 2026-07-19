@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from vmware_policy import sanitize
+from vmware_policy import paginated, sanitize
 
 from vmware_storage.config import CONFIG_DIR
 from vmware_storage.ops.inventory import (
@@ -83,7 +83,7 @@ def browse_datastore(
     ds_name: str,
     path: str = "",
     pattern: str = "*",
-) -> list[dict]:
+) -> dict:
     """Browse files in a datastore directory.
 
     Args:
@@ -93,13 +93,16 @@ def browse_datastore(
         pattern: Glob pattern to filter files (e.g. "*.ova", "*")
 
     Returns:
-        List of file dicts with name, size, type, modified, ds_path
+        The family list envelope; ``items`` holds file dicts with name, size,
+        type, modified, ds_path. The browse task returns every match in the
+        searched folders, so ``total`` is the real count and nothing is
+        truncated.
     """
     ds = find_datastore_by_name(si, ds_name)
     if ds is None:
         raise ValueError(
             f"Datastore '{ds_name}' not found."
-            f"{_not_found_hint(ds_name, [d['name'] for d in list_datastores(si)])}"
+            f"{_not_found_hint(ds_name, [d['name'] for d in list_datastores(si)['items']])}"
         )
 
     browser = ds.browser
@@ -142,33 +145,39 @@ def browse_datastore(
                 "ds_path": sanitize(f"{folder}{f.path}"),
             })
 
-    return sorted(files, key=lambda x: x["name"])
+    rows = sorted(files, key=lambda x: x["name"])
+    return paginated(rows, total=len(rows))
 
 
 def scan_images(
     si: ServiceInstance,
     ds_name: str,
     path: str = "",
-) -> list[dict]:
-    """Scan a datastore for deployable images (OVA, ISO, OVF, VMDK)."""
+) -> dict:
+    """Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
+
+    Returns the family list envelope; every image pattern is browsed in full,
+    so ``total`` is the real count and nothing is truncated.
+    """
     all_images: list[dict] = []
     for pattern in IMAGE_PATTERNS:
         found = browse_datastore(si, ds_name, path=path, pattern=pattern)
-        all_images.extend(found)
+        all_images.extend(found["items"])
 
-    return sorted(all_images, key=lambda x: x["name"])
+    rows = sorted(all_images, key=lambda x: x["name"])
+    return paginated(rows, total=len(rows))
 
 
 def scan_all_datastores(si: ServiceInstance) -> dict[str, list[dict]]:
     """Scan all accessible datastores for deployable images."""
-    datastores = list_datastores(si)
+    datastores = list_datastores(si)["items"]
     result: dict[str, list[dict]] = {}
     for ds in datastores:
         if not ds["accessible"]:
             _log.info("Skipping inaccessible datastore: %s", ds["name"])
             continue
         try:
-            images = scan_images(si, ds["name"])
+            images = scan_images(si, ds["name"])["items"]
             if images:
                 result[ds["name"]] = images
         except Exception as e:
@@ -238,8 +247,13 @@ def get_registry() -> dict:
 def list_images(
     image_type: str | None = None,
     datastore: str | None = None,
-) -> list[dict]:
-    """List images from the local registry, with optional filters."""
+) -> dict:
+    """List images from the local registry, with optional filters.
+
+    Returns the family list envelope. The whole registry is read from disk and
+    filtered in memory, so ``total`` is the real count of matching images and
+    nothing is truncated.
+    """
     registry = _load_registry()
     images = registry.get("images", [])
 
@@ -249,4 +263,4 @@ def list_images(
     if datastore:
         images = [i for i in images if i["datastore"] == datastore]
 
-    return images
+    return paginated(images, total=len(images))

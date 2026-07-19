@@ -28,6 +28,8 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | `scan_datastore_images` | Find OVA/ISO/OVF/VMDK deployable images in a datastore | `datastore` (string, **required**), `target` (string, optional) | Low | No |
 | `list_cached_images` | Query local image registry with type/datastore filters | `image_type` (string, optional), `datastore` (string, optional) | Low | No |
 
+**List envelope**: all four return `{items, returned, limit, total, truncated, hint}` instead of a bare array, so an agent can tell a complete answer from a first page rather than inferring it (VMware-AIops issue #31). Each enumerates its collection in full — a PropertyCollector walk, a datastore browse task, or the on-disk registry — so `total` is the real count and `truncated` is always `false`. On error the tools return `{error, hint}` (a dict, not a one-element list).
+
 ## iSCSI (5 tools)
 
 | Tool | Description | Parameters | Risk | Confirm |

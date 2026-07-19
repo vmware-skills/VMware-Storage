@@ -54,6 +54,7 @@ targets:
     type: vcenter              # "vcenter" or "esxi"
     port: 443
     verify_ssl: false          # Set true if using valid certs
+    environment: production    # Which environment this target is — see below
 
   - name: esxi-standalone
     host: 10.0.0.50
@@ -61,12 +62,34 @@ targets:
     type: esxi
     port: 443
     verify_ssl: false
+    environment: lab
 
 notify:
   webhook_url: ""              # Optional: webhook for notifications
 ```
 
 The first target in the list is the default (used when `--target` is not specified).
+
+#### `environment` — declare which environment each target is
+
+Policy rules scope by environment ("irreversible work in production needs a
+second person"). That scoping used to be derived from the target's *name*, so
+a rule written against `production` never matched a target actually named
+`prod-vcenter` — the rules were configured and inert. The environment is now an
+explicit declaration, and an undeclared target matches no rule at all.
+
+Any label works (`production`, `staging`, `lab`, or your own). Rolled out in two
+steps:
+
+| | Undeclared target, write operation | Undeclared target, read operation |
+|---|---|---|
+| **Today** | Runs, logs a warning naming the fix | Unaffected |
+| **Next major release** | Refused with an actionable error | Unaffected |
+
+Declaring `environment:` now makes that upgrade a no-op. Labelling a target
+`production` additionally activates the two-person rule for irreversible work —
+set `VMWARE_AUDIT_APPROVED_BY` (and `VMWARE_AUDIT_RATIONALE`) when running
+those. Run `vmware-audit policy` to see the rules actually in force.
 
 ### 3. Create .env for credentials
 

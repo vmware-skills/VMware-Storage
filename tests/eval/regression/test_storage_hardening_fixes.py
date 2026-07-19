@@ -50,7 +50,7 @@ def test_browse_datastore_query_includes_generic_file_query(monkeypatch):
     monkeypatch.setattr(dsb, "find_datastore_by_name", lambda si, name: fake_ds)
 
     result = dsb.browse_datastore(object(), "ds1", pattern="*.ova")
-    assert result == []
+    assert result["items"] == []
 
     queries = captured["spec"].query
     assert any(type(q) is vim.host.DatastoreBrowser.Query for q in queries), (
@@ -382,7 +382,7 @@ def test_list_cached_images_hint_mentions_rescan(monkeypatch):
     monkeypatch.setattr(server.datastore_browser, "list_images", boom)
     fn = inspect.unwrap(server.list_cached_images)
     result = fn()
-    assert "re-run scan_datastore_images" in result[0]["hint"]
+    assert "re-run scan_datastore_images" in result["hint"]
     # The old hint pointed users at connectivity diagnostics, which is wrong
     # for a local-cache-only tool.
-    assert "doctor" not in result[0]["hint"]
+    assert "doctor" not in result["hint"]

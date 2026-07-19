@@ -9,6 +9,8 @@
 
 VMware vSphere storage management: datastores, iSCSI, vSAN — 11 MCP tools, domain-focused and lightweight.
 
+- **Read-only mode** (v1.8.0) — one env var (`VMWARE_READ_ONLY=true`) strips all 4 write tools (iSCSI enable, add/remove target, rescan) from the MCP registry at startup, leaving the 7 read tools; ideal for audits, PoCs, and untrusted/local models. See [Read-Only Mode](#read-only-mode).
+
 > Split from vmware-aiops for lighter context and local model compatibility.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -17,12 +19,12 @@ VMware vSphere storage management: datastores, iSCSI, vSAN — 11 MCP tools, dom
 
 | Skill | Scope | Tools | Install |
 |-------|-------|:-----:|---------|
-| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** ⭐ entry point | VM lifecycle, deployment, guest ops, clusters | 31 | `uv tool install vmware-aiops` |
-| **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring, alarms, events, VM info | 8 | `uv tool install vmware-monitor` |
+| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** ⭐ entry point | VM lifecycle, deployment, guest ops, clusters | 49 | `uv tool install vmware-aiops` |
+| **[vmware-monitor](https://github.com/zw008/VMware-Monitor)** | Read-only monitoring, alarms, events, VM info | 27 | `uv tool install vmware-monitor` |
 | **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
-| **[vmware-nsx](https://github.com/zw008/VMware-NSX)** | NSX networking: segments, gateways, NAT, IPAM | 31 | `uv tool install vmware-nsx-mgmt` |
-| **[vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security)** | DFW microsegmentation, security groups, Traceflow | 20 | `uv tool install vmware-nsx-security` |
-| **[vmware-aria](https://github.com/zw008/VMware-Aria)** | Aria Ops metrics, alerts, capacity planning | 18 | `uv tool install vmware-aria` |
+| **[vmware-nsx](https://github.com/zw008/VMware-NSX)** | NSX networking: segments, gateways, NAT, IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
+| **[vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security)** | DFW microsegmentation, security groups, Traceflow | 21 | `uv tool install vmware-nsx-security` |
+| **[vmware-aria](https://github.com/zw008/VMware-Aria)** | Aria Ops metrics, alerts, capacity planning | 28 | `uv tool install vmware-aria` |
 
 ## Quick Install
 
@@ -81,6 +83,29 @@ The `add-target` command automatically rescans storage. Use `--dry-run` to previ
 1. Check health: `vmware-storage vsan health Cluster-Prod`
 2. Check capacity: `vmware-storage vsan capacity Cluster-Prod`
 3. If issues found, investigate with `vmware-monitor` for alarms and events
+
+## Read-Only Mode
+
+A prompt instruction is advisory — a model can ignore it. Read-only mode is structural: set `VMWARE_READ_ONLY=true` and all 4 write tools (`storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan`) are removed from the MCP registry at startup, leaving the 7 read tools. `list_tools()` never offers them, so the model cannot call what it cannot see. Off by default, and fail-closed: if the mode is requested but cannot be guaranteed, the server refuses to start.
+
+Three ways to enable:
+
+```json
+{
+  "mcpServers": {
+    "vmware-storage": {
+      "command": "vmware-storage",
+      "args": ["mcp"],
+      "env": { "VMWARE_READ_ONLY": "true" }
+    }
+  }
+}
+```
+
+- Per-skill override: `VMWARE_STORAGE_READ_ONLY=true` (takes precedence over the family-wide `VMWARE_READ_ONLY`)
+- Config alternative: `read_only: true` in `~/.vmware-storage/config.yaml`
+
+Precedence: per-skill env → family env → config → off. Startup logs list exactly which tools were withheld.
 
 ## CLI
 
@@ -156,7 +181,7 @@ vmware-storage-mcp
 
 ## Why a Separate Skill?
 
-`vmware-aiops` has 33 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
+`vmware-aiops` has 49 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
 
 - **11 tools** — fits comfortably in small model context windows
 - **Domain-focused** — storage admins get only what they need
@@ -184,7 +209,7 @@ vmware-storage-mcp
 
 | Feature | Description |
 |---------|-------------|
-| Read-heavy | 6/11 tools are read-only |
+| Read-heavy | 7/11 tools are read-only |
 | Input validation | IP addresses and ports validated before iSCSI operations |
 | Audit logging | All operations logged to `~/.vmware-storage/audit.log` |
 | No VM operations | Cannot create, delete, or modify VMs |

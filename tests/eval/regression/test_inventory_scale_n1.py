@@ -164,7 +164,7 @@ def test_list_datastores_batches_and_shapes_correctly() -> None:
             ),
         ]
     }
-    result = inventory.list_datastores(make_si(data))
+    result = inventory.list_datastores(make_si(data))["items"]
 
     # sorted by name; no vm_count key by default (opt-in)
     assert [d["name"] for d in result] == ["ds-a", "ds-b"]
@@ -201,7 +201,7 @@ def test_list_datastores_vm_count_opt_in() -> None:
             ),
         ]
     }
-    result = inventory.list_datastores(make_si(data), include_vm_count=True)
+    result = inventory.list_datastores(make_si(data), include_vm_count=True)["items"]
     assert result[0]["vm_count"] == 2
 
 
@@ -224,7 +224,7 @@ def test_list_datastores_handles_paging() -> None:
         ]
     }
     # page_size=2 forces two ContinueRetrievePropertiesEx round-trips
-    result = inventory.list_datastores(make_si(data, page_size=2))
+    result = inventory.list_datastores(make_si(data, page_size=2))["items"]
     assert [d["name"] for d in result] == [f"ds-{i:02d}" for i in range(5)]
 
 

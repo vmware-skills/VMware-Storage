@@ -143,7 +143,7 @@ def ds_list(
     from vmware_storage.ops.inventory import list_datastores
 
     si = _get_connection(target, config)
-    result = list_datastores(si, include_vm_count=True)
+    result = list_datastores(si, include_vm_count=True)["items"]
     _audit.log_query(target=target or "default", resource="datastores", query_type="list")
     table = Table(title="Datastores")
     table.add_column("Name", style="bold")
@@ -178,7 +178,7 @@ def ds_browse(
     from vmware_storage.ops.datastore_browser import browse_datastore
 
     si = _get_connection(target, config)
-    result = browse_datastore(si, ds_name, path=path, pattern=pattern)
+    result = browse_datastore(si, ds_name, path=path, pattern=pattern)["items"]
     _audit.log_query(target=target or "default", resource=ds_name, query_type="browse")
     _print_json(result)
 
@@ -194,7 +194,7 @@ def ds_scan_images(
     from vmware_storage.ops.datastore_browser import scan_images
 
     si = _get_connection(target, config)
-    result = scan_images(si, ds_name)
+    result = scan_images(si, ds_name)["items"]
     _audit.log_query(target=target or "default", resource=ds_name, query_type="scan_images")
     _print_json(result)
 

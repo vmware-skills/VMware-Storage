@@ -6,7 +6,7 @@ import difflib
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim, vmodl
-from vmware_policy import sanitize
+from vmware_policy import paginated, sanitize
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -102,7 +102,7 @@ _DS_PROPS = [
 ]
 
 
-def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> list[dict]:
+def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> dict:
     """List all datastores with capacity info.
 
     ``vm_count`` is opt-in (``include_vm_count=True``) because the backing
@@ -110,6 +110,10 @@ def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> list
     most-called read path, so the default skips it; the ``vm_count`` key is
     present only when requested. All properties are fetched in a single batched
     PropertyCollector call regardless (GitHub issue #31).
+
+    Returns the family list envelope. The PropertyCollector walk enumerates
+    every datastore before returning, so ``total`` is the real count and
+    ``truncated`` is always False — callers wanting the rows read ``items``.
     """
     paths = list(_DS_PROPS)
     if include_vm_count:
@@ -136,7 +140,8 @@ def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> list
         if include_vm_count:
             entry["vm_count"] = len(p.get("vm") or [])
         results.append(entry)
-    return sorted(results, key=lambda x: x["name"])
+    rows = sorted(results, key=lambda x: x["name"])
+    return paginated(rows, total=len(rows))
 
 
 def list_hosts(si: ServiceInstance) -> list[dict]:

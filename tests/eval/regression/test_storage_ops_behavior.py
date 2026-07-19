@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 from pyVmomi import vim
+from vmware_policy import paginated
 
 from vmware_storage.ops import datastore_browser as dsb
 from vmware_storage.ops import iscsi_config, vsan
@@ -245,7 +246,7 @@ def test_browse_datastore_includes_generic_and_specific_queries(monkeypatch):
 
     result = dsb.browse_datastore(object(), "ds1", path="images", pattern="*.ova")
 
-    assert result == []
+    assert result["items"] == []
     assert captured["path"] == "[ds1] images"
     qtypes = {type(q) for q in captured["spec"].query}
     assert vim.host.DatastoreBrowser.Query in qtypes
@@ -274,7 +275,9 @@ def test_browse_datastore_rejects_traversal_paths(monkeypatch, bad_path):
 def test_browse_datastore_not_found_raises_with_hint(monkeypatch):
     monkeypatch.setattr(dsb, "find_datastore_by_name", lambda si, name: None)
     monkeypatch.setattr(
-        dsb, "list_datastores", lambda si: [{"name": "ds-1"}, {"name": "ds-2"}]
+        dsb,
+        "list_datastores",
+        lambda si: paginated([{"name": "ds-1"}, {"name": "ds-2"}], total=2),
     )
     with pytest.raises(ValueError, match="not found"):
         dsb.browse_datastore(object(), "ds-x")
@@ -296,7 +299,7 @@ def test_browse_datastore_parses_files(monkeypatch):
     )
     monkeypatch.setattr(dsb, "find_datastore_by_name", lambda si, name: fake_ds)
 
-    files = dsb.browse_datastore(object(), "ds1", path="images")
+    files = dsb.browse_datastore(object(), "ds1", path="images")["items"]
 
     assert [f["name"] for f in files] == ["app.ova", "boot.iso"]
     by_name = {f["name"]: f for f in files}
