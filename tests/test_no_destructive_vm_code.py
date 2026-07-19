@@ -10,7 +10,8 @@ import pathlib
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
-SOURCE_DIRS = [REPO_ROOT / "vmware_storage", REPO_ROOT / "mcp_server"]
+# mcp_server now lives inside the package, so rglob over vmware_storage covers it.
+SOURCE_DIRS = [REPO_ROOT / "vmware_storage"]
 
 FORBIDDEN_PATTERNS = [
     "PowerOnVM_Task",

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-storage"
-version = "1.8.1"
+version = "1.8.2"
 description = "VMware vSphere storage management: datastores, iSCSI, vSAN. Domain-focused MCP skill."
 readme = "README.md"
 license = "MIT"
@@ -29,10 +29,10 @@ dev = [
 
 [project.scripts]
 vmware-storage = "vmware_storage.cli:app"
-vmware-storage-mcp = "mcp_server.server:main"
+vmware-storage-mcp = "vmware_storage.mcp_server.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["vmware_storage", "mcp_server"]
+packages = ["vmware_storage"]
 
 [tool.ruff]
 line-length = 100
@@ -46,4 +46,7 @@ testpaths = ["tests"]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests (require vCenter)",
+    "capability: Capability evals — scored trends, not pass/fail gates. Excluded from the default run (they measure quality, so <100% is expected and must not read as a broken build). Run them with: pytest -m capability",
 ]
+# Capability evals are opt-in; see the marker description above.
+addopts = "-m 'not capability'"

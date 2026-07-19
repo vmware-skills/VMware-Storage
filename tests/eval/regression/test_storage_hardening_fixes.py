@@ -84,7 +84,7 @@ _WRITE_TOOLS = (
 
 
 def test_remove_target_risk_level_is_high():
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     assert server.storage_iscsi_remove_target._risk_level == "high", (
         "storage_iscsi_remove_target is destructive (LUNs become inaccessible) "
@@ -93,7 +93,7 @@ def test_remove_target_risk_level_is_high():
 
 
 def test_iscsi_status_risk_level_is_low():
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     assert server.storage_iscsi_status._risk_level == "low", (
         "storage_iscsi_status is read-only and must be risk_level='low'."
@@ -104,7 +104,7 @@ def test_iscsi_status_risk_level_is_low():
 def test_write_tools_accept_dry_run(tool_name):
     import inspect
 
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     fn = getattr(server, tool_name)
     sig = inspect.signature(inspect.unwrap(fn))
@@ -127,7 +127,7 @@ def test_dry_run_previews_without_connecting(tool_name, kwargs, monkeypatch):
     """dry_run=True must return a preview and never touch the connection."""
     import inspect
 
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     def explode(*a, **k):  # pragma: no cover - failure path
         raise AssertionError("dry_run must not open a vSphere connection")
@@ -148,7 +148,7 @@ def test_audit_oserror_does_not_flip_tool_success(monkeypatch):
     must still report the operation's success string."""
     import inspect
 
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     monkeypatch.setattr(server, "_get_connection", lambda target=None: object())
     success_msg = "Software iSCSI enabled on host 'esxi-01'."
@@ -166,7 +166,7 @@ def test_audit_oserror_does_not_flip_tool_success(monkeypatch):
 
 
 def test_safe_audit_swallows_any_audit_exception(monkeypatch):
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     def broken_log(**kwargs):
         raise OSError("read-only filesystem")
@@ -206,7 +206,7 @@ def test_audit_logger_init_failure_degrades_to_stderr(tmp_path, capsys):
 
 
 def _list_tools():
-    from mcp_server.server import mcp
+    from vmware_storage.mcp_server.server import mcp
 
     return asyncio.run(mcp.list_tools())
 
@@ -374,7 +374,7 @@ def test_not_found_hint_truncates_long_inventories():
 def test_list_cached_images_hint_mentions_rescan(monkeypatch):
     import inspect
 
-    from mcp_server import server
+    from vmware_storage.mcp_server import server
 
     def boom(image_type=None, datastore=None):
         raise ValueError("registry corrupt")

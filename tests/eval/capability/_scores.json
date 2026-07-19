@@ -1,0 +1,275 @@
+{
+  "_comment": "Capability eval scores. Regenerate with: pytest -m capability. These are tracked trends, not pass/fail gates \u2014 see _scoring.py.",
+  "scores": {
+    "entity_reachability_full": {
+      "detail": {
+        "broken_chains": [],
+        "entry_points": [
+          "list_all_datastores",
+          "list_cached_images"
+        ],
+        "reachable_on_surface": 2,
+        "reachable_only_via_description": 7,
+        "required_entity_params": 9,
+        "tool_count": 11
+      },
+      "maximum": 9,
+      "pct": 100.0,
+      "unit": "required entity params",
+      "value": 9
+    },
+    "entity_reachability_read_only": {
+      "detail": {
+        "broken_chains": [
+          {
+            "companion_skill_named": [],
+            "entity": "host",
+            "param": "host_name",
+            "producer_on_surface": [],
+            "routed_in_description": [],
+            "tool": "storage_iscsi_status"
+          }
+        ],
+        "entry_points": [
+          "list_all_datastores",
+          "list_cached_images"
+        ],
+        "reachable_on_surface": 2,
+        "reachable_only_via_description": 2,
+        "required_entity_params": 5,
+        "tool_count": 7
+      },
+      "maximum": 5,
+      "pct": 80.0,
+      "unit": "required entity params",
+      "value": 4
+    },
+    "entry_point_availability": {
+      "detail": {
+        "full_entry_points": 2,
+        "read_only_entry_points": 2
+      },
+      "maximum": 7,
+      "pct": 28.6,
+      "unit": "entry points",
+      "value": 2
+    },
+    "error_actionability": {
+      "detail": {
+        "dead_end_count": 9,
+        "dead_end_errors": [
+          {
+            "message": "Datastore browse failed: {}",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "datastore_browser.py:78"
+          },
+          {
+            "message": "Invalid datastore path {}: no '..', absolute paths, or null bytes",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "datastore_browser.py:51"
+          },
+          {
+            "message": "Datastore '{}' not found.{}",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "datastore_browser.py:103"
+          },
+          {
+            "message": "Host '{}' not found.{}",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "iscsi_config.py:36"
+          },
+          {
+            "message": "Storage system not available on host '{}'",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "iscsi_config.py:61"
+          },
+          {
+            "message": "Software iSCSI is not enabled on host '{}'.",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "iscsi_config.py:217"
+          },
+          {
+            "message": "iSCSI target {}:{} not found on host '{}'.",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "iscsi_config.py:226"
+          },
+          {
+            "message": "Invalid IP address: '{}'",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "iscsi_config.py:48"
+          },
+          {
+            "message": "Cluster '{}' not found.{}",
+            "missing": [
+              "names_artifact",
+              "states_remedy"
+            ],
+            "where": "vsan.py:35"
+          }
+        ],
+        "per_dimension_pct": {
+          "names_artifact": 25.0,
+          "names_input": 93.8,
+          "states_remedy": 37.5
+        },
+        "raise_sites": 16
+      },
+      "maximum": 48,
+      "pct": 52.1,
+      "unit": "points",
+      "value": 25
+    },
+    "manifest_context_headroom": {
+      "detail": {
+        "heaviest_tools": {
+          "list_cached_images": 234,
+          "storage_iscsi_add_target": 269,
+          "storage_iscsi_enable": 208,
+          "storage_iscsi_remove_target": 276,
+          "storage_rescan": 221
+        },
+        "manifest_tokens": 2213,
+        "mean_tokens_per_tool": 201.2,
+        "reference_context": 16384,
+        "tool_count": 11
+      },
+      "maximum": 16384,
+      "pct": 86.5,
+      "unit": "tokens",
+      "value": 14171
+    },
+    "parameter_documentation_coverage": {
+      "detail": {
+        "undocumented_by_tool": {}
+      },
+      "maximum": 32,
+      "pct": 100.0,
+      "unit": "parameters",
+      "value": 32
+    },
+    "per_tool_token_discipline": {
+      "detail": {
+        "ceiling": 350,
+        "over_ceiling": {}
+      },
+      "maximum": 11,
+      "pct": 100.0,
+      "unit": "tools",
+      "value": 11
+    },
+    "read_only_manifest_saving": {
+      "detail": {
+        "full_manifest_tokens": 2213,
+        "full_tool_count": 11,
+        "gated_manifest_tokens": 1239,
+        "gated_tool_count": 7,
+        "withheld_tools": [
+          "storage_iscsi_add_target",
+          "storage_iscsi_enable",
+          "storage_iscsi_remove_target",
+          "storage_rescan"
+        ]
+      },
+      "maximum": 2213,
+      "pct": 44.0,
+      "unit": "tokens",
+      "value": 974
+    },
+    "read_write_marker_coverage": {
+      "detail": {
+        "unmarked": []
+      },
+      "maximum": 11,
+      "pct": 100.0,
+      "unit": "points",
+      "value": 11
+    },
+    "teaching_error_rate": {
+      "detail": {},
+      "maximum": 16,
+      "pct": 18.8,
+      "unit": "messages",
+      "value": 3
+    },
+    "tool_description_quality": {
+      "detail": {
+        "per_dimension_pct": {
+          "args": 100.0,
+          "gotcha": 100.0,
+          "marker": 100.0,
+          "next_hop": 72.7,
+          "what": 100.0,
+          "when": 63.6
+        },
+        "tools_graded": 11,
+        "weakest_tools": {
+          "browse_datastore": [
+            "next_hop",
+            "when"
+          ],
+          "list_all_datastores": [
+            "next_hop",
+            "when"
+          ],
+          "list_cached_images": [],
+          "scan_datastore_images": [
+            "next_hop",
+            "when"
+          ],
+          "storage_iscsi_add_target": [],
+          "storage_iscsi_enable": [],
+          "storage_iscsi_remove_target": [],
+          "storage_rescan": [
+            "when"
+          ]
+        }
+      },
+      "maximum": 66,
+      "pct": 89.4,
+      "unit": "points",
+      "value": 59
+    },
+    "tool_failure_payload_quality": {
+      "detail": {
+        "bare_string_error_lines": [
+          254,
+          337,
+          393,
+          431
+        ],
+        "carries_hint": 7,
+        "dict_shaped": 7,
+        "error_return_sites": 11,
+        "hint_names_artifact": 10
+      },
+      "maximum": 33,
+      "pct": 72.7,
+      "unit": "checks",
+      "value": 24
+    }
+  }
+}

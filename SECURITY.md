@@ -67,7 +67,7 @@ All write operations pass through multiple safety layers:
 This project is scanned with [Bandit](https://bandit.readthedocs.io/) before every release, targeting 0 Medium+ issues:
 
 ```bash
-uvx bandit -r vmware_storage/ mcp_server/
+uvx bandit -r vmware_storage/
 ```
 
 ## Supported Versions
