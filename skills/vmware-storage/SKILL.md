@@ -154,6 +154,10 @@ The four Datastore read tools return the family list envelope — `{items, retur
 
 **Read/write split**: 7 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
+## Read-Only Mode
+
+If a write tool described above is absent from `list_tools()`, this deployment is in read-only mode: `VMWARE_READ_ONLY=true` (or `VMWARE_STORAGE_READ_ONLY`, or `read_only: true` in config.yaml) withholds all 4 write tools at start-up. That is a deliberate lockdown, not a fault — do not retry, and do not look for another tool that achieves the same change. Name the operation that is blocked and say an operator must clear the switch and restart the server. The 7 read tools are unaffected. `vmware-storage doctor` reports the current state and its source.
+
 ## CLI Quick Reference
 
 ```bash

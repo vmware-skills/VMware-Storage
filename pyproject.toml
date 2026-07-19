@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-storage"
-version = "1.8.0"
+version = "1.8.1"
 description = "VMware vSphere storage management: datastores, iSCSI, vSAN. Domain-focused MCP skill."
 readme = "README.md"
 license = "MIT"
@@ -17,7 +17,7 @@ dependencies = [
     "rich>=13.0,<15.0",
     "python-dotenv>=1.0,<2.0",
     "mcp[cli]>=1.10,<2.0",
-    "vmware-policy>=1.8.0,<2.0",
+    "vmware-policy>=1.8.1,<2.0",
 ]
 
 [dependency-groups]
