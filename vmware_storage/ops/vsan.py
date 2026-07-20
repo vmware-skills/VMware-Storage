@@ -33,7 +33,11 @@ def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterCompu
             for _obj, p in _collect(si, [vim.ClusterComputeResource], ["name"])
         ]
         raise VSANError(
-            f"Cluster '{cluster_name}' not found.{not_found_hint(cluster_name, names)}"
+            f"Cluster '{cluster_name}' not found on this target. vmware-storage has "
+            f"no cluster-listing tool — run vmware-monitor's list_all_clusters to "
+            f"get exact cluster names and copy one; vsan_health and vsan_capacity "
+            f"both need the name exactly as vCenter shows it."
+            f"{not_found_hint(cluster_name, names)}"
         )
     return cluster
 

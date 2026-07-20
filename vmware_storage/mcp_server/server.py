@@ -41,13 +41,15 @@ from vmware_storage.connection import ConnectionManager
 from vmware_storage.ops import datastore_browser
 from vmware_storage.ops.inventory import list_datastores
 from vmware_storage.ops.iscsi_config import (
+    HostNotFoundError,
+    ISCSIError,
     add_iscsi_target,
     enable_software_iscsi,
     get_iscsi_status,
     remove_iscsi_target,
     rescan_storage,
 )
-from vmware_storage.ops.vsan import get_vsan_capacity, get_vsan_health
+from vmware_storage.ops.vsan import VSANError, get_vsan_capacity, get_vsan_health
 from vmware_storage.notify.audit import AuditLogger
 
 logging.basicConfig(level=logging.INFO)
@@ -58,11 +60,44 @@ def _safe_error(exc: Exception, tool: str) -> str:
 
     Raw exception text can carry API response bodies, internal paths, or
     host:port pairs. Full traceback goes to the server log; the agent sees only
-    a control-char-stripped, length-capped message. Intentional validation
-    errors (ValueError/FileNotFoundError/KeyError/PermissionError) pass through.
+    a control-char-stripped, length-capped message.
+
+    Every exception this skill raises on purpose passes through: the builtin
+    validation errors, and the domain exceptions defined under
+    ``vmware_storage.ops``. Those domain types exist to carry a corrected next
+    step, so omitting them replaced ten of this skill's rewritten messages with
+    ``ISCSIError: operation failed.`` on the way to the agent — teaching text
+    that the CLI printed in full and the MCP surface silently threw away.
+
+    ``TimeoutError`` and ``ConnectionError`` are here for the same reason: the
+    CLI path catches ``OSError`` and prints a retry hint, and the two surfaces
+    should not disagree about what a dropped connection means.
+
+    ``OSError`` itself is here because ``config.py`` raises exactly one — the
+    missing-password error, this family's most common first-run failure, whose
+    entire remedy is the env var name it carries. Its subclasses
+    ``FileNotFoundError``, ``PermissionError``, ``TimeoutError`` and
+    ``ConnectionError`` were already allowed, so admitting the base class
+    widens exposure only to the remaining OS-level subtypes.
+
+    Anything else is reduced to its type — an unplanned exception's text was
+    written for a developer reading a traceback, not for an agent choosing what
+    to do next, and it is the one that can carry credentials.
     """
     logger.error("Tool %s failed", tool, exc_info=True)
-    if isinstance(exc, (ValueError, FileNotFoundError, KeyError, PermissionError)):
+    _passthrough = (
+        ValueError,
+        FileNotFoundError,
+        KeyError,
+        PermissionError,
+        TimeoutError,
+        ConnectionError,
+        OSError,
+        HostNotFoundError,
+        ISCSIError,
+        VSANError,
+    )
+    if isinstance(exc, _passthrough):
         return sanitize(str(exc), 300)
     return f"{type(exc).__name__}: operation failed."
 

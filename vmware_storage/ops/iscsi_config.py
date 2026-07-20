@@ -34,7 +34,9 @@ def _require_host(si: ServiceInstance, host_name: str) -> vim.HostSystem:
     host = find_host_by_name(si, host_name)
     if host is None:
         raise HostNotFoundError(
-            f"Host '{host_name}' not found."
+            f"Host '{host_name}' not found on this target. vmware-storage has no "
+            f"host-listing tool — run vmware-monitor's list_esxi_hosts to get exact "
+            f"ESXi host names (FQDN or IP, case-sensitive) and copy one."
             f"{not_found_hint(host_name, [h['name'] for h in list_hosts(si)])}"
         )
     return host
@@ -45,20 +47,34 @@ def _validate_address(address: str) -> None:
     try:
         ipaddress.ip_address(address)
     except ValueError:
-        raise ISCSIError(f"Invalid IP address: '{address}'") from None
+        raise ISCSIError(
+            f"Invalid IP address: '{address}'. storage_iscsi_add_target and "
+            "storage_iscsi_remove_target need an IPv4 or IPv6 literal (e.g. "
+            "10.0.0.5 or fd00::5), not a hostname — resolve the portal name to an "
+            "address and pass that."
+        ) from None
 
 
 def _validate_port(port: int) -> None:
     """Validate port range."""
     if not (1 <= port <= 65535):
-        raise ISCSIError(f"Port must be 1-65535, got {port}")
+        raise ISCSIError(
+            f"Port must be 1-65535, got {port}. Pass the iSCSI portal's TCP port to "
+            "storage_iscsi_add_target / storage_iscsi_remove_target, or omit the "
+            "port argument to use the default 3260."
+        )
 
 
 def _get_storage_system(host: vim.HostSystem) -> vim.host.StorageSystem:
     """Get the host storage system manager."""
     ss = host.configManager.storageSystem
     if ss is None:
-        raise ISCSIError(f"Storage system not available on host '{host.name}'")
+        raise ISCSIError(
+            f"Storage system manager not available on host '{host.name}' — the host "
+            "is most likely disconnected, not responding, or in maintenance mode. "
+            "Check its connection state with vmware-monitor's list_esxi_hosts, "
+            "reconnect it in vCenter, then retry."
+        )
     return ss
 
 
@@ -179,8 +195,9 @@ def add_iscsi_target(
     hba = _get_iscsi_hba(host)
     if hba is None:
         raise ISCSIError(
-            f"Software iSCSI is not enabled on host '{host_name}'. "
-            "Enable it first with: vmware-storage iscsi enable"
+            f"Software iSCSI is not enabled on host '{host_name}'. Run "
+            f"storage_iscsi_enable (CLI: vmware-storage iscsi enable {host_name}) "
+            "first, then retry adding the target."
         )
 
     if hba.configuredSendTarget:
@@ -214,7 +231,12 @@ def remove_iscsi_target(
     host = _require_host(si, host_name)
     hba = _get_iscsi_hba(host)
     if hba is None:
-        raise ISCSIError(f"Software iSCSI is not enabled on host '{host_name}'.")
+        raise ISCSIError(
+            f"Software iSCSI is not enabled on host '{host_name}', so it has no send "
+            "targets to remove. Run storage_iscsi_status to confirm the adapter "
+            "state; if you meant a different host, run vmware-monitor's "
+            "list_esxi_hosts to get exact names."
+        )
 
     found = False
     if hba.configuredSendTarget:
@@ -223,7 +245,11 @@ def remove_iscsi_target(
                 found = True
                 break
     if not found:
-        raise ISCSIError(f"iSCSI target {address}:{port} not found on host '{host_name}'.")
+        raise ISCSIError(
+            f"iSCSI target {address}:{port} not found on host '{host_name}'. Run "
+            "storage_iscsi_status to see the send targets actually configured and "
+            "copy an exact address:port pair."
+        )
 
     storage_system = _get_storage_system(host)
     target = vim.host.InternetScsiHba.SendTarget(address=address, port=port)

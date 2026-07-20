@@ -49,7 +49,9 @@ def _validate_ds_path(path: str) -> None:
     """
     if ".." in path or path.startswith(("/", "\\")) or "\x00" in path:
         raise ValueError(
-            f"Invalid datastore path {path!r}: no '..', absolute paths, or null bytes"
+            f"Invalid datastore path {path!r}: no '..', absolute paths, or null bytes. "
+            "Pass browse_datastore a datastore-relative sub-path such as 'templates' "
+            "or 'iso/linux', or '' to browse the datastore root."
         )
 
 
@@ -67,15 +69,20 @@ def _wait_for_task(task, timeout: int = 300) -> object:
         if time.time() - start > timeout:
             raise TimeoutError(
                 f"Datastore browse did not finish within {timeout}s — the datastore "
-                "is very large or busy. Narrow the search with a sub-path and a "
-                "specific pattern (e.g. path='templates', pattern='*.ova') instead "
-                "of browsing the root; do not just retry the same broad browse."
+                "is very large or busy. Re-run browse_datastore (or "
+                "scan_datastore_images) with a narrower sub-path and a specific "
+                "pattern (e.g. path='templates', pattern='*.ova') instead of "
+                "browsing the root; do not just retry the same broad browse."
             )
         time.sleep(1)
     if task.info.state == vim.TaskInfo.State.success:
         return task.info.result
     error_msg = str(task.info.error.msg) if task.info.error else "Unknown error"
-    raise RuntimeError(f"Datastore browse failed: {error_msg}")
+    raise RuntimeError(
+        f"Datastore browse failed: {error_msg}. Check the datastore is reachable "
+        "with list_all_datastores (accessible must be true), then re-run "
+        "browse_datastore with a narrower path and pattern."
+    )
 
 
 def browse_datastore(
@@ -101,7 +108,9 @@ def browse_datastore(
     ds = find_datastore_by_name(si, ds_name)
     if ds is None:
         raise ValueError(
-            f"Datastore '{ds_name}' not found."
+            f"Datastore '{ds_name}' not found on this target. Run list_all_datastores "
+            f"to see every datastore name and copy an exact one — names are "
+            f"case-sensitive."
             f"{_not_found_hint(ds_name, [d['name'] for d in list_datastores(si)['items']])}"
         )
 

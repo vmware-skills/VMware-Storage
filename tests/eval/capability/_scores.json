@@ -58,92 +58,20 @@
     },
     "error_actionability": {
       "detail": {
-        "dead_end_count": 9,
-        "dead_end_errors": [
-          {
-            "message": "Datastore browse failed: {}",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "datastore_browser.py:78"
-          },
-          {
-            "message": "Invalid datastore path {}: no '..', absolute paths, or null bytes",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "datastore_browser.py:51"
-          },
-          {
-            "message": "Datastore '{}' not found.{}",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "datastore_browser.py:103"
-          },
-          {
-            "message": "Host '{}' not found.{}",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "iscsi_config.py:36"
-          },
-          {
-            "message": "Storage system not available on host '{}'",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "iscsi_config.py:61"
-          },
-          {
-            "message": "Software iSCSI is not enabled on host '{}'.",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "iscsi_config.py:217"
-          },
-          {
-            "message": "iSCSI target {}:{} not found on host '{}'.",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "iscsi_config.py:226"
-          },
-          {
-            "message": "Invalid IP address: '{}'",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "iscsi_config.py:48"
-          },
-          {
-            "message": "Cluster '{}' not found.{}",
-            "missing": [
-              "names_artifact",
-              "states_remedy"
-            ],
-            "where": "vsan.py:35"
-          }
-        ],
+        "composed_hint_sites": [],
+        "dead_end_count": 0,
+        "dead_end_errors": [],
         "per_dimension_pct": {
-          "names_artifact": 25.0,
-          "names_input": 93.8,
-          "states_remedy": 37.5
+          "names_artifact": 100.0,
+          "names_input": 100.0,
+          "states_remedy": 100.0
         },
         "raise_sites": 16
       },
       "maximum": 48,
-      "pct": 52.1,
+      "pct": 100.0,
       "unit": "points",
-      "value": 25
+      "value": 48
     },
     "manifest_context_headroom": {
       "detail": {
@@ -210,12 +138,34 @@
       "unit": "points",
       "value": 11
     },
+    "remedy_survives_truncation": {
+      "detail": {
+        "budget_chars": 300,
+        "over_budget": [],
+        "remedy_after_interpolation": [
+          "config.py:238",
+          "config.py:165",
+          "config.py:225",
+          "datastore_browser.py:81",
+          "datastore_browser.py:51",
+          "datastore_browser.py:70",
+          "iscsi_config.py:61",
+          "iscsi_config.py:72",
+          "iscsi_config.py:197",
+          "iscsi_config.py:234"
+        ]
+      },
+      "maximum": 16,
+      "pct": 100.0,
+      "unit": "messages",
+      "value": 16
+    },
     "teaching_error_rate": {
       "detail": {},
       "maximum": 16,
-      "pct": 18.8,
+      "pct": 100.0,
       "unit": "messages",
-      "value": 3
+      "value": 16
     },
     "tool_description_quality": {
       "detail": {
@@ -258,10 +208,10 @@
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          254,
-          337,
-          393,
-          431
+          289,
+          372,
+          428,
+          466
         ],
         "carries_hint": 7,
         "dict_shaped": 7,

@@ -163,7 +163,10 @@ class TargetConfig:
         pw = os.environ.get(env_key, "")
         if not pw:
             raise OSError(
-                f"Password not found. Set environment variable: {env_key}"
+                f"Password not found for target '{self.name}'. Set environment "
+                f"variable {env_key} — export it, or add a {env_key}=<password> line "
+                f"to {ENV_FILE} (loaded automatically, chmod 600). Then run "
+                f"'vmware-storage doctor' to verify."
             )
         return _decode_secret(pw)
 
@@ -194,8 +197,13 @@ class AppConfig:
         for t in self.targets:
             if t.name == name:
                 return t
-        available = ", ".join(t.name for t in self.targets)
-        raise KeyError(f"Target '{name}' not found. Available: {available}")
+        available = ", ".join(t.name for t in self.targets) or "(none configured)"
+        raise KeyError(
+            f"Target '{name}' not found in config.yaml. Pass --target with one of "
+            f"the names below, or add a targets: entry to config.yaml (see "
+            f"config.example.yaml) and re-run 'vmware-storage doctor'. "
+            f"Available: {available}"
+        )
 
     def environment_for(self, name: str | None) -> str:
         """Return the environment declared by ``name``, or by the default target.
@@ -214,7 +222,12 @@ class AppConfig:
     @property
     def default_target(self) -> TargetConfig:
         if not self.targets:
-            raise ValueError("No targets configured. Check config.yaml")
+            raise ValueError(
+                f"No targets configured. Run 'vmware-storage init' to create one "
+                f"interactively, or add a targets: entry to config.yaml (default "
+                f"{CONFIG_FILE}, overridden by VMWARE_STORAGE_CONFIG; see "
+                f"config.example.yaml)."
+            )
         return self.targets[0]
 
 
@@ -224,7 +237,8 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     if not path.exists():
         raise FileNotFoundError(
             f"Config file not found: {path}\n"
-            f"Copy config.example.yaml to {CONFIG_FILE} and edit it."
+            f"Run 'vmware-storage init' to create it interactively, or copy "
+            f"config.example.yaml to {CONFIG_FILE} and edit it."
         )
 
     with open(path) as f:
