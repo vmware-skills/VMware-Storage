@@ -11,6 +11,7 @@
         "reachable_on_surface": 2,
         "reachable_only_via_description": 7,
         "required_entity_params": 9,
+        "required_params_classified": "9/11",
         "tool_count": 11
       },
       "maximum": 9,
@@ -37,6 +38,7 @@
         "reachable_on_surface": 2,
         "reachable_only_via_description": 2,
         "required_entity_params": 5,
+        "required_params_classified": "5/5",
         "tool_count": 7
       },
       "maximum": 5,

@@ -327,13 +327,12 @@ def _error_returns_in_server():
     # Walk every module in the server package, not just server.py: skills split
     # their error wrapping across helpers (`_shared.py`, `tools/*.py`), and a
     # scan of one file would silently miss those sites — reporting a clean
-    # score for a surface it never looked at. vmware-aiops found zero sites
-    # that way while having 49 tools.
+    # score for a surface it never looked at.
     handlers = []
-    for src in sorted(server_dir.rglob("*.py")):
-        if "__pycache__" in src.parts:
+    for source in sorted(server_dir.rglob("*.py")):
+        if "__pycache__" in source.parts:
             continue
-        tree = ast.parse(src.read_text(encoding="utf-8", errors="replace"))
+        tree = ast.parse(source.read_text(encoding="utf-8", errors="replace"))
         # Module-level string constants of this file, so a hint hoisted into a
         # constant resolves in the file that defines it.
         consts = {}
