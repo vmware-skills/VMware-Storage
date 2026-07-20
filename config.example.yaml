@@ -2,6 +2,11 @@ targets:
   - name: my-vcenter
     host: vcenter.example.com
     username: administrator@vsphere.local
+    # Set password via env: export VMWARE_MY_VCENTER_PASSWORD=xxx
+    # The username above can also come from the environment:
+    #   export VMWARE_MY_VCENTER_USERNAME=svc-account@vsphere.local
+    # Set both when a secret store supplies the pair — they resolve together,
+    # so rotating one without the other cannot happen.
     type: vcenter
     port: 443
     # Declare which environment this target is (production / staging / lab).
