@@ -24,6 +24,7 @@ License: MIT
 
 import logging
 import os
+import ssl
 from pathlib import Path
 from typing import Any, Optional
 
@@ -31,14 +32,16 @@ from mcp.server.fastmcp import FastMCP
 from vmware_policy import (
     apply_read_only_gate,
     mtime_cached_loader,
+    report_tool_failure,
     sanitize,
     set_environment_resolver,
     vmware_tool,
 )
 
-from vmware_storage.config import CONFIG_FILE, load_config
+from vmware_storage.config import CONFIG_FILE, ConfigError, load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.ops import datastore_browser
+from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.inventory import list_datastores
 from vmware_storage.ops.iscsi_config import (
     HostNotFoundError,
@@ -73,18 +76,30 @@ def _safe_error(exc: Exception, tool: str) -> str:
     CLI path catches ``OSError`` and prints a retry hint, and the two surfaces
     should not disagree about what a dropped connection means.
 
-    ``OSError`` itself is here because ``config.py`` raises exactly one — the
+    The one configuration error this skill raises on purpose — the
     missing-password error, this family's most common first-run failure, whose
-    entire remedy is the env var name it carries. Its subclasses
-    ``FileNotFoundError``, ``PermissionError``, ``TimeoutError`` and
-    ``ConnectionError`` were already allowed, so admitting the base class
-    widens exposure only to the remaining OS-level subtypes.
+    entire remedy is the env var name it carries — passes through as the narrow
+    ``ConfigError``. Bare ``OSError`` was briefly listed here for it and was too
+    wide a door: ``sanitize`` strips control characters and truncates, it does
+    not redact, so ``ssl.SSLCertVerificationError`` (certificate subject and
+    hostname), ``socket.gaierror`` (the name that failed to resolve) and
+    ``requests``-style connection errors (full scheme://host:port/path) all
+    reached the agent verbatim through it. Only the narrow ``OSError``
+    subclasses that were allowed before it remain.
 
     Anything else is reduced to its type — an unplanned exception's text was
     written for a developer reading a traceback, not for an agent choosing what
     to do next, and it is the one that can carry credentials.
     """
     logger.error("Tool %s failed", tool, exc_info=True)
+    # Checked ahead of the allowlist: ssl.SSLCertVerificationError inherits from
+    # ValueError as well as OSError, so it matches the ValueError entry — which
+    # predates the OSError one — and narrowing the OSError side does not keep it
+    # out. Its text quotes the certificate subject and the host. Self-signed
+    # certs are this family's most common connection problem, and the operator
+    # reads the remedy for them from the CLI, which catches ssl.SSLError itself.
+    if isinstance(exc, ssl.SSLError):
+        return f"{type(exc).__name__}: operation failed."
     _passthrough = (
         ValueError,
         FileNotFoundError,
@@ -92,7 +107,8 @@ def _safe_error(exc: Exception, tool: str) -> str:
         PermissionError,
         TimeoutError,
         ConnectionError,
-        OSError,
+        ConfigError,
+        DatastoreBrowseError,
         HostNotFoundError,
         ISCSIError,
         VSANError,
@@ -100,6 +116,28 @@ def _safe_error(exc: Exception, tool: str) -> str:
     if isinstance(exc, _passthrough):
         return sanitize(str(exc), 300)
     return f"{type(exc).__name__}: operation failed."
+
+
+def _error_reply(exc: Exception, tool: str) -> str:
+    """Agent-safe error string for a write tool, recorded as a *failed* call.
+
+    The four write tools return their result as a string, so their ``except``
+    block swallows the exception and the ``@vmware_tool`` wrapper above sees an
+    ordinary return. Left alone it records the failed operation as ``ok``,
+    writes an undo token for a change that never landed (vmware-pilot would
+    then offer to reverse it), and reports success to the circuit breaker, so
+    repeated failures never trip it. ``report_tool_failure`` is what tells it
+    otherwise.
+
+    The read tools need no equivalent: they return the ``{"error": ...}``
+    envelope, which vmware-policy detects on its own.
+
+    Must be called from the tool body — that is inside the ``@vmware_tool``
+    wrapper's dynamic extent, which is where the signal is read.
+    """
+    msg = _safe_error(exc, tool)
+    report_tool_failure(msg)
+    return f"Error: {msg} Run 'vmware-storage doctor' to verify connectivity."
 
 
 mcp = FastMCP("VMware Storage")
@@ -292,7 +330,7 @@ def storage_iscsi_enable(
         return result
     except Exception as e:
         logger.error("storage_iscsi_enable failed: %s", e)
-        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
+        return _error_reply(e, "storage")
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -374,7 +412,7 @@ def storage_iscsi_add_target(
         return result
     except Exception as e:
         logger.error("storage_iscsi_add_target failed: %s", e)
-        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
+        return _error_reply(e, "storage")
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
@@ -429,7 +467,7 @@ def storage_iscsi_remove_target(
         return result
     except Exception as e:
         logger.error("storage_iscsi_remove_target failed: %s", e)
-        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
+        return _error_reply(e, "storage")
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
@@ -466,7 +504,7 @@ def storage_rescan(
         return result
     except Exception as e:
         logger.error("storage_rescan failed: %s", e)
-        return f"Error: {_safe_error(e, 'storage')} Run 'vmware-storage doctor' to verify connectivity."
+        return _error_reply(e, "storage")
 
 
 # ---------------------------------------------------------------------------

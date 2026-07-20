@@ -32,11 +32,15 @@ def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterCompu
             sanitize(p.get("name", ""))
             for _obj, p in _collect(si, [vim.ClusterComputeResource], ["name"])
         ]
+        # Same density as the host twin in ops/iscsi_config.py. The dropped
+        # clause restated case-sensitivity in 78 characters, which pushed the
+        # message past the MCP layer's 300-char sanitize cap as soon as
+        # not_found_hint appended its "Did you mean 'x'?" — cutting off the one
+        # part of the message that names the correct cluster.
         raise VSANError(
             f"Cluster '{cluster_name}' not found on this target. vmware-storage has "
-            f"no cluster-listing tool — run vmware-monitor's list_all_clusters to "
-            f"get exact cluster names and copy one; vsan_health and vsan_capacity "
-            f"both need the name exactly as vCenter shows it."
+            f"no cluster-listing tool — run vmware-monitor's list_all_clusters to get "
+            f"exact cluster names (case-sensitive) and copy one."
             f"{not_found_hint(cluster_name, names)}"
         )
     return cluster

@@ -40,6 +40,18 @@ IMAGE_REGISTRY_FILE = CONFIG_DIR / "image_registry.json"
 IMAGE_PATTERNS = ("*.ova", "*.ovf", "*.iso", "*.vmdk")
 
 
+class DatastoreBrowseError(Exception):
+    """Raised when a datastore browse task fails.
+
+    A domain type for the same reason as ``ISCSIError`` and ``VSANError``: the
+    message carries the corrected next step, and ``_safe_error`` only lets a
+    message through when it recognises the exception. This was a ``RuntimeError``
+    — deliberately off that allowlist, since an unplanned exception's text is
+    what can carry credentials — so the remedy written here reached the CLI and
+    was replaced by ``RuntimeError: operation failed.`` on the way to an agent.
+    """
+
+
 def _validate_ds_path(path: str) -> None:
     """Reject traversal/injection in a datastore-relative browse path.
 
@@ -78,10 +90,14 @@ def _wait_for_task(task, timeout: int = 300) -> object:
     if task.info.state == vim.TaskInfo.State.success:
         return task.info.result
     error_msg = str(task.info.error.msg) if task.info.error else "Unknown error"
-    raise RuntimeError(
-        f"Datastore browse failed: {error_msg}. Check the datastore is reachable "
-        "with list_all_datastores (accessible must be true), then re-run "
-        "browse_datastore with a narrower path and pattern."
+    # Cap the vCenter fault text: it is unbounded, and the remedy that follows
+    # it has to survive the MCP layer's 300-char sanitize truncation. 120 keeps
+    # the whole message at 294 in the worst case (same cap as the vmware-aiops
+    # twin of this message).
+    raise DatastoreBrowseError(
+        f"Datastore browse failed: {error_msg[:120]}. Check the datastore is "
+        "reachable with list_all_datastores (accessible must be true), then "
+        "re-run browse_datastore with a narrower path and pattern."
     )
 
 

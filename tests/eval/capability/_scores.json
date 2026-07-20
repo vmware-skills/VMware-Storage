@@ -1,5 +1,5 @@
 {
-  "_comment": "Capability eval scores. Regenerate with: pytest -m capability. These are tracked trends, not pass/fail gates \u2014 see _scoring.py.",
+  "_comment": "Capability eval scores. Regenerate with: pytest -m capability. These are tracked trends, not pass/fail gates \u2014 see _scoring.py. Entries marked stale=true were carried over from an earlier run because this run did not measure them.",
   "scores": {
     "entity_reachability_full": {
       "detail": {
@@ -134,12 +134,12 @@
         "budget_chars": 300,
         "over_budget": [],
         "remedy_after_interpolation": [
-          "config.py:238",
-          "config.py:165",
-          "config.py:225",
-          "datastore_browser.py:81",
-          "datastore_browser.py:51",
-          "datastore_browser.py:70",
+          "config.py:253",
+          "config.py:180",
+          "config.py:240",
+          "datastore_browser.py:97",
+          "datastore_browser.py:63",
+          "datastore_browser.py:82",
           "iscsi_config.py:61",
           "iscsi_config.py:72",
           "iscsi_config.py:197",
@@ -188,10 +188,10 @@
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          295,
-          377,
-          432,
-          469
+          333,
+          415,
+          470,
+          507
         ],
         "carries_hint": 7,
         "dict_shaped": 7,

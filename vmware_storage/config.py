@@ -120,6 +120,16 @@ def _check_env_permissions() -> None:
 _check_env_permissions()
 
 
+class ConfigError(OSError):
+    """A configuration problem the operator can fix, safe to show an agent.
+
+    Subclasses ``OSError`` so the CLI paths that already catch ``OSError`` keep
+    working. The point of the narrow type is the MCP path: ``_safe_error``
+    passes this through verbatim, and passing through bare ``OSError`` also
+    passed through TLS, DNS and socket errors carrying hostnames and URLs.
+    """
+
+
 @dataclass(frozen=True)
 class TargetConfig:
     """A vCenter or ESXi connection target."""
@@ -162,10 +172,15 @@ class TargetConfig:
         env_key = f"VMWARE_{self.name.upper().replace('-', '_')}_PASSWORD"
         pw = os.environ.get(env_key, "")
         if not pw:
-            raise OSError(
-                f"Password not found for target '{self.name}'. Set environment "
-                f"variable {env_key} — export it, or add a {env_key}=<password> line "
-                f"to {ENV_FILE} (loaded automatically, chmod 600). Then run "
+            # The env var name is spelled once, not twice: it embeds the target
+            # name, so naming it twice made the message grow at three characters
+            # per character of target name and cross the MCP layer's 300-char
+            # sanitize cap at a 19-character name — cutting off the closing
+            # 'run doctor' step, which is the part that confirms the fix worked.
+            raise ConfigError(
+                f"Password not found for target '{self.name}'. Export "
+                f"{env_key}=<password>, or add that line to {ENV_FILE} "
+                f"(loaded automatically, chmod 600). Then run "
                 f"'vmware-storage doctor' to verify."
             )
         return _decode_secret(pw)

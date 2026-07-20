@@ -15,6 +15,7 @@ from rich.table import Table
 from vmware_storage.config import load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
+from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.iscsi_config import HostNotFoundError, ISCSIError
 from vmware_storage.ops.vsan import VSANError
 
@@ -35,6 +36,7 @@ _audit = AuditLogger()
 # Expected operational failures: print a red teaching line, exit 1 — never a
 # raw traceback (the message itself already carries the remediation hint).
 _EXPECTED_ERRORS = (
+    DatastoreBrowseError,
     HostNotFoundError,
     ISCSIError,
     VSANError,
