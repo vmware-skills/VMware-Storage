@@ -148,9 +148,12 @@ def _get_connection(target: Optional[str] = None):
 def list_all_datastores(target: Optional[str] = None) -> dict:
     """[READ] List all datastores with capacity, usage percentage, and accessibility.
 
+    Use this first for the ds_name that browse_datastore and
+    scan_datastore_images require.
+
     Returns the list envelope: 'items' holds one row per datastore, and
     'returned'/'total'/'truncated' state whether the listing is complete.
-    Every datastore is enumerated in one pass, so truncated is always false.
+    Enumerated in one pass, so truncated is always false.
 
     Args:
         target: Optional vCenter/ESXi target name from config.
@@ -173,10 +176,12 @@ def browse_datastore(
 ) -> dict:
     """[READ] Browse files in a datastore directory.
 
+    Use this for arbitrary files or a glob; prefer scan_datastore_images for
+    deployable images. ds_name comes from list_all_datastores.
+
     Returns the list envelope: 'items' holds one row per file, and
     'returned'/'total'/'truncated' state whether the listing is complete.
-    Every match in the searched folders is returned, so truncated is
-    always false.
+    All matches are returned, so truncated is always false.
 
     Args:
         ds_name: Datastore name.
@@ -201,9 +206,12 @@ def scan_datastore_images(
 ) -> dict:
     """[READ] Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
 
+    Use this for a live scan of one datastore; prefer list_cached_images for
+    a cached answer. ds_name comes from list_all_datastores.
+
     Returns the list envelope: 'items' holds one row per image, and
     'returned'/'total'/'truncated' state whether the listing is complete.
-    Every image pattern is browsed in full, so truncated is always false.
+    All patterns are browsed, so truncated is always false.
 
     Args:
         ds_name: Datastore name.
@@ -227,13 +235,12 @@ def list_cached_images(
     """[READ] List deployable images (OVA/OVF/ISO/VMDK) from the local cache registry — instant, no vCenter connection or datastore I/O.
 
     Reads ~/.vmware-storage/image_registry.json, populated by prior datastore
-    scans; results may be stale or empty if no scan has run. For a live,
-    authoritative listing of one datastore use scan_datastore_images instead.
+    scans; results may be stale or empty if no scan has run. For a live
+    listing use scan_datastore_images instead.
     Returns the list envelope: 'items' holds {datastore, name, ds_path,
     size_mb, type, modified} and is empty if nothing matches, while
     'returned'/'total'/'truncated' state whether the listing is complete. The
-    whole registry is filtered in memory, so truncated is always false. No
-    side effects.
+    whole registry is filtered in memory, so truncated is always false.
 
     Args:
         image_type: Filter by file extension without the dot, e.g. "ova",
@@ -273,8 +280,7 @@ def storage_iscsi_enable(
         host_name: ESXi host name exactly as shown in vCenter inventory
             (FQDN or IP). Errors if not found.
         dry_run: If true, return a preview of the change without executing it.
-        target: Optional vCenter/ESXi target name from config; omit to use
-            the default target.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         if dry_run:
@@ -299,15 +305,15 @@ def storage_iscsi_status(
 
     Returns {host, enabled, hba_device, iqn, send_targets: [{address, port}]};
     when the adapter is disabled, enabled=false with null device/IQN and an
-    empty target list. No side effects. Use this before storage_iscsi_enable /
+    empty target list. Use this before storage_iscsi_enable /
     storage_iscsi_add_target / storage_iscsi_remove_target to check
     prerequisites, and afterwards to verify the change took effect.
 
     Args:
         host_name: ESXi host name exactly as shown in vCenter inventory
-            (FQDN or IP). Errors if not found.
-        target: Optional vCenter/ESXi target name from config; omit to use
-            the default target.
+            (FQDN or IP). Errors if not found. No host listing here — get
+            names from vmware-monitor list_esxi_hosts.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         si = _get_connection(target)
@@ -353,8 +359,7 @@ def storage_iscsi_add_target(
             rejected with a validation error).
         port: iSCSI TCP port, 1-65535 (default 3260).
         dry_run: If true, return a preview of the change without executing it.
-        target: Optional vCenter/ESXi target name from config; omit for the
-            default target.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         if dry_run:
@@ -409,8 +414,7 @@ def storage_iscsi_remove_target(
             rejected). Must match the existing entry exactly.
         port: Configured iSCSI TCP port, 1-65535 (default 3260).
         dry_run: If true, return a preview of the change without executing it.
-        target: Optional vCenter/ESXi target name from config; omit for the
-            default target.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         if dry_run:
@@ -437,7 +441,7 @@ def storage_rescan(
 ) -> str:
     """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host to discover newly presented LUNs and datastores.
 
-    Use after a storage array presents new LUNs or after out-of-band SAN
+    Use this when a storage array presents new LUNs, or after out-of-band SAN
     changes. Not needed after storage_iscsi_add_target /
     storage_iscsi_remove_target — those rescan automatically. Non-destructive:
     only triggers device and VMFS discovery (deletes nothing), but it is
@@ -449,8 +453,7 @@ def storage_rescan(
         host_name: ESXi host name as shown in vCenter inventory (FQDN or IP).
             Errors if not found.
         dry_run: If true, return a preview of the change without executing it.
-        target: Optional vCenter/ESXi target name from config; omit for the
-            default target.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         if dry_run:
@@ -490,8 +493,7 @@ def vsan_health(
     Args:
         cluster_name: Cluster name exactly as shown in vCenter. Errors if the
             cluster is not found.
-        target: Optional vCenter/ESXi target name from config; omit to use
-            the default target.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         si = _get_connection(target)
@@ -519,8 +521,7 @@ def vsan_capacity(
     Args:
         cluster_name: Cluster name exactly as shown in vCenter. Errors if the
             cluster is not found.
-        target: Optional vCenter/ESXi target name from config; omit to use
-            the default target.
+        target: Optional vCenter/ESXi target name from config.
     """
     try:
         si = _get_connection(target)

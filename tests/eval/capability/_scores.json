@@ -21,30 +21,21 @@
     },
     "entity_reachability_read_only": {
       "detail": {
-        "broken_chains": [
-          {
-            "companion_skill_named": [],
-            "entity": "host",
-            "param": "host_name",
-            "producer_on_surface": [],
-            "routed_in_description": [],
-            "tool": "storage_iscsi_status"
-          }
-        ],
+        "broken_chains": [],
         "entry_points": [
           "list_all_datastores",
           "list_cached_images"
         ],
         "reachable_on_surface": 2,
-        "reachable_only_via_description": 2,
+        "reachable_only_via_description": 3,
         "required_entity_params": 5,
         "required_params_classified": "5/5",
         "tool_count": 7
       },
       "maximum": 5,
-      "pct": 80.0,
+      "pct": 100.0,
       "unit": "required entity params",
-      "value": 4
+      "value": 5
     },
     "entry_point_availability": {
       "detail": {
@@ -76,21 +67,21 @@
     "manifest_context_headroom": {
       "detail": {
         "heaviest_tools": {
-          "list_cached_images": 234,
-          "storage_iscsi_add_target": 269,
-          "storage_iscsi_enable": 208,
-          "storage_iscsi_remove_target": 276,
-          "storage_rescan": 221
+          "browse_datastore": 215,
+          "list_cached_images": 227,
+          "storage_iscsi_add_target": 264,
+          "storage_iscsi_remove_target": 272,
+          "storage_rescan": 218
         },
-        "manifest_tokens": 2213,
-        "mean_tokens_per_tool": 201.2,
+        "manifest_tokens": 2214,
+        "mean_tokens_per_tool": 201.3,
         "reference_context": 16384,
         "tool_count": 11
       },
       "maximum": 16384,
       "pct": 86.5,
       "unit": "tokens",
-      "value": 14171
+      "value": 14170
     },
     "parameter_documentation_coverage": {
       "detail": {
@@ -113,9 +104,9 @@
     },
     "read_only_manifest_saving": {
       "detail": {
-        "full_manifest_tokens": 2213,
+        "full_manifest_tokens": 2214,
         "full_tool_count": 11,
-        "gated_manifest_tokens": 1239,
+        "gated_manifest_tokens": 1257,
         "gated_tool_count": 7,
         "withheld_tools": [
           "storage_iscsi_add_target",
@@ -124,10 +115,10 @@
           "storage_rescan"
         ]
       },
-      "maximum": 2213,
-      "pct": 44.0,
+      "maximum": 2214,
+      "pct": 43.2,
       "unit": "tokens",
-      "value": 974
+      "value": 957
     },
     "read_write_marker_coverage": {
       "detail": {
@@ -173,45 +164,34 @@
           "args": 100.0,
           "gotcha": 100.0,
           "marker": 100.0,
-          "next_hop": 72.7,
+          "next_hop": 100.0,
           "what": 100.0,
-          "when": 63.6
+          "when": 100.0
         },
         "tools_graded": 11,
         "weakest_tools": {
-          "browse_datastore": [
-            "next_hop",
-            "when"
-          ],
-          "list_all_datastores": [
-            "next_hop",
-            "when"
-          ],
+          "browse_datastore": [],
+          "list_all_datastores": [],
           "list_cached_images": [],
-          "scan_datastore_images": [
-            "next_hop",
-            "when"
-          ],
+          "scan_datastore_images": [],
           "storage_iscsi_add_target": [],
           "storage_iscsi_enable": [],
           "storage_iscsi_remove_target": [],
-          "storage_rescan": [
-            "when"
-          ]
+          "storage_iscsi_status": []
         }
       },
       "maximum": 66,
-      "pct": 89.4,
+      "pct": 100.0,
       "unit": "points",
-      "value": 59
+      "value": 66
     },
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          289,
-          372,
-          428,
-          466
+          295,
+          377,
+          432,
+          469
         ],
         "carries_hint": 7,
         "dict_shaped": 7,
