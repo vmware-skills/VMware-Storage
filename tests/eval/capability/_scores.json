@@ -264,12 +264,12 @@
         "carries_hint": 7,
         "dict_shaped": 7,
         "error_return_sites": 11,
-        "hint_names_artifact": 10
+        "hint_names_artifact": 11
       },
       "maximum": 33,
-      "pct": 72.7,
+      "pct": 75.8,
       "unit": "checks",
-      "value": 24
+      "value": 25
     }
   }
 }
