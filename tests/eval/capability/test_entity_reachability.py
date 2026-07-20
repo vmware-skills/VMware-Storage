@@ -58,7 +58,8 @@ from __future__ import annotations
 import pytest
 
 from ._scoring import Score
-from ._skill import COMPANION_SKILLS
+from ._skill import COMPANION_SKILLS, ENTITY_WORDS
+from ._skill import NOT_AN_ENTITY as SKILL_NOT_AN_ENTITY
 
 pytestmark = pytest.mark.capability
 
@@ -66,7 +67,11 @@ pytestmark = pytest.mark.capability
 #: ``target`` is excluded: it comes from the operator's own config.yaml, not from
 #: an API listing, and every description already points at config.
 ENTITY_SUFFIXES = ("_name", "_id", "_uuid", "_key")
-NOT_AN_ENTITY = frozenset(
+
+#: Exclusions true for every skill: these end in an entity suffix but are not
+#: things a model discovers from an API. ``target`` comes from the operator's own
+#: config.yaml; the rest are paths, filters and free text.
+GENERIC_NOT_AN_ENTITY = frozenset(
     {
         "target",
         "user_name",
@@ -78,26 +83,29 @@ NOT_AN_ENTITY = frozenset(
         "path",
         "sort_by",
         "fields",
-        "folder_filter",
-        "cluster_filter",
-        "power_state",
-        "task_id",
-        "spec_name",
     }
 )
 
-#: Entity tokens we can recognise, mapped to the words a listing tool uses.
-ENTITY_WORDS = {
-    "vm": ("vm", "virtual_machine", "virtualmachine", "vms"),
-    "host": ("host", "esxi", "hosts"),
-    "datastore": ("datastore", "datastores", "ds"),
-    "cluster": ("cluster", "clusters"),
-    "network": ("network", "networks", "portgroup"),
-    "snapshot": ("snapshot", "snapshots"),
-    "image": ("image", "images", "ova", "iso", "template"),
-    "alarm": ("alarm", "alarms"),
-    "plan": ("plan", "plans"),
-}
+NOT_AN_ENTITY = GENERIC_NOT_AN_ENTITY | SKILL_NOT_AN_ENTITY
+
+#: Verbs marking a tool that *creates* the thing its parameter names. The name of
+#: an object being created is chosen by the user, not discovered from an API, so
+#: it is not a lookup and must not be scored as an unreachable one.
+CREATION_VERBS = ("create", "deploy", "provision", "register", "add")
+
+
+def _names_a_new_object(param: str, tool_name: str, entity: str) -> bool:
+    """True when ``param`` names the object ``tool_name`` is about to create.
+
+    Requires both a creation verb *and* the entity appearing in the tool's own
+    name, so ``vm_create_snapshot(snapshot_name=...)`` reads as invented while
+    ``batch_linked_clone_vms(snapshot_name=...)`` — which clones *from* an
+    existing snapshot — correctly stays a lookup.
+    """
+    low = tool_name.lower()
+    if not any(v in low for v in CREATION_VERBS):
+        return False
+    return any(w in low for w in ENTITY_WORDS.get(entity, (entity,)))
 
 
 def _entity_of(param: str, tool_name: str) -> str | None:
@@ -128,7 +136,7 @@ def _required_entity_params(tool) -> list[tuple[str, str]]:
     out = []
     for param in required:
         entity = _entity_of(param, tool.name)
-        if entity:
+        if entity and not _names_a_new_object(param, tool.name, entity):
             out.append((param, entity))
     return out
 
@@ -138,18 +146,43 @@ def _entry_points(tools) -> tuple:
     return tuple(t for t in tools if not _required_entity_params(t))
 
 
+def _enumerated_entities(tool) -> tuple[str, ...]:
+    """Entity tokens this tool plausibly enumerates, judged from its name."""
+    name = tool.name.lower()
+    if not any(k in name for k in ("list", "scan", "browse", "summary", "attention", "info")):
+        return ()
+    return tuple(e for e, words in ENTITY_WORDS.items() if any(w in name for w in words))
+
+
 def _producers(tools) -> dict[str, list[str]]:
-    """Entity token -> entry-point tools that plausibly enumerate it."""
+    """Entity token -> tools that enumerate it and are themselves reachable.
+
+    Computed to a fixpoint rather than restricted to entry points, because a
+    producer may legitimately need an input of its own: ``vm_list_snapshots``
+    requires a ``vm_name``, but once some tool supplies VM names it becomes a
+    perfectly good source of snapshot names. Requiring producers to be entry
+    points would report those second-hop chains as broken when a model can in
+    fact walk them.
+    """
     found: dict[str, list[str]] = {}
-    for tool in _entry_points(tools):
-        name = tool.name.lower()
-        enumerates = any(k in name for k in ("list", "scan", "browse", "summary", "attention"))
-        if not enumerates:
-            continue
-        for entity, words in ENTITY_WORDS.items():
-            if any(w in name for w in words):
-                found.setdefault(entity, []).append(tool.name)
-    return found
+    reachable_entities: set[str] = set()
+
+    for _ in range(len(tools) + 1):
+        grew = False
+        for tool in tools:
+            needed = {e for _p, e in _required_entity_params(tool)}
+            if not needed <= reachable_entities:
+                continue
+            for entity in _enumerated_entities(tool):
+                if tool.name not in found.setdefault(entity, []):
+                    found[entity].append(tool.name)
+                    grew = True
+                if entity not in reachable_entities:
+                    reachable_entities.add(entity)
+                    grew = True
+        if not grew:
+            break
+    return {e: names for e, names in found.items() if names}
 
 
 def _assess(tools) -> tuple[list[dict], list[dict]]:
@@ -259,3 +292,37 @@ def test_every_surface_has_an_entry_point(board, tools, gated_tools):
     )
     assert full_entries, "no tool can be called without an entity name already in hand"
     assert gated_entries, "read-only mode left no callable entry point"
+
+
+def test_entity_vocabulary_covers_the_surface(tools):
+    """The vocabulary in ``_skill.py`` must classify every entity-shaped parameter.
+
+    Without this the suite degrades silently rather than loudly. An unrecognised
+    parameter is not counted as unreachable — it is not counted at all, so a
+    skill whose entities are missing from ``ENTITY_WORDS`` scores on the handful
+    it happens to recognise and reports that as the state of the whole surface.
+    A vSphere vocabulary applied to vmware-nsx would classify one stray
+    ``cluster_name``, miss twenty segment and gateway names, and print a
+    confident number derived from 5% of the tools.
+
+    Total non-coverage already fails (nothing recognised scores 0%). Partial
+    coverage is the dangerous case, and it is the normal case when this suite is
+    copied to a new skill. So: anything ending in an entity suffix must either
+    map to an entity token or be named as a deliberate exclusion.
+    """
+    unclassified: dict[str, list[str]] = {}
+    for tool in tools:
+        for param in (tool.inputSchema or {}).get("required", []) or []:
+            low = param.lower()
+            if low in NOT_AN_ENTITY or _entity_of(param, tool.name):
+                continue
+            if low == "name" or low.endswith(ENTITY_SUFFIXES):
+                unclassified.setdefault(param, []).append(tool.name)
+
+    assert not unclassified, (
+        "these required parameters look like entities but the vocabulary does not "
+        f"classify them: {unclassified}. Add each stem to ENTITY_WORDS in _skill.py "
+        "(so reachability is scored for it), or to NOT_AN_ENTITY (if the operator "
+        "supplies it rather than discovering it). Leaving them unclassified makes "
+        "every score in this file cover less of the surface than it claims to."
+    )
