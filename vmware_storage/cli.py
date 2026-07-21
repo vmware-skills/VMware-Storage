@@ -11,6 +11,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
+from vmware_policy import PolicyDenied, guarded
 
 from vmware_storage.config import load_config
 from vmware_storage.connection import ConnectionManager
@@ -69,6 +70,13 @@ def handle_cli_errors(fn):
             return fn(*args, **kwargs)
         except typer.Exit:
             raise
+        except PolicyDenied as e:
+            # A deny rule or maintenance window refused this write — @guarded ran
+            # guard() before the body and already wrote the status="denied" audit
+            # row. Teach the operator which rule fired instead of a traceback.
+            rule = f" [dim](rule: {e.result.rule})[/]" if e.result.rule else ""
+            console.print(f"[red]Denied by policy: {e.result.reason}[/]{rule}")
+            raise typer.Exit(1) from e
         except _expected_error_types() as e:
             from pyVmomi import vim
 
@@ -211,6 +219,7 @@ app.add_typer(iscsi_app, name="iscsi")
 
 @iscsi_app.command("enable")
 @handle_cli_errors
+@guarded(risk_level='medium')
 def iscsi_enable(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
@@ -256,6 +265,7 @@ def iscsi_status(
 
 @iscsi_app.command("add-target")
 @handle_cli_errors
+@guarded(risk_level='medium')
 def iscsi_add_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -292,6 +302,7 @@ def iscsi_add_target(
 
 @iscsi_app.command("remove-target")
 @handle_cli_errors
+@guarded(risk_level='high')
 def iscsi_remove_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -328,6 +339,7 @@ def iscsi_remove_target(
 
 @iscsi_app.command("rescan")
 @handle_cli_errors
+@guarded(risk_level='medium')
 def iscsi_rescan(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
