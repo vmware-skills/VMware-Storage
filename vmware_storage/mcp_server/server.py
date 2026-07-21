@@ -30,7 +30,6 @@ from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import (
-    apply_read_only_gate,
     mtime_cached_loader,
     report_tool_failure,
     sanitize,
@@ -567,41 +566,6 @@ def vsan_capacity(
     except Exception as e:
         logger.error("vsan_capacity failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
-
-
-# ---------------------------------------------------------------------------
-# Read-only gate
-# ---------------------------------------------------------------------------
-
-
-def _config_read_only() -> Optional[bool]:
-    """Best-effort read of ``read_only`` from the config file.
-
-    Runs at import time, when no config file need exist yet (tests, ``--help``,
-    smoke checks), so every failure degrades to "not configured" and lets the
-    env vars decide. None and False are equivalent here — config is the last
-    link in the precedence chain — but None keeps 'not configured'
-    distinguishable from 'configured off' in logs and debugging.
-
-    Resolved through the same VMWARE_STORAGE_CONFIG override the connection layer
-    uses. Reading the default path instead would silently ignore settings in an
-    operator's custom config file — a control that appears configured and does
-    nothing, which is the exact failure this work exists to remove.
-    """
-    try:
-        _cfg_path = os.environ.get("VMWARE_STORAGE_CONFIG")
-        return load_config(Path(_cfg_path) if _cfg_path else None).read_only
-    except Exception:  # noqa: BLE001 — absent/unreadable config is not an error here
-        return None
-
-
-# Applied once, after every tool module above has registered. In read-only mode
-# the write tools are removed from the registry, so list_tools() never offers
-# them — the guarantee is structural rather than a prompt instruction the model
-# may ignore (VMware-AIops issue #31).
-WITHHELD_WRITE_TOOLS: list[str] = apply_read_only_gate(
-    mcp, "vmware-storage", config_flag=_config_read_only()
-)
 
 
 # ---------------------------------------------------------------------------

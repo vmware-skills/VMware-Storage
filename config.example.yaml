@@ -9,13 +9,9 @@ targets:
     # so rotating one without the other cannot happen.
     type: vcenter
     port: 443
-    # Declare which environment this target is (production / staging / lab).
-    # Policy scopes its rules by this value, so an unlabelled target matches
-    # none of them. Today a write against an undeclared target still runs and
-    # logs a warning; the next major release refuses it — declaring it now
-    # makes that upgrade a no-op. Once labelled production, irreversible work
-    # needs a named approver (VMWARE_AUDIT_APPROVED_BY). Read-only operations
-    # are never affected. Run 'vmware-audit policy' to see the rules in force.
+    # Optional label for this target. An environment-scoped 'deny' rule in
+    # ~/.vmware/rules.yaml can match on it — e.g. freeze writes on 'production'.
+    # A target with no label is simply not matched by such a rule.
     environment: production
     # verify_ssl: true is the default (v1.5.15+). Set to false ONLY for
     # self-signed certs in lab/dev — disables SSL verification.
@@ -23,14 +19,3 @@ targets:
 
 notify:
   webhook_url: ""
-
-# Read-only mode (v1.8.0). When true, all 4 write tools (storage_iscsi_enable,
-# storage_iscsi_add_target, storage_iscsi_remove_target, storage_rescan) are
-# removed from the MCP registry at startup, leaving the 7 read-only tools. The
-# model cannot call what list_tools() never shows it, so no prompt discipline is
-# required. Fail-closed: if read-only is requested but cannot be proven, the
-# server refuses to start rather than serving read-write.
-# Precedence: VMWARE_STORAGE_READ_ONLY > VMWARE_READ_ONLY > this setting > off,
-# so an MCP client's env block can lock a deployment down without editing this
-# file. Default is false.
-# read_only: true

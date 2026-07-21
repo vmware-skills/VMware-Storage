@@ -90,8 +90,6 @@ All 11 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 > Write tools require explicit parameters (host name, IP address) and support `--dry-run` in CLI mode. All write operations are audit-logged with timestamp, user, target, operation, parameters, and result.
 
-> **Read-only mode**: under `VMWARE_READ_ONLY=true` the 4 tools marked Write above are removed from the registry and never appear in `list_tools()`. Classification comes from each tool's `[READ]`/`[WRITE]` docstring marker, with anything inconclusive treated as a write. The 7 read tools are unaffected. See README.
-
 ## Connection Requirements
 
 | Requirement | Datastore Tools | iSCSI Tools | vSAN Tools |

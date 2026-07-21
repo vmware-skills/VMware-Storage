@@ -11,7 +11,7 @@ installer:
   package: vmware-storage
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_<TARGET>_PASSWORD","VMWARE_<TARGET>_USERNAME","VMWARE_READ_ONLY","VMWARE_STORAGE_READ_ONLY","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_<TARGET>_PASSWORD","VMWARE_<TARGET>_USERNAME","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/zw008/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-storage/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD (e.g., target "my-vcenter" → VMWARE_MY_VCENTER_PASSWORD). No webhooks or outbound network calls — this skill is local-only (stdio MCP + vSphere API). Audit logs written to ~/.vmware/audit.db (SQLite WAL, local only).
@@ -154,9 +154,7 @@ The four Datastore read tools return the family list envelope — `{items, retur
 
 **Read/write split**: 7 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
-## Read-Only Mode
-
-If a write tool described above is absent from `list_tools()`, this deployment is in read-only mode: `VMWARE_READ_ONLY=true` (or `VMWARE_STORAGE_READ_ONLY`, or `read_only: true` in config.yaml) withholds all 4 write tools at start-up. That is a deliberate lockdown, not a fault — do not retry, and do not look for another tool that achieves the same change. Name the operation that is blocked and say an operator must clear the switch and restart the server. The 7 read tools are unaffected. `vmware-storage doctor` reports the current state and its source. Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
+Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
 
 ## CLI Quick Reference
 
@@ -219,23 +217,6 @@ chmod 600 ~/.vmware-storage/.env
 ### Connection timeout to vCenter
 
 The `doctor` command tests connectivity with a 5-second TCP timeout. If your vCenter is on a high-latency network, the check may fail even though the connection works. Use `--skip-auth` to bypass both connectivity and auth checks, then test manually.
-
-### Warning: "ran against a target that declares no environment"
-
-Add `environment:` to that target in `~/.vmware-storage/config.yaml`:
-
-```yaml
-targets:
-  - name: my-vcenter
-    host: vcenter.example.com
-    environment: production   # production | staging | lab | <your own label>
-```
-
-Policy scopes its rules by environment, not by the target's name — an unlabelled target matches none of them. **Today** an undeclared write (`iscsi enable`, `iscsi add-target`, `iscsi remove-target`, `rescan`) still runs and logs this warning. **The next major release refuses it** with:
-
-> `'storage_iscsi_enable' changes state, but its target does not declare which environment it is. Add 'environment: <name>' (e.g. production, staging, lab) to that target's entry in the skill's config.yaml, then retry.`
-
-Declaring it now makes that upgrade a no-op. Read-only operations (`datastore list`, `browse`, `iscsi status`, `vsan health`) are never affected. Check what is in force with `vmware-audit policy`.
 
 ### `invalid peer certificate: UnknownIssuer` when starting MCP via uvx
 

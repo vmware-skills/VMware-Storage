@@ -72,24 +72,15 @@ The first target in the list is the default (used when `--target` is not specifi
 
 #### `environment` — declare which environment each target is
 
-Policy rules scope by environment ("irreversible work in production needs a
-second person"). That scoping used to be derived from the target's *name*, so
-a rule written against `production` never matched a target actually named
-`prod-vcenter` — the rules were configured and inert. The environment is now an
-explicit declaration, and an undeclared target matches no rule at all.
+`environment:` is an optional free-form label. Policy scopes its rules by this
+value, so an environment-scoped `deny` rule in `~/.vmware/rules.yaml` can match
+on it — for example, to freeze state-changing writes (`iscsi enable`,
+`iscsi add-target`, `iscsi remove-target`, `rescan`) on `production`. A target
+with no label is simply not matched by such a rule.
 
-Any label works (`production`, `staging`, `lab`, or your own). Rolled out in two
-steps:
-
-| | Undeclared target, write operation | Undeclared target, read operation |
-|---|---|---|
-| **Today** | Runs, logs a warning naming the fix | Unaffected |
-| **Next major release** | Refused with an actionable error | Unaffected |
-
-Declaring `environment:` now makes that upgrade a no-op. Labelling a target
-`production` additionally activates the two-person rule for irreversible work —
-set `VMWARE_AUDIT_APPROVED_BY` (and `VMWARE_AUDIT_RATIONALE`) when running
-those. Run `vmware-audit policy` to see the rules actually in force.
+Any label works (`production`, `staging`, `lab`, or your own); the target's
+*name* is not used for scoping. Read-only operations are never affected. Run
+`vmware-audit policy` to see the rules actually in force.
 
 ### 3. Create .env for credentials
 
@@ -236,30 +227,9 @@ Example audit entry:
 
 Read-only operations (list, browse, scan, status, health, capacity) are also logged with `operation: "query"` for complete traceability.
 
-### Read-only mode
+### Read-only access
 
-Read-only mode removes all 4 write tools (`storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan`) from the MCP registry before the server accepts a request, so `list_tools()` never offers them. The model cannot call what it cannot see — no prompt discipline required. This is a stronger control than the confirmation gate below, which still depends on a caller reaching a tool that exists. **Off by default.**
-
-Three ways to enable it, highest precedence first:
-
-| Precedence | Setting | Scope |
-|:-:|---|---|
-| 1 | `VMWARE_STORAGE_READ_ONLY=true` | This skill only |
-| 2 | `VMWARE_READ_ONLY=true` | **Every installed VMware skill** — one setting puts the whole estate in audit posture |
-| 3 | `read_only: true` in `~/.vmware-storage/config.yaml` | This skill only |
-| 4 | *(unset)* | Off — write tools exposed |
-
-The env vars come first so a deployment can be locked down from the MCP client's `env` block without editing any config file.
-
-**Fail-closed.** If read-only mode is requested but cannot be *proven* — the tool registry cannot be enumerated, or a removal does not take effect — the server refuses to start rather than serving write tools it promised to withhold. One case does *not* abort: an unrecognised value (`VMWARE_READ_ONLY=ture`) resolves to **on** with a warning, so a typo locks the deployment down instead of leaving it open.
-
-**Verifying it took**:
-
-```bash
-vmware-storage doctor      # reports ON/off, and which of the four sources decided it
-```
-
-The MCP server also logs a warning at start-up naming every tool it withheld. The 7 read tools are unaffected in all cases.
+To run the agent read-only, give it a read-only vCenter service account (RBAC) — enforced at the platform.
 
 ### Double Confirmation on Destructive Operations
 

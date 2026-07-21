@@ -34,16 +34,16 @@
       },
       "maximum": 5,
       "pct": 100.0,
+      "stale": true,
       "unit": "required entity params",
       "value": 5
     },
     "entry_point_availability": {
       "detail": {
-        "full_entry_points": 2,
-        "read_only_entry_points": 2
+        "full_entry_points": 2
       },
-      "maximum": 7,
-      "pct": 28.6,
+      "maximum": 11,
+      "pct": 18.2,
       "unit": "entry points",
       "value": 2
     },
@@ -117,6 +117,7 @@
       },
       "maximum": 2214,
       "pct": 43.2,
+      "stale": true,
       "unit": "tokens",
       "value": 957
     },
@@ -134,9 +135,9 @@
         "budget_chars": 300,
         "over_budget": [],
         "remedy_after_interpolation": [
-          "config.py:253",
+          "config.py:247",
           "config.py:180",
-          "config.py:240",
+          "config.py:234",
           "datastore_browser.py:97",
           "datastore_browser.py:63",
           "datastore_browser.py:82",
@@ -188,10 +189,10 @@
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          333,
-          415,
-          470,
-          507
+          332,
+          414,
+          469,
+          506
         ],
         "carries_hint": 7,
         "dict_shaped": 7,

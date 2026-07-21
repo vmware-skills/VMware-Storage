@@ -32,52 +32,10 @@ These are structural, so it cannot.
 
 | Guardrail you would otherwise prompt for | Now enforced by |
 |---|---|
-| "Work exclusively in read-only mode and never modify anything" | **Read-only mode.** Set `VMWARE_READ_ONLY=true` and all 4 write tools are removed from the registry at startup. `list_tools()` offers only the 7 reads, so the model cannot call what it cannot see. |
-| "Never touch iSCSI configuration on a production host" | Same gate. `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target` and `storage_rescan` are simply absent. |
 | "Preview the change before applying it" | **`dry_run`.** All 4 write tools accept `dry_run: true` and return the API call they would have made. This is a parameter, not a convention the model has to remember to honour. |
 | "Use explicit limits for queries that may return large amounts of data" | **The list envelope.** The four datastore read tools return `{items, returned, limit, total, truncated, hint}`, so the model reads truncation instead of guessing at it. All four enumerate their collection in full, so `total` is the real count and `truncated` is always `false`. |
 | "If a listing came back empty, say so rather than claiming the call failed" | Same envelope. Empty `items` with `truncated: false` means checked-and-none — a stated result, not a silence the model has to interpret. |
 | "Log every state change you make" | **The `@vmware_tool` decorator.** Every operation is recorded to `~/.vmware/audit.db` before the model sees the result, and policy rules are evaluated ahead of execution. `storage_iscsi_remove_target` is classified `risk:high` and goes through the policy confirmation gate. |
-
-### Turning read-only mode on
-
-One variable covers every skill in the family:
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "vmware-storage",
-      "args": ["mcp"],
-      "env": { "VMWARE_READ_ONLY": "true" }
-    }
-  }
-}
-```
-
-Per-skill override — useful when this skill alone should stay writable:
-
-```bash
-VMWARE_READ_ONLY=true            # whole family read-only
-VMWARE_STORAGE_READ_ONLY=false   # …except storage
-```
-
-Or permanently, in `~/.vmware-storage/config.yaml`:
-
-```yaml
-read_only: true
-```
-
-Precedence is per-skill env → family env → config file → off. The startup log
-lists exactly which tools were withheld, and `vmware-storage doctor` reports
-the resolved state and its source. An unparseable value
-(`VMWARE_READ_ONLY=ture`) enables read-only mode rather than silently ignoring
-the typo.
-
-A blocked tool is a lockdown, not a fault. When a write tool is missing from
-`list_tools()`, the model should name the operation it cannot perform and say
-an operator must clear the switch — not retry, and not go looking for a
-different tool that achieves the same change.
 
 ---
 
@@ -138,8 +96,6 @@ your agent's instruction block.
 
 ## Writes in vmware-storage
 
-- A write tool missing from the tool list means read-only mode is on. Name the
-  blocked operation and stop. Do not retry and do not substitute another tool.
 - Pass dry_run: true first for any iSCSI change and show the user the previewed
   call before executing it for real.
 - storage_iscsi_remove_target is destructive: LUNs behind that target can become

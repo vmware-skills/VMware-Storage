@@ -9,8 +9,6 @@
 
 VMware vSphere 存储管理：数据存储、iSCSI、vSAN — 11 个 MCP 工具，领域专注、轻量级。
 
-- **只读模式**（v1.8.0）— 一个环境变量（`VMWARE_READ_ONLY=true`）即可在启动时把全部 4 个写工具（iSCSI 启用、添加/移除 target、rescan）从 MCP 注册表中移除，仅保留 7 个只读工具；适合审计、PoC 演示和不可信/本地模型场景。详见[只读模式](#只读模式)。
-
 > 从 vmware-aiops 拆分，更轻量的上下文，兼容本地小模型。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -34,6 +32,34 @@ uv tool install vmware-storage
 
 # 或 pip
 pip install vmware-storage
+```
+
+## 离线 / 气隙环境安装（从源码）
+
+本项目采用现代 PEP 517 构建系统（hatchling），因此**故意不提供 `setup.py`**
+——这是预期行为，不是缺失文件。如果你克隆源码后遇到
+`ERROR: File "setup.py" or "setup.cfg" not found ... editable mode
+currently requires a setuptools-based build`，说明你的 `pip` 版本低于 21.3，
+无法对非 setuptools 后端做*可编辑*（`-e`）安装。可编辑模式只是开发便利，
+运行工具并不需要它——任选其一：
+
+```bash
+# 在源码树中——普通（非可编辑）安装会构建 wheel：
+pip install .              # 不是  pip install -e .
+
+# ……或先升级 pip，可编辑安装也能用：
+pip install --upgrade pip && pip install -e .
+```
+
+若目标是**完全气隙的主机**，在联网机器上构建 wheel 再拷贝过去
+——目标主机全程无需联网：
+
+```bash
+# 在联网机器上，把本包及其依赖收集为 wheel：
+pip wheel . -w dist        # → dist/*.whl   （或：uv build，仅构建本包）
+
+# 把 dist/ 拷到气隙主机，然后离线安装：
+pip install --no-index --find-links dist vmware-storage
 ```
 
 ## 配置
@@ -117,29 +143,6 @@ targets:
 1. 检查健康：`vmware-storage vsan health Cluster-Prod`
 2. 检查容量：`vmware-storage vsan capacity Cluster-Prod`
 3. 若发现问题，用 `vmware-monitor` 查看告警和事件
-
-## 只读模式
-
-提示词约束只是建议——模型可以无视它。只读模式是结构性的：设置 `VMWARE_READ_ONLY=true`，全部 4 个写工具（`storage_iscsi_enable`、`storage_iscsi_add_target`、`storage_iscsi_remove_target`、`storage_rescan`）会在启动时从 MCP 注册表中移除，只保留 7 个只读工具。`list_tools()` 根本不会列出它们——模型看不见的工具就无法调用。默认关闭；且为 fail-closed 设计：请求了只读模式但无法保证时，服务器直接拒绝启动。
-
-三种启用方式：
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "vmware-storage",
-      "args": ["mcp"],
-      "env": { "VMWARE_READ_ONLY": "true" }
-    }
-  }
-}
-```
-
-- 按 skill 覆盖：`VMWARE_STORAGE_READ_ONLY=true`（优先于家族级 `VMWARE_READ_ONLY`）
-- 配置文件方式：在 `~/.vmware-storage/config.yaml` 中设置 `read_only: true`
-
-优先级：按 skill 环境变量 → 家族环境变量 → 配置文件 → 默认关闭。启动日志会列出被移除工具的完整清单。
 
 ## CLI
 

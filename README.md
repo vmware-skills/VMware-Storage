@@ -9,8 +9,6 @@
 
 VMware vSphere storage management: datastores, iSCSI, vSAN — 11 MCP tools, domain-focused and lightweight.
 
-- **Read-only mode** (v1.8.0) — one env var (`VMWARE_READ_ONLY=true`) strips all 4 write tools (iSCSI enable, add/remove target, rescan) from the MCP registry at startup, leaving the 7 read tools; ideal for audits, PoCs, and untrusted/local models. See [Read-Only Mode](#read-only-mode).
-
 > Split from vmware-aiops for lighter context and local model compatibility.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -34,6 +32,34 @@ uv tool install vmware-storage
 
 # Or pip
 pip install vmware-storage
+```
+
+## Offline / Air-Gapped Install (from source)
+
+This project uses the modern PEP 517 build system (hatchling), so there is **no
+`setup.py`** by design — that is expected, not a missing file. If you cloned the
+source and hit `ERROR: File "setup.py" or "setup.cfg" not found ... editable mode
+currently requires a setuptools-based build`, your `pip` is older than 21.3 and
+cannot do an *editable* (`-e`) install with a non-setuptools backend. Editable
+mode is a developer convenience, not needed to run the tool — do one of:
+
+```bash
+# From the source tree — a normal (non-editable) install builds a wheel:
+pip install .              # NOT  pip install -e .
+
+# ...or upgrade pip first, and editable works too:
+pip install --upgrade pip && pip install -e .
+```
+
+For a **truly air-gapped host**, build the wheels on a connected machine and copy
+them over — the target then needs no network:
+
+```bash
+# On a connected machine, collect this package + its dependencies as wheels:
+pip wheel . -w dist        # → dist/*.whl   (or: uv build, for just this package)
+
+# Copy dist/ to the air-gapped host, then install offline:
+pip install --no-index --find-links dist vmware-storage
 ```
 
 ## Configuration
@@ -83,29 +109,6 @@ The `add-target` command automatically rescans storage. Use `--dry-run` to previ
 1. Check health: `vmware-storage vsan health Cluster-Prod`
 2. Check capacity: `vmware-storage vsan capacity Cluster-Prod`
 3. If issues found, investigate with `vmware-monitor` for alarms and events
-
-## Read-Only Mode
-
-A prompt instruction is advisory — a model can ignore it. Read-only mode is structural: set `VMWARE_READ_ONLY=true` and all 4 write tools (`storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan`) are removed from the MCP registry at startup, leaving the 7 read tools. `list_tools()` never offers them, so the model cannot call what it cannot see. Off by default, and fail-closed: if the mode is requested but cannot be guaranteed, the server refuses to start.
-
-Three ways to enable:
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "vmware-storage",
-      "args": ["mcp"],
-      "env": { "VMWARE_READ_ONLY": "true" }
-    }
-  }
-}
-```
-
-- Per-skill override: `VMWARE_STORAGE_READ_ONLY=true` (takes precedence over the family-wide `VMWARE_READ_ONLY`)
-- Config alternative: `read_only: true` in `~/.vmware-storage/config.yaml`
-
-Precedence: per-skill env → family env → config → off. Startup logs list exactly which tools were withheld.
 
 ## CLI
 
