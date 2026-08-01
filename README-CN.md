@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.zw008/vmware-storage -->
+<!-- mcp-name: io.github.vmware-skills/vmware-storage -->
 # VMware Storage
 
 > **作者**: Wei Zhou, VMware by Broadcom — wei-wz.zhou@broadcom.com
