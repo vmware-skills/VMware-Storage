@@ -2,7 +2,7 @@
 #
 # Status: PoC reference pattern. NOT yet enforced by the runtime.
 # Schema and lifecycle docs:
-#   https://github.com/zw008/VMware-Policy/blob/main/docs/auto-remediation-patterns.md
+#   https://github.com/vmware-skills/VMware-Policy/blob/main/docs/auto-remediation-patterns.md
 #
 # This pattern is the first L5 candidate from the Enterprise Harness Engineering
 # framework: an operation that has been performed enough times manually, with

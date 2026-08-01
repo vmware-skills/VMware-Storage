@@ -17,7 +17,7 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 **Notes**:
 - L1/L2 tools are always safe for agents to call without confirmation.
 - L3 tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → double-confirm.
-- L5 PoC pattern (`patterns/iscsi-target-stale-rescan.yaml`, v1.5.16+) is a **reference design**: it documents the candidate trigger / action / validation / circuit-breaker shape under `schema_version: 1` (see [vmware-policy auto-remediation pattern docs](https://github.com/zw008/VMware-Policy/blob/main/docs/auto-remediation-patterns.md)). The pattern is `approval.status: poc_unsigned` and will only become live after `success_count_required: 5` + `failure_count_max: 0` + `distinct_operators_required: 2` + `days_observed: 90` are met and the pattern is signed.
+- L5 PoC pattern (`patterns/iscsi-target-stale-rescan.yaml`, v1.5.16+) is a **reference design**: it documents the candidate trigger / action / validation / circuit-breaker shape under `schema_version: 1` (see [vmware-policy auto-remediation pattern docs](https://github.com/vmware-skills/VMware-Policy/blob/main/docs/auto-remediation-patterns.md)). The pattern is `approval.status: poc_unsigned` and will only become live after `success_count_required: 5` + `failure_count_max: 0` + `distinct_operators_required: 2` + `days_observed: 90` are met and the pattern is signed.
 
 ## Datastore (4 tools)
 

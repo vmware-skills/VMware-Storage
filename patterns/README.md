@@ -2,7 +2,7 @@
 
 > **Status**: PoC reference patterns. Not yet enforced by the runtime.
 
-This directory holds candidate L5 auto-remediation patterns specific to vmware-storage operations. The pattern engine, schema, and lifecycle live in [vmware-policy/docs/auto-remediation-patterns.md](https://github.com/zw008/VMware-Policy/blob/main/docs/auto-remediation-patterns.md).
+This directory holds candidate L5 auto-remediation patterns specific to vmware-storage operations. The pattern engine, schema, and lifecycle live in [vmware-policy/docs/auto-remediation-patterns.md](https://github.com/vmware-skills/VMware-Policy/blob/main/docs/auto-remediation-patterns.md).
 
 ## What is here
 

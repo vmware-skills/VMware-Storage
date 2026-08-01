@@ -4,7 +4,7 @@
   "title": "VMware Storage",
   "description": "VMware vSphere storage management with 11 MCP tools: datastores, iSCSI, vSAN.",
   "repository": {
-    "url": "https://github.com/zw008/VMware-Storage",
+    "url": "https://github.com/vmware-skills/VMware-Storage",
     "source": "github"
   },
   "version": "1.8.8",

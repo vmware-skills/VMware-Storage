@@ -17,12 +17,12 @@ VMware vSphere 存储管理：数据存储、iSCSI、vSAN — 11 个 MCP 工具�
 
 | Skill | 范围 | 工具数 | 安装 |
 |-------|------|:-----:|------|
-| **[vmware-aiops](https://github.com/zw008/VMware-AIops)** ⭐ 统一入口 | VM 生命周期、部署、Guest Ops、集群 | 49 | `uv tool install vmware-aiops` |
-| **[vmware-monitor](https://github.com/zw008/VMware-Monitor)**（只读） | 只读监控、告警、事件、VM 信息 | 27 | `uv tool install vmware-monitor` |
-| **[vmware-vks](https://github.com/zw008/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
-| **[vmware-nsx](https://github.com/zw008/VMware-NSX)** | NSX 网络：段、网关、NAT、IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
-| **[vmware-nsx-security](https://github.com/zw008/VMware-NSX-Security)** | DFW 微分段、安全组、Traceflow | 21 | `uv tool install vmware-nsx-security` |
-| **[vmware-aria](https://github.com/zw008/VMware-Aria)** | Aria Ops 指标、告警、容量规划 | 28 | `uv tool install vmware-aria` |
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** ⭐ 统一入口 | VM 生命周期、部署、Guest Ops、集群 | 49 | `uv tool install vmware-aiops` |
+| **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)**（只读） | 只读监控、告警、事件、VM 信息 | 27 | `uv tool install vmware-monitor` |
+| **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
+| **[vmware-nsx](https://github.com/vmware-skills/VMware-NSX)** | NSX 网络：段、网关、NAT、IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
+| **[vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security)** | DFW 微分段、安全组、Traceflow | 21 | `uv tool install vmware-nsx-security` |
+| **[vmware-aria](https://github.com/vmware-skills/VMware-Aria)** | Aria Ops 指标、告警、容量规划 | 28 | `uv tool install vmware-aria` |
 
 ## 快速安装
 

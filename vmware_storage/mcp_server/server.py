@@ -17,7 +17,7 @@ Security considerations
 * Transport: Uses stdio transport (local only); no network listener.
 * iSCSI operations modify host storage configuration; confirmation recommended.
 
-Source: https://github.com/zw008/VMware-Storage
+Source: https://github.com/vmware-skills/VMware-Storage
 License: MIT
 """
 

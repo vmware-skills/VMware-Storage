@@ -25,7 +25,7 @@ pip install vmware-storage
 ### From source
 
 ```bash
-git clone https://github.com/zw008/VMware-Storage.git
+git clone https://github.com/vmware-skills/VMware-Storage.git
 cd VMware-Storage
 pip install -e .
 ```
