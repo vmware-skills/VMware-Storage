@@ -400,6 +400,20 @@ def vsan_capacity_cmd(
     _print_json(get_vsan_capacity(si, cluster_name))
 
 
+@vsan_app.command("efficiency")
+@handle_cli_errors
+def vsan_efficiency_cmd(
+    cluster_name: str = typer.Argument(help="Cluster name"),
+    target: str | None = typer.Option(None, help="Target name"),
+    config: str | None = typer.Option(None, "--config", help="Config file path"),
+) -> None:
+    """Get vSAN data-efficiency (dedup + compression) status."""
+    from vmware_storage.ops.vsan_efficiency import get_vsan_efficiency
+
+    si = _get_connection(target, config)
+    _print_json(get_vsan_efficiency(si, cluster_name))
+
+
 # ---------------------------------------------------------------------------
 # Onboarding
 # ---------------------------------------------------------------------------

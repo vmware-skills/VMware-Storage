@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vmware-storage"
-version = "1.8.9"
+version = "1.8.10"
 description = "VMware vSphere storage management: datastores, iSCSI, vSAN. Domain-focused MCP skill."
 readme = "README.md"
 license = "MIT"
@@ -40,6 +40,12 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# 踩坑 #33: MCP-server modules are reflected by FastMCP/Pydantic at import time.
+# Tool-signature annotations stay Optional[X], never PEP 604 X|None — never let
+# pyupgrade (UP007/UP045) rewrite them in the reflected files.
+"vmware_storage/mcp_server/**/*.py" = ["UP007", "UP045"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

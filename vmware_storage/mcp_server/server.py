@@ -39,6 +39,7 @@ from vmware_policy import (
 
 from vmware_storage.config import CONFIG_FILE, ConfigError, load_config
 from vmware_storage.connection import ConnectionManager
+from vmware_storage.notify.audit import AuditLogger
 from vmware_storage.ops import datastore_browser
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.inventory import list_datastores
@@ -52,7 +53,7 @@ from vmware_storage.ops.iscsi_config import (
     rescan_storage,
 )
 from vmware_storage.ops.vsan import VSANError, get_vsan_capacity, get_vsan_health
-from vmware_storage.notify.audit import AuditLogger
+from vmware_storage.ops.vsan_efficiency import get_vsan_efficiency
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vmware-storage.mcp")
@@ -565,6 +566,41 @@ def vsan_capacity(
         return get_vsan_capacity(si, cluster_name)
     except Exception as e:
         logger.error("vsan_capacity failed: %s", e)
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+def vsan_efficiency(
+    cluster_name: str,
+    target: Optional[str] = None,
+) -> dict:
+    """[READ] Get vSAN data-efficiency (deduplication + compression) status for a cluster.
+
+    Returns {cluster_name, vsan_enabled, dedup_enabled, compression_enabled}.
+    Reads it via the vSAN Management SDK (VsanVcClusterConfigSystem), not base
+    pyVmomi. When vSAN reports no data-efficiency config (space efficiency off,
+    or an OSA cluster without it), dedup_enabled/compression_enabled come back
+    null with a message rather than a fabricated false. Errors only if the
+    cluster name is not found. Use vsan_capacity for space usage and
+    vsan_health for disk-group layout. No side effects.
+
+    Note: vSAN Global Deduplication and vSAN-to-vSAN replication are NOT
+    exposed here — neither has a verified SDK object (global dedup has no
+    distinct field; v2v replication lives in the separate vSAN Data Protection
+    plane). Use the vCenter/vSAN UI for those.
+
+    Args:
+        cluster_name: Cluster name exactly as shown in vCenter (case-sensitive).
+            Errors if the cluster is not found — vmware-storage has no
+            cluster-listing tool; get names from vmware-monitor list_all_clusters.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return get_vsan_efficiency(si, cluster_name)
+    except Exception as e:
+        logger.error("vsan_efficiency failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 

@@ -21,7 +21,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/vmware-skills/VMware-Storage](https://github.com/vmware-skills/VMware-Storage) under the MIT license.
 
-VMware vSphere storage management — 11 MCP tools for datastores, iSCSI, and vSAN.
+VMware vSphere storage management — 12 MCP tools for datastores, iSCSI, and vSAN.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 > **Companion skills**: [vmware-aiops](https://github.com/vmware-skills/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor) (read-only monitoring), [vmware-vks](https://github.com/vmware-skills/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/vmware-skills/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/vmware-skills/VMware-Aria) (metrics/alerts/capacity), [vmware-avi](https://github.com/vmware-skills/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/vmware-skills/VMware-Harden) (compliance baselines).
@@ -33,7 +33,7 @@ VMware vSphere storage management — 11 MCP tools for datastores, iSCSI, and vS
 |----------|-------|:-----:|
 | **Datastore** | list all datastores, browse files, scan for OVA/ISO/OVF/VMDK images, list cached images | 4 |
 | **iSCSI** | enable adapter, show status, add target, remove target, rescan HBAs | 5 |
-| **vSAN** | cluster health summary, capacity overview (total/used/free) | 2 |
+| **vSAN** | cluster health summary, capacity overview (total/used/free), data-efficiency (dedup/compression) | 3 |
 
 ## Quick Install
 
@@ -132,7 +132,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (11 — 7 read, 4 write)
+## MCP Tools (12 — 8 read, 4 write)
 
 All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools also accept `dry_run: true` to preview the change without executing it.
 
@@ -151,8 +151,9 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | | `storage_rescan` | Write | Rescan all HBAs and VMFS volumes |
 | vSAN | `vsan_health` | Read | Cluster health summary and disk group details |
 | | `vsan_capacity` | Read | Total/used/free capacity in GB and usage % |
+| | `vsan_efficiency` | Read | Dedup + compression status (vSAN Management SDK) |
 
-**Read/write split**: 7 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
+**Read/write split**: 8 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
 Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
 
@@ -225,7 +226,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Safety
 
 - **No VM operations**: This skill cannot power on/off, create, delete, or modify VMs — that scope belongs to `vmware-aiops`
-- **Read-heavy**: 7 of 11 tools are read-only (list, browse, scan, cached images, status, health, capacity)
+- **Read-heavy**: 8 of 12 tools are read-only (list, browse, scan, cached images, status, health, capacity, efficiency)
 - **Audit logging**: All operations (including reads) are logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with timestamp, user, target, operation, parameters, and result
 - **Double confirmation**: CLI write commands (iSCSI enable, add/remove target) require two separate "Are you sure?" prompts before executing
 - **Dry-run mode**: All write commands support `--dry-run` to preview API calls without executing

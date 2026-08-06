@@ -1,3 +1,73 @@
+## v1.8.10 (2026-08-06) — vSAN data-efficiency read (VCF 9.1) + Fable5-review hardening
+
+### Added — `vsan_efficiency`: dedup + compression status
+
+A new read tool across ops, MCP, and CLI, taking the skill from **11 to 12 MCP
+tools (8 read / 4 write)**. It reads vSAN data-efficiency state via the **vSAN
+Management SDK** (`vsanapiutils.GetVsanVcMos` → `VsanVcClusterConfigSystem` →
+`VsanClusterGetConfig(cluster).dataEfficiencyConfig`), **not** base pyVmomi, and
+returns `{cluster_name, vsan_enabled, dedup_enabled, compression_enabled}`. When
+vSAN reports no `dataEfficiencyConfig` (space efficiency off, or an OSA cluster
+without it), `dedup_enabled`/`compression_enabled` come back `null` with a
+`message` rather than a fabricated `False`. Read-only, `risk:low`, no side
+effects. CLI: `vmware-storage vsan efficiency <cluster>`.
+
+**Deliberately NOT built.** vSAN **Global Deduplication** and **vSAN-to-vSAN
+replication** are not exposed — neither has a verified SDK object (global dedup
+has no distinct field; v2v replication lives in the separate vSAN Data
+Protection plane, not the vSAN Management SDK). They are pinned as
+deferred/not-tool-able, and a regression test fails if either ever appears as an
+ops symbol or a registered MCP tool (踩坑 #36 phantom endpoint).
+
+### Fixed — Fable5 review
+
+- **SSL context propagation to the vSAN SDK (HIGH).** On a `verify_ssl: false`
+  (self-signed) target, `GetVsanVcMos` would otherwise build a fresh stub with
+  Python's DEFAULT *verifying* context and die with `SSLCertVerificationError`
+  (then masked by `_safe_error`). `verify_ssl` is now stashed in an
+  `id(si)`-keyed module side store — never `setattr` on the pyVmomi
+  `ManagedObject` (踩坑 #32) — and the SDK is handed a matching unverified
+  context. The side store **defaults to strict (`True`)** for an SI this manager
+  never created (so a downstream SDK caller never silently drops to an
+  unverified context by accident), is **evicted on reconnect** to close the
+  id-reuse hazard (a GC'd `si`'s `id()` reused by a different target reading
+  stale `verify_ssl`), and is cleared at `atexit`.
+- **Defensive response reads.** Absent SDK response fields degrade to `None` —
+  never an `AttributeError`, never a healthy-looking `False` (空结果读作没问题,
+  form #1).
+- **Anti-phantom spec + regression (踩坑 #36).** The exact SDK
+  object/method/field surface is transcribed to `tests/eval/spec/` and enforced:
+  a test scans the shipped ops source and fails on any vSAN-SDK call outside the
+  verified allow-list or on the write twin `VsanClusterReconfig`, and a
+  conformance test resolves the method + `dataEfficiencyConfig.*` fields against
+  pyVmomi's own vSAN type metadata (real, not remembered).
+- **ruff per-file-ignore** (`UP007`/`UP045` off for `mcp_server/**`) keeps the
+  reflected tool signatures at `Optional[X]` so pyupgrade cannot rewrite them to
+  PEP 604 `X | None` and break FastMCP reflection on Python 3.10 (踩坑 #33).
+  Dropped an unused `VmomiJSONEncoder` import in `connection.py`.
+- **SKILL.md tool count reconciled to the live `mcp.list_tools()` (12; 8R/4W)**
+  — including the two prose spots ("7 tools are read-only", "7 of 11 tools")
+  the table update had left behind (踩坑 #34).
+
+### Beta / real-hardware caveats (honest)
+
+The vSAN SDK **call structure** — the `vsan-cluster-config-system` accessor, the
+`VsanClusterGetConfig` method, and the `dataEfficiencyConfig.dedupEnabled` /
+`compressionEnabled` property paths — is verified **against pyVmomi's own vSAN
+type metadata**, i.e. at the path/type level, **not against a live VCF 9.1
+appliance**. What is not yet verified is the runtime behaviour on real hardware:
+
+- the **wire response field names/shape** are read defensively
+  (`getattr(..., None)`) and are still `needs-real-vsan` — path-verified only;
+- the unverified-SSL `context=` kwarg to `GetVsanVcMos` is unit-tested, but the
+  **full self-signed round-trip against a real vSAN cluster** is still a gate
+  (`needs-real-vsan`).
+
+Confirm both on first run against a real vSAN cluster:
+`vmware-storage vsan efficiency <cluster>`. (No PromQL/PAIS/collector-pending
+surfaces are part of this skill — those belong to sibling skills, not
+vmware-storage.)
+
 ## v1.8.9 — moved to vmware-skills org + MCP Registry namespace io.github.vmware-skills/vmware-storage
 
 Repo transferred from github.com/zw008 to github.com/vmware-skills (redirects preserve old links).

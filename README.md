@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere storage management: datastores, iSCSI, vSAN — 11 MCP tools, domain-focused and lightweight.
+VMware vSphere storage management: datastores, iSCSI, vSAN — 12 MCP tools, domain-focused and lightweight.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 
@@ -76,7 +76,7 @@ chmod 600 ~/.vmware-storage/.env
 vmware-storage doctor
 ```
 
-## MCP Tools (11)
+## MCP Tools (12)
 
 | Category | Tools | Type |
 |----------|-------|------|
@@ -212,7 +212,7 @@ vmware-storage-mcp
 
 | Feature | Description |
 |---------|-------------|
-| Read-heavy | 7/11 tools are read-only |
+| Read-heavy | 8/12 tools are read-only |
 | Input validation | IP addresses and ports validated before iSCSI operations |
 | Audit logging | All operations logged to `~/.vmware-storage/audit.log` |
 | No VM operations | Cannot create, delete, or modify VMs |

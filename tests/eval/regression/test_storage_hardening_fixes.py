@@ -202,7 +202,7 @@ def test_audit_logger_init_failure_degrades_to_stderr(tmp_path, capsys):
     assert "audit log dir setup failed" in captured.err
 
 
-# ── Fix 4: SKILL.md tool-count parity (11 tools, 7R/4W) ─────────────────────
+# ── Fix 4: SKILL.md tool-count parity (12 tools, 8R/4W) ─────────────────────
 
 
 def _list_tools():
@@ -211,12 +211,12 @@ def _list_tools():
     return asyncio.run(mcp.list_tools())
 
 
-def test_mcp_exposes_11_tools_7_read_4_write():
+def test_mcp_exposes_12_tools_8_read_4_write():
     tools = _list_tools()
-    assert len(tools) == 11, f"Expected 11 MCP tools, got {len(tools)}: {[t.name for t in tools]}"
+    assert len(tools) == 12, f"Expected 12 MCP tools, got {len(tools)}: {[t.name for t in tools]}"
     read = [t.name for t in tools if t.annotations and t.annotations.readOnlyHint]
     write = [t.name for t in tools if not (t.annotations and t.annotations.readOnlyHint)]
-    assert len(read) == 7, f"Expected 7 read tools, got {len(read)}: {read}"
+    assert len(read) == 8, f"Expected 8 read tools, got {len(read)}: {read}"
     assert len(write) == 4, f"Expected 4 write tools, got {len(write)}: {write}"
     assert sorted(write) == sorted(_WRITE_TOOLS)
 

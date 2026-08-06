@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere 存储管理：数据存储、iSCSI、vSAN — 11 个 MCP 工具，领域专注、轻量级。
+VMware vSphere 存储管理：数据存储、iSCSI、vSAN — 12 个 MCP 工具，领域专注、轻量级。
 
 > 从 vmware-aiops 拆分，更轻量的上下文，兼容本地小模型。
 

@@ -9,15 +9,15 @@
           "list_cached_images"
         ],
         "reachable_on_surface": 2,
-        "reachable_only_via_description": 7,
-        "required_entity_params": 9,
-        "required_params_classified": "9/11",
-        "tool_count": 11
+        "reachable_only_via_description": 8,
+        "required_entity_params": 10,
+        "required_params_classified": "10/12",
+        "tool_count": 12
       },
-      "maximum": 9,
+      "maximum": 10,
       "pct": 100.0,
       "unit": "required entity params",
-      "value": 9
+      "value": 10
     },
     "entity_reachability_read_only": {
       "detail": {
@@ -42,8 +42,8 @@
       "detail": {
         "full_entry_points": 2
       },
-      "maximum": 11,
-      "pct": 18.2,
+      "maximum": 12,
+      "pct": 16.7,
       "unit": "entry points",
       "value": 2
     },
@@ -54,53 +54,53 @@
         "dead_end_errors": [],
         "per_dimension_pct": {
           "names_artifact": 100.0,
-          "names_input": 100.0,
+          "names_input": 84.2,
           "states_remedy": 100.0
         },
-        "raise_sites": 16
+        "raise_sites": 19
       },
-      "maximum": 48,
-      "pct": 100.0,
+      "maximum": 57,
+      "pct": 94.7,
       "unit": "points",
-      "value": 48
+      "value": 54
     },
     "manifest_context_headroom": {
       "detail": {
         "heaviest_tools": {
-          "browse_datastore": 215,
           "list_cached_images": 227,
           "storage_iscsi_add_target": 264,
           "storage_iscsi_remove_target": 272,
-          "storage_rescan": 218
+          "storage_rescan": 218,
+          "vsan_efficiency": 235
         },
-        "manifest_tokens": 2214,
-        "mean_tokens_per_tool": 201.3,
+        "manifest_tokens": 2449,
+        "mean_tokens_per_tool": 204.1,
         "reference_context": 16384,
-        "tool_count": 11
+        "tool_count": 12
       },
       "maximum": 16384,
-      "pct": 86.5,
+      "pct": 85.1,
       "unit": "tokens",
-      "value": 14170
+      "value": 13935
     },
     "parameter_documentation_coverage": {
       "detail": {
         "undocumented_by_tool": {}
       },
-      "maximum": 32,
+      "maximum": 34,
       "pct": 100.0,
       "unit": "parameters",
-      "value": 32
+      "value": 34
     },
     "per_tool_token_discipline": {
       "detail": {
         "ceiling": 350,
         "over_ceiling": {}
       },
-      "maximum": 11,
+      "maximum": 12,
       "pct": 100.0,
       "unit": "tools",
-      "value": 11
+      "value": 12
     },
     "read_only_manifest_saving": {
       "detail": {
@@ -125,19 +125,19 @@
       "detail": {
         "unmarked": []
       },
-      "maximum": 11,
+      "maximum": 12,
       "pct": 100.0,
       "unit": "points",
-      "value": 11
+      "value": 12
     },
     "remedy_survives_truncation": {
       "detail": {
         "budget_chars": 300,
         "over_budget": [],
         "remedy_after_interpolation": [
-          "config.py:247",
-          "config.py:180",
-          "config.py:234",
+          "config.py:246",
+          "config.py:179",
+          "config.py:233",
           "datastore_browser.py:97",
           "datastore_browser.py:63",
           "datastore_browser.py:82",
@@ -147,17 +147,17 @@
           "iscsi_config.py:234"
         ]
       },
-      "maximum": 16,
+      "maximum": 19,
       "pct": 100.0,
       "unit": "messages",
-      "value": 16
+      "value": 19
     },
     "teaching_error_rate": {
       "detail": {},
-      "maximum": 16,
+      "maximum": 19,
       "pct": 100.0,
       "unit": "messages",
-      "value": 16
+      "value": 19
     },
     "tool_description_quality": {
       "detail": {
@@ -169,7 +169,7 @@
           "what": 100.0,
           "when": 100.0
         },
-        "tools_graded": 11,
+        "tools_graded": 12,
         "weakest_tools": {
           "browse_datastore": [],
           "list_all_datastores": [],
@@ -181,28 +181,28 @@
           "storage_iscsi_status": []
         }
       },
-      "maximum": 66,
+      "maximum": 72,
       "pct": 100.0,
       "unit": "points",
-      "value": 66
+      "value": 72
     },
     "tool_failure_payload_quality": {
       "detail": {
         "bare_string_error_lines": [
-          332,
-          414,
-          469,
-          506
+          333,
+          415,
+          470,
+          507
         ],
-        "carries_hint": 7,
-        "dict_shaped": 7,
-        "error_return_sites": 11,
-        "hint_names_artifact": 11
+        "carries_hint": 8,
+        "dict_shaped": 8,
+        "error_return_sites": 12,
+        "hint_names_artifact": 12
       },
-      "maximum": 33,
-      "pct": 75.8,
+      "maximum": 36,
+      "pct": 77.8,
       "unit": "checks",
-      "value": 25
+      "value": 28
     }
   }
 }

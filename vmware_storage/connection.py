@@ -10,12 +10,28 @@ import ssl
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
-from pyVmomi.VmomiSupport import VmomiJSONEncoder  # noqa: F401
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
 from vmware_storage.config import CONFIG_FILE, AppConfig, ConfigError, TargetConfig, load_config
+
+# ServiceInstance is a pyVmomi ManagedObject — its __setattr__ rejects any
+# attribute not in its allowed list (raises "Managed object attributes are
+# read-only" on pyVmomi 8.x). We keep per-connection metadata in this module
+# dict, keyed by id(si). Cleared via atexit when the SI is disconnected.
+# 踩坑 #32 (2026-05-19, 客户 vCenter 8.0U3 现场).
+_SI_VERIFY_SSL: dict[int, bool] = {}
+
+
+def get_verify_ssl(si: ServiceInstance) -> bool:
+    """Return verify_ssl flag stashed by the connect() that created ``si``.
+
+    Defaults to True (strict) if the SI was created outside this manager, so a
+    downstream SDK caller (e.g. the vSAN Management SDK) never silently drops to
+    an unverified TLS context by accident.
+    """
+    return _SI_VERIFY_SSL.get(id(si), True)
 
 
 class ConnectError(ConfigError):
@@ -85,6 +101,11 @@ class ConnectionManager:
                 alive = False
             if alive:
                 return si
+            # Evict the id(si)-keyed side store NOW rather than waiting for
+            # atexit: once the old si is GC'd, a new si for a DIFFERENT target
+            # can reuse the same id() value and read stale verify_ssl
+            # (id-reuse hazard).
+            _SI_VERIFY_SSL.pop(id(si), None)
             del self._connections[target.name]
 
         si = self._create_connection(target)
@@ -143,12 +164,22 @@ class ConnectionManager:
             # faults are vmodl types, not OSError, so they pass through
             # untouched to the handlers that already explain them.
             raise _connect_failed(target, exc) from exc
+
+        # Stash verify_ssl in the id(si)-keyed side store so downstream SDK
+        # callers (e.g. the vSAN Management SDK via GetVsanVcMos) can rebuild a
+        # matching TLS context instead of falling back to Python's default
+        # verifying one on a self-signed target. Side-store, never setattr
+        # (踩坑 #32).
+        _SI_VERIFY_SSL[id(si)] = target.verify_ssl
+
         def _cleanup(_si: ServiceInstance = si) -> None:
             # Guarded: a dead session at interpreter exit must not raise.
             try:
                 Disconnect(_si)
             except Exception:
                 pass
+            finally:
+                _SI_VERIFY_SSL.pop(id(_si), None)
 
         atexit.register(_cleanup)
         return si
