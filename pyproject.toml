@@ -20,6 +20,13 @@ dependencies = [
     "vmware-policy>=1.8.8,<2.0",
 ]
 
+
+[project.urls]
+Homepage = "https://github.com/vmware-skills/VMware-Storage"
+Repository = "https://github.com/vmware-skills/VMware-Storage"
+Issues = "https://github.com/vmware-skills/VMware-Storage/issues"
+Changelog = "https://github.com/vmware-skills/VMware-Storage/blob/main/RELEASE_NOTES.md"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0,<10.0",
