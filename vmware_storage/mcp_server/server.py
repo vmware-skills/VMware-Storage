@@ -37,6 +37,7 @@ from vmware_policy import (
     vmware_tool,
 )
 
+from vmware_storage import __version__
 from vmware_storage.config import CONFIG_FILE, ConfigError, load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
@@ -141,6 +142,11 @@ def _error_reply(exc: Exception, tool: str) -> str:
 
 
 mcp = FastMCP("VMware Storage")
+
+# FastMCP takes no version argument and leaves the lowlevel server's at
+# None, which makes `initialize` answer with the MCP SDK's version rather
+# than ours. Set it so a client can tell which release it is talking to.
+mcp._mcp_server.version = __version__
 
 _audit = AuditLogger()
 
