@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "vmware-storage": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "vmware-storage==1.8.10",
+        "vmware-storage-mcp"
+      ]
+    }
+  }
+}

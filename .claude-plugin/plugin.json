@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "vmware-storage",
+  "displayName": "VMware Storage",
+  "version": "1.8.10",
+  "description": "VMware vSphere storage management with 11 MCP tools: datastores, iSCSI, vSAN.",
+  "author": {
+    "name": "Wei Zhou",
+    "email": "zhouwei008@gmail.com",
+    "url": "https://github.com/vmware-skills"
+  },
+  "homepage": "https://github.com/vmware-skills/VMware-Storage",
+  "repository": "https://github.com/vmware-skills/VMware-Storage",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "storage",
+    "vmware",
+    "vsphere"
+  ]
+}
