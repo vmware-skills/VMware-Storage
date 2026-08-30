@@ -526,8 +526,13 @@ def vsan_health(
 ) -> dict:
     """[READ] Get vSAN enablement status, host count, and per-host disk-group layout for a cluster.
 
-    Returns {cluster_name, vsan_enabled, overall_health, host_count,
+    Returns {cluster_name, vsan_enabled, overall_health, host_count, hosts_read,
+    hosts_not_read: [{host, reason}], disk_groups_complete,
     disk_groups: [{host, cache_disk, cache_size_gb, capacity_disks}]}.
+    Check disk_groups_complete before treating disk_groups as the cluster's
+    inventory: vCenter cannot read a disconnected or notResponding host, and an
+    empty disk_groups on such a cluster does NOT mean it has none — the unread
+    hosts are named in hosts_not_read and in the message.
     Note: overall_health is reported as "unknown" — full health checks require
     vCenter's VsanVcClusterHealthSystem; use the vCenter UI for detailed
     health. If vSAN is not enabled, returns vsan_enabled=false with a message
@@ -555,10 +560,13 @@ def vsan_capacity(
 ) -> dict:
     """[READ] Get space usage of a cluster's vSAN datastore for capacity planning.
 
-    Returns {cluster_name, vsan_enabled, datastore_name, total_gb, used_gb,
-    free_gb, usage_pct}. If vSAN is not enabled on the cluster, returns
-    vsan_enabled=false with an explanatory message rather than an error;
-    errors only if the cluster name is not found. Use vsan_health for
+    Returns {cluster_name, vsan_enabled, datastore_name, accessible, total_gb,
+    used_gb, free_gb, usage_pct}. When the vSAN datastore is inaccessible
+    (accessible=false) the four figures are null with a message, not 0 — vCenter
+    answers 0 for a datastore it cannot reach, and 0 GB used reads as a healthy
+    empty datastore. accessible=null means the summary did not say. If vSAN is
+    not enabled on the cluster, returns vsan_enabled=false with an explanatory
+    message rather than an error; errors only if the cluster name is not found. Use vsan_health for
     disk-group layout and host details; use list_all_datastores for non-vSAN
     (VMFS/NFS) datastore usage. No side effects.
 

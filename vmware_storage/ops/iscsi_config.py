@@ -78,9 +78,42 @@ def _get_storage_system(host: vim.HostSystem) -> vim.host.StorageSystem:
     return ss
 
 
+def _require_host_config(host: vim.HostSystem):
+    """The host's ``config``, or a teaching error saying why there is none.
+
+    vCenter answers ``HostSystem.config`` with ``None`` for a host it has lost
+    contact with — no fault, no marker. Dereferencing it raised
+    ``AttributeError: 'NoneType' object has no attribute 'storageDevice'`` on a
+    VCF 9.1 estate (2026-08-30).
+
+    Raising rather than returning ``None``: the caller's ``None`` already means
+    "this host has no software iSCSI adapter", which
+    :func:`get_iscsi_status` renders as ``enabled: False``. Reusing it here
+    would trade a crash for a confident false statement about a machine nobody
+    reached, which is the harder failure to notice of the two.
+    """
+    config = getattr(host, "config", None)
+    if config is None:
+        state = str(
+            getattr(getattr(host, "runtime", None), "connectionState", "") or "unknown"
+        )
+        raise ISCSIError(
+            f"vCenter has no configuration for host '{host.name}' "
+            f"(connectionState={state}), so its iSCSI state could not be read — "
+            f"this is not a report that iSCSI is off. Reconnect the host in "
+            f"vCenter, or check which hosts are unreachable with vmware-monitor's "
+            f"list_esxi_hosts, then retry."
+        )
+    return config
+
+
 def _get_iscsi_hba(host: vim.HostSystem) -> vim.host.InternetScsiHba | None:
-    """Find the software iSCSI HBA from host bus adapters."""
-    storage_device = host.config.storageDevice
+    """Find the software iSCSI HBA from host bus adapters.
+
+    ``None`` means the host was read and has no software iSCSI adapter. A host
+    that could not be read raises instead — see :func:`_require_host_config`.
+    """
+    storage_device = _require_host_config(host).storageDevice
     if not storage_device or not storage_device.hostBusAdapter:
         return None
     for hba in storage_device.hostBusAdapter:
