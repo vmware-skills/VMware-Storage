@@ -1,3 +1,42 @@
+## v1.8.12 — reporting what was not read, instead of answering for it
+
+Found against a real VCF 9.1 estate where four of eight ESXi hosts were
+`notResponding`. vCenter keeps answering for such a host out of its own cache,
+with no error and no marker, so a read "succeeds" and looks authoritative.
+
+**`vsan_health` returned `disk_groups: []` and said nothing about the four hosts
+it could not read** — the exception was logged and the host skipped. An empty
+list is indistinguishable from "this cluster has no disk groups", and this
+cluster's real `overallHealth` was red. Every host that does not contribute is
+now recorded with its `connectionState` and the reason, counted in
+`hosts_read`/`hosts_not_read`, flagged by `disk_groups_complete`, and named in
+the message — the part a chat client reliably renders.
+
+**`vsan_capacity` returned total/used/free all `0`** with no message, having
+never consulted `summary.accessible`: a healthy-looking empty datastore. The
+flag is now read as three states — `false` returns nulls and says why, `null`
+(an older summary that did not say) leaves the figures standing and reports the
+unknown rather than resolving it to true.
+
+**`storage_iscsi_status` crashed** with `AttributeError: 'NoneType' object has
+no attribute 'storageDevice'`, because `HostSystem.config` is `None` for an
+unreachable host. The obvious repair was the wrong one: `_get_iscsi_hba`'s
+`None` already means "no software iSCSI adapter" and renders as
+`enabled: false`, so guarding the attribute would have traded a crash for a
+confident false claim about a machine nobody reached. It raises a teaching error
+naming the state instead.
+
+**`doctor` cleared an estate it had not checked** — it authenticated only the
+default target, and it inspected a different config file from the one the tools
+load. `load_config` never consulted `VMWARE_STORAGE_CONFIG` at all while the MCP
+server did, so the agent's tools opened one file and the CLI and doctor opened
+another. The precedence now lives in one `resolve_config_path`. **This changes
+CLI behaviour**: `vmware-storage` now honours that variable, where it previously
+ignored it.
+
+Also: `server.json` never started the MCP server, and the Dockerfile could not
+build the wheel it installs.
+
 ## v1.8.11 — two wrong numbers: the server's own version, and the advertised tool count
 
 Both defects were invisible to the test suites and both were user-facing.
