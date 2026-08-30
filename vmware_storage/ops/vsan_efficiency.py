@@ -26,13 +26,11 @@ Read-only. No ``VsanClusterReconfig`` (the write twin) is called here.
 from __future__ import annotations
 
 import logging
-import ssl
 from typing import TYPE_CHECKING
 
 from vmware_policy import sanitize
 
-from vmware_storage.connection import get_verify_ssl
-from vmware_storage.ops.vsan import VSANError, _require_cluster
+from vmware_storage.ops.vsan import _require_cluster
 
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
@@ -43,51 +41,15 @@ _log = logging.getLogger("vmware-storage.vsan-efficiency")
 def _config_system(si: ServiceInstance) -> object:
     """Return the vSAN cluster-config managed object, or raise a teaching error.
 
-    The vSAN Management SDK ships as ``vsanapiutils`` / ``vsanmgmtObjects``
-    alongside pyVmomi (>= 8.0.3). Imported lazily so this module still loads
-    where the helper is somehow absent, and every failure mode is turned into a
-    :class:`VSANError` that names the fix instead of leaking a traceback.
+    The accessor (SDK import, stub check, TLS context, missing-key message)
+    moved to :mod:`vmware_storage.ops.vsan_sdk` when ``vsan_health`` became a
+    second caller. One copy of the ``verify_ssl: false`` handling in
+    particular: a second copy is a second chance to forget it and ship
+    ``SSLCertVerificationError`` to a self-signed lab.
     """
-    try:
-        import vsanapiutils
-    except ImportError as exc:
-        raise VSANError(
-            "vSAN Management SDK helper 'vsanapiutils' is unavailable. It ships "
-            "with pyvmomi>=8.0.3 — reinstall the tool with "
-            "'uv tool install --force vmware-storage', then run 'vmware-storage doctor'."
-        ) from exc
+    from vmware_storage.ops.vsan_sdk import managed_object
 
-    # The SDK talks over the same authenticated SOAP stub as the pyVmomi
-    # session. A session with no stub cannot reach the vSAN endpoints.
-    stub = getattr(si, "_stub", None)
-    if stub is None:
-        raise VSANError(
-            "The vCenter session exposes no SOAP stub for the vSAN SDK. "
-            "Reconnect and run 'vmware-storage doctor' to verify connectivity."
-        )
-
-    # On a verify_ssl: false (self-signed) target, GetVsanVcMos would otherwise
-    # build a fresh SoapStubAdapter with Python's DEFAULT verifying context and
-    # die with SSLCertVerificationError (then masked into a generic _safe_error).
-    # Pass the same unverified context the pyVmomi session was opened with.
-    # 踩坑 #32: verify_ssl is read from the id(si) side store, never off the SI.
-    if get_verify_ssl(si):
-        vc_mos = vsanapiutils.GetVsanVcMos(stub)
-    else:
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        vc_mos = vsanapiutils.GetVsanVcMos(stub, context=ctx)
-    # GetVsanVcMos returns a dict of vSAN managed objects; a missing key means
-    # this endpoint is not a vSAN-managing vCenter (e.g. plain ESXi).
-    system = vc_mos.get("vsan-cluster-config-system") if hasattr(vc_mos, "get") else None
-    if system is None:
-        raise VSANError(
-            "vSAN 'vsan-cluster-config-system' endpoint was not found on this "
-            "target — it may be an ESXi host or a vCenter not managing vSAN. "
-            "Run 'vmware-storage doctor'."
-        )
-    return system
+    return managed_object(si, "vsan-cluster-config-system")
 
 
 def get_vsan_efficiency(si: ServiceInstance, cluster_name: str) -> dict:

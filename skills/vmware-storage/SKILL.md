@@ -192,9 +192,13 @@ Not an error. The software iSCSI adapter is already active on that host. The res
 
 Datastore names are **case-sensitive**. Run `vmware-storage datastore list` to get the exact name. Common mistakes: `Datastore1` vs `datastore1`, trailing spaces.
 
-### vSAN health shows "unknown" status
+### `vsan_health` returns `overall_health: null`
 
-vSAN health checks require a **vCenter connection** (not standalone ESXi). The full VsanVcClusterHealthSystem runs via vCenter's vSAN Health Service. If connected to a standalone ESXi host, vSAN queries will fail or return limited info.
+`null` means the health service was **not asked**, and `health_not_queried_reason` says why. It is deliberately not the string `"unknown"` — vSAN returns that itself, so using it for "we did not ask" made the two impossible to tell apart (on one VCF 9.1 cluster it stood in for `red`). A string in `overall_health` is always vSAN's own answer.
+
+The usual cause is a **standalone ESXi** target: `VsanVcClusterHealthSystem` runs in vCenter's vSAN Health Service, so connect to the vCenter that manages the cluster. Otherwise read it in the vCenter UI under Cluster > Monitor > vSAN > Skyline Health.
+
+`health_checked_at` is the age of vCenter's cached summary. This tool reads that cache — the same one Skyline Health shows — rather than triggering a full health run, which takes minutes and loads the cluster.
 
 ### Rescan doesn't discover new LUNs
 

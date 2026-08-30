@@ -11,6 +11,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 from vmware_policy import PolicyDenied, guarded
 
 from vmware_storage.config import load_config
@@ -142,6 +143,32 @@ def _double_confirm(action: str, detail: str) -> bool:
 ds_app = typer.Typer(help="Datastore browsing and image discovery.")
 app.add_typer(ds_app, name="datastore")
 
+#: Above this, a datastore's usage is shown in red.
+_USAGE_ALERT_PCT = 85
+
+
+def _usage_cell(usage_pct: float | None) -> Text:
+    """Render one datastore's usage, red past the alert threshold.
+
+    Returns ``Text`` rather than a markup string. The previous form was
+    ``f"[{style}]{pct}%[/]"`` with ``style`` empty below the threshold, which
+    handed Rich ``[]12.5%[/]`` — a close tag with nothing to close — and raised
+    ``MarkupError`` on every healthy datastore. So ``datastore list`` failed
+    100% of the time on the VCF 9.1 estate while working in any lab that
+    happened to have a datastore over 85% full: the passing case was the broken
+    one. Carrying the style as a style, not as text, removes the failure mode
+    rather than patching the empty string.
+
+    ``None`` is a real answer here — four of that estate's eight hosts were
+    ``notResponding`` — and it renders as ``n/a`` instead of being compared to
+    an int, which is a ``TypeError``.
+    """
+    if usage_pct is None:
+        return Text("n/a", style="dim")
+    return Text(
+        f"{usage_pct}%", style="red" if usage_pct > _USAGE_ALERT_PCT else ""
+    )
+
 
 @ds_app.command("list")
 @handle_cli_errors
@@ -163,14 +190,15 @@ def ds_list(
     table.add_column("Usage %", justify="right")
     table.add_column("VMs", justify="right")
     for ds in result:
-        usage_style = "red" if ds["usage_pct"] > 85 else ""
         table.add_row(
-            ds["name"],
-            ds["type"],
-            str(ds["total_gb"]),
-            str(ds["free_gb"]),
-            f"[{usage_style}]{ds['usage_pct']}%[/]",
-            str(ds["vm_count"]),
+            # Text(), not str: a datastore may legally be called "[SSD] prod",
+            # and vCenter's name is data, not markup we wrote.
+            Text(str(ds["name"])),
+            Text(str(ds["type"])),
+            Text(str(ds["total_gb"])),
+            Text(str(ds["free_gb"])),
+            _usage_cell(ds["usage_pct"]),
+            Text(str(ds["vm_count"])),
         )
     console.print(table)
 

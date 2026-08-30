@@ -526,18 +526,25 @@ def vsan_health(
     cluster_name: str,
     target: Optional[str] = None,
 ) -> dict:
-    """[READ] Get vSAN enablement status, host count, and per-host disk-group layout for a cluster.
+    """[READ] Get vSAN overall health, per-check-group health, and per-host disk-group layout for a cluster.
 
-    Returns {cluster_name, vsan_enabled, overall_health, host_count, hosts_read,
-    hosts_not_read: [{host, reason}], disk_groups_complete,
+    Returns {cluster_name, vsan_enabled, overall_health,
+    overall_health_description, health_queried, health_not_queried_reason,
+    health_checked_at, test_groups: [{group_id, group_name, group_health}],
+    host_count, hosts_read, hosts_not_read: [{host, reason}],
+    disk_groups_complete,
     disk_groups: [{host, cache_disk, cache_size_gb, capacity_disks}]}.
+    overall_health is what vSAN reports — green / yellow / red, and sometimes
+    "unknown", which is vSAN's own answer. When the health service could not be
+    asked at all, overall_health is null and health_queried is false with the
+    reason: a null is "not measured", never a measurement. health_checked_at is
+    the age of vCenter's cached summary (the same one Skyline Health shows);
+    this tool reads the cache rather than triggering a full health run.
     Check disk_groups_complete before treating disk_groups as the cluster's
     inventory: vCenter cannot read a disconnected or notResponding host, and an
     empty disk_groups on such a cluster does NOT mean it has none — the unread
     hosts are named in hosts_not_read and in the message.
-    Note: overall_health is reported as "unknown" — full health checks require
-    vCenter's VsanVcClusterHealthSystem; use the vCenter UI for detailed
-    health. If vSAN is not enabled, returns vsan_enabled=false with a message
+    If vSAN is not enabled, returns vsan_enabled=false with a message
     rather than an error. Use vsan_capacity for space usage instead. No side
     effects.
 

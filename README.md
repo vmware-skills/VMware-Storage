@@ -224,7 +224,7 @@ vmware-storage-mcp
 |---------|-------------|
 | iSCSI enable fails with "already enabled" | Not an error — adapter is already active. Run `iscsi status` to see configured targets. |
 | "Datastore not found" when browsing | Datastore names are **case-sensitive**. Run `datastore list` to get the exact name. |
-| vSAN health shows "unknown" | vSAN health requires a **vCenter connection**, not standalone ESXi. |
+| `vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
 | Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
 | "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
 | Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |

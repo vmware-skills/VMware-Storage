@@ -7,6 +7,7 @@ Older pyVmomi versions need the vSAN SDK installed separately.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
@@ -47,6 +48,89 @@ def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterCompu
 
 
 
+@dataclass(frozen=True)
+class _ClusterHealth:
+    """What the vSAN health service said, or why it was not asked.
+
+    ``queried`` is the load-bearing field. ``overall`` is ``None`` whenever it
+    is ``False``, so a caller can never read "not measured" as a measurement —
+    the same distinction ``disk_groups_complete`` draws for the host survey.
+    """
+
+    queried: bool
+    overall: str | None = None
+    description: str | None = None
+    checked_at: str | None = None
+    groups: tuple[dict, ...] = ()
+    reason: str = ""
+
+
+def _query_cluster_health(
+    si: ServiceInstance, cluster: vim.ClusterComputeResource
+) -> _ClusterHealth:
+    """Ask vSAN for this cluster's health summary.
+
+    ``VsanVcClusterHealthSystem`` is reachable from the session this skill
+    already holds: ``vsanapiutils`` ships inside pyvmomi and builds every vSAN
+    managed object off the existing SOAP stub. An earlier note claimed a full
+    health check "requires VsanVcClusterHealthSystem" as if that put it out of
+    reach, and returned the string ``"unknown"`` — which is itself a value vSAN
+    can return, so the answer for "we did not ask" was spelled exactly like the
+    answer for "vSAN does not know", and on a real VCF 9.1 cluster it stood in
+    for **red**.
+
+    ``fetchFromCache=True`` on purpose. This is a read tool; the alternative
+    makes vCenter re-run every health check, which takes minutes and loads the
+    cluster. The cached summary is what the vCenter UI shows, and its age
+    travels back as ``checked_at`` so a caller can judge it.
+
+    Every failure is data, never an exception: the disk-group survey around it
+    is still worth returning, and a health check that dies when the thing it
+    checks is unwell is the failure mode this family already wrote down
+    (踩坑 #37).
+    """
+    from vmware_storage.ops.vsan_sdk import managed_object
+
+    try:
+        system = managed_object(si, "vsan-cluster-health-system")
+        summary = system.QueryClusterHealthSummary(
+            cluster=cluster, fetchFromCache=True
+        )
+    except Exception as e:  # noqa: BLE001 — any failure is "not queried", with the reason
+        _log.warning("vSAN health summary unavailable: %s", e)
+        return _ClusterHealth(queried=False, reason=sanitize(str(e), 200))
+
+    overall = getattr(summary, "overallHealth", None)
+    if not overall:
+        # A summary came back without the one required field. Treat it as not
+        # asked rather than inventing a value from the shape of the response.
+        return _ClusterHealth(
+            queried=False,
+            reason="vSAN returned a health summary with no overallHealth field",
+        )
+
+    groups = tuple(
+        {
+            "group_id": sanitize(getattr(g, "groupId", "") or ""),
+            "group_name": sanitize(getattr(g, "groupName", "") or ""),
+            "group_health": sanitize(getattr(g, "groupHealth", "") or ""),
+        }
+        for g in (getattr(summary, "groups", None) or [])
+    )
+    checked_at = getattr(summary, "timestamp", None)
+    return _ClusterHealth(
+        queried=True,
+        overall=sanitize(str(overall)),
+        description=(
+            sanitize(str(summary.overallHealthDescription))
+            if getattr(summary, "overallHealthDescription", None)
+            else None
+        ),
+        checked_at=str(checked_at) if checked_at is not None else None,
+        groups=groups,
+    )
+
+
 def get_vsan_health(
     si: ServiceInstance,
     cluster_name: str,
@@ -58,8 +142,9 @@ def get_vsan_health(
         cluster_name: Name of the vSAN-enabled cluster.
 
     Returns:
-        dict with overall_health, test_groups (list of group results),
-        and cluster_name.
+        dict with cluster_name, overall_health (what vSAN reported, or None),
+        health_queried, test_groups (per health-check-group results), and the
+        per-host disk-group survey.
     """
     cluster = _require_cluster(si, cluster_name)
 
@@ -118,10 +203,23 @@ def get_vsan_health(
                 "capacity_disks": len(capacity_disks) if capacity_disks else 0,
             })
 
-    message = (
-        "vSAN is enabled. overall_health is 'unknown' because full health check "
-        "requires VsanVcClusterHealthSystem. Use vCenter UI for detailed status."
-    )
+    health = _query_cluster_health(si, cluster)
+
+    if health.queried:
+        message = (
+            f"vSAN is enabled and reports overall health "
+            f"'{health.overall}'{f' ({health.description})' if health.description else ''}."
+        )
+    else:
+        # Not "unknown": that is a value vSAN itself returns, so using it here
+        # made "we did not ask" indistinguishable from "vSAN does not know" —
+        # and on the VCF 9.1 estate it silently stood in for red.
+        message = (
+            "vSAN is enabled. Its overall health was NOT queried "
+            f"({health.reason}), so overall_health is null rather than a "
+            "guess — read it in the vCenter UI under Cluster > Monitor > vSAN "
+            "> Skyline Health, or retry once the vSAN health service responds."
+        )
     if hosts_not_read:
         # Named in the message, not only in the field: the message is the part a
         # chat client reliably renders, and a reader who sees only it must not
@@ -136,7 +234,14 @@ def get_vsan_health(
     return {
         "cluster_name": cluster_name,
         "vsan_enabled": True,
-        "overall_health": "unknown",  # Full health check requires VsanVcClusterHealthSystem
+        #: What vSAN reported, or None when the query could not be made.
+        #: health_queried is what tells the two apart.
+        "overall_health": health.overall,
+        "overall_health_description": health.description,
+        "health_queried": health.queried,
+        "health_not_queried_reason": health.reason,
+        "health_checked_at": health.checked_at,
+        "test_groups": health.groups,
         "host_count": len(cluster.host) if cluster.host else 0,
         "hosts_read": hosts_read,
         "hosts_not_read": hosts_not_read,

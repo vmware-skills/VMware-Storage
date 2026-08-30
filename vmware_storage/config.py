@@ -176,11 +176,21 @@ class TargetConfig:
             # per character of target name and cross the MCP layer's 300-char
             # sanitize cap at a 19-character name — cutting off the closing
             # 'run doctor' step, which is the part that confirms the fix worked.
+            #
+            # ENV_FILE comes last for the same reason, and it is the second
+            # variable-length value in this message: its length is decided by
+            # the operator's home directory. At a 50-character target name the
+            # message was 292 characters under /Users/zw and 307 under the
+            # C:\Users\Administrator that ran the VCF 9.1 hardware pass — so the
+            # 'run doctor' step was intact for the author and gone for the
+            # tester. The remedy is now stated before the path; a truncated
+            # path still leaves the operator able to act, a truncated remedy
+            # does not.
             raise ConfigError(
                 f"Password not found for target '{self.name}'. Export "
-                f"{env_key}=<password>, or add that line to {ENV_FILE} "
-                f"(loaded automatically, chmod 600). Then run "
-                f"'vmware-storage doctor' to verify."
+                f"{env_key}=<password>, then run 'vmware-storage doctor' to "
+                f"verify. That line can live in {ENV_FILE} instead "
+                f"(loaded automatically, chmod 600)."
             )
         return _decode_secret(pw)
 

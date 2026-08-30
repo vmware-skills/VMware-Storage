@@ -59,12 +59,19 @@ def _connect_failed(target: TargetConfig, exc: BaseException) -> ConnectError:
     setting, and the file to edit — and interpolates nothing from ``exc``, whose
     text is the thing being withheld. The original survives as ``__cause__`` for
     the server-side log.
+
+    ``CONFIG_FILE`` comes last because the message is capped at 300 characters
+    on the way to an agent and its length is set by the operator's home
+    directory, not by anything this code controls: the closing 'run doctor'
+    step survived on the author's ``/Users/zw`` and was cut off on the
+    ``C:\\Users\\Administrator`` that ran the VCF 9.1 hardware pass. Losing the
+    path still leaves an operator who can act; losing the remedy does not.
     """
     return ConnectError(
         f"Could not open a session to target '{target.name}' (its config says "
-        f"verify_ssl: {str(target.verify_ssl).lower()}). Check that target's host "
-        f"and port in {CONFIG_FILE}; a self-signed certificate needs "
-        f"verify_ssl: false. Then run 'vmware-storage doctor'.",
+        f"verify_ssl: {str(target.verify_ssl).lower()}). A self-signed certificate "
+        f"needs verify_ssl: false; otherwise check that target's host and port. "
+        f"Then run 'vmware-storage doctor'. The file to edit is {CONFIG_FILE}.",
         cause_name=type(exc).__name__,
     )
 

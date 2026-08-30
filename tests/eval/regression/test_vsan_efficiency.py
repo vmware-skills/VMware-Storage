@@ -29,6 +29,7 @@ import pytest
 
 from tests.eval.spec import vsan_efficiency_endpoints as spec
 from vmware_storage.ops import vsan_efficiency as ops
+from vmware_storage.ops import vsan_sdk
 
 # ── 1. anti-phantom: ops only calls spec-listed vSAN SDK surface ────────────
 
@@ -179,11 +180,21 @@ def test_efficiency_absent_fields_do_not_crash(patched, monkeypatch):
 
 def test_config_system_teaches_when_stub_absent(monkeypatch):
     # A session with no _stub gets a teaching VSANError, not an AttributeError.
-    with pytest.raises(ops.VSANError, match="no SOAP stub"):
+    # VSANError is imported from its home now that vsan_efficiency no longer
+    # re-exports it as a side effect of building the accessor itself.
+    from vmware_storage.ops.vsan import VSANError
+
+    with pytest.raises(VSANError, match="no SOAP stub"):
         ops._config_system(SimpleNamespace())
 
 
 # ── SSL context propagation to the vSAN SDK (HIGH-1, 踩坑 #32) ───────────────
+#
+# The accessor itself now lives in ``ops/vsan_sdk`` — ``vsan_health`` became a
+# second caller and one copy of this handling is the point. These still drive it
+# through ``_config_system`` (the behaviour under test is unchanged and the
+# efficiency path must keep it), so the only thing that moved is where
+# ``get_verify_ssl`` is patched.
 
 
 def _fake_vsanapiutils(recorder: dict):
@@ -207,7 +218,7 @@ def test_config_system_passes_unverified_context_when_verify_ssl_false(monkeypat
     monkeypatch.setitem(
         __import__("sys").modules, "vsanapiutils", _fake_vsanapiutils(recorder)
     )
-    monkeypatch.setattr(ops, "get_verify_ssl", lambda si: False)
+    monkeypatch.setattr(vsan_sdk, "get_verify_ssl", lambda si: False)
 
     si = SimpleNamespace(_stub=object())
     ops._config_system(si)
@@ -226,7 +237,7 @@ def test_config_system_no_context_when_verify_ssl_true(monkeypatch):
     monkeypatch.setitem(
         __import__("sys").modules, "vsanapiutils", _fake_vsanapiutils(recorder)
     )
-    monkeypatch.setattr(ops, "get_verify_ssl", lambda si: True)
+    monkeypatch.setattr(vsan_sdk, "get_verify_ssl", lambda si: True)
 
     si = SimpleNamespace(_stub=object())
     ops._config_system(si)
