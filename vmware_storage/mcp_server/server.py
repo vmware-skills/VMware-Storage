@@ -23,9 +23,7 @@ License: MIT
 
 
 import logging
-import os
 import ssl
-from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -172,8 +170,11 @@ _conn_mgr: Optional[ConnectionManager] = None
 def _get_conn_mgr() -> ConnectionManager:
     global _conn_mgr
     if _conn_mgr is None:
-        config_path = os.environ.get("VMWARE_STORAGE_CONFIG")
-        config = load_config(Path(config_path) if config_path else None)
+        # No env-var read here: load_config resolves the path (explicit arg,
+        # then the environment, then the default). This copy was the reason the
+        # server and the CLI opened different files — load_config did not look
+        # at the variable at all, so only this path honoured it (形态 #6).
+        config = load_config()
         _conn_mgr = ConnectionManager(config)
     return _conn_mgr
 

@@ -10,7 +10,7 @@ from typing import Callable
 from rich.console import Console
 from rich.table import Table
 
-from vmware_storage.config import CONFIG_DIR, CONFIG_FILE, ENV_FILE
+from vmware_storage.config import ENV_FILE, resolve_config_path
 
 console = Console()
 
@@ -28,11 +28,21 @@ def _check(label: str, fn: Callable[[], tuple[bool, str]]) -> tuple[bool, str, s
 
 
 def _check_config_file() -> tuple[bool, str]:
-    if CONFIG_FILE.exists():
-        return True, f"Config found: {CONFIG_FILE}"
+    """Report on the file the tools will open, not on the default.
+
+    Every check below asks resolve_config_path() rather than reading the
+    default path, because $VMWARE_STORAGE_CONFIG moves the file the tools read
+    and this doctor used to keep reporting on ~/.vmware-storage/config.yaml —
+    green, while every tool call raised FileNotFoundError elsewhere
+    (2026-08-30). The remedy it prints names the resolved path for the same
+    reason: advice about a file nothing reads is not advice.
+    """
+    path = resolve_config_path()
+    if path.exists():
+        return True, f"Config found: {path}"
     return False, (
-        f"Config not found: {CONFIG_FILE} — Run: vmware-storage init "
-        f"(or manually: mkdir -p {CONFIG_DIR} && cp config.example.yaml {CONFIG_FILE})"
+        f"Config not found: {path} — Run: vmware-storage init "
+        f"(or manually: mkdir -p {path.parent} && cp config.example.yaml {path})"
     )
 
 
@@ -52,11 +62,12 @@ def _check_env_file() -> tuple[bool, str]:
 
 
 def _check_targets() -> tuple[bool, str]:
-    if not CONFIG_FILE.exists():
-        return False, "Config file missing"
+    path = resolve_config_path()
+    if not path.exists():
+        return False, f"Config file missing: {path}"
     import yaml
 
-    with open(CONFIG_FILE) as f:
+    with open(path) as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
     if not targets:
@@ -66,11 +77,12 @@ def _check_targets() -> tuple[bool, str]:
 
 
 def _check_connectivity() -> tuple[bool, str]:
-    if not CONFIG_FILE.exists():
-        return False, "Config file missing"
+    path = resolve_config_path()
+    if not path.exists():
+        return False, f"Config file missing: {path}"
     import yaml
 
-    with open(CONFIG_FILE) as f:
+    with open(path) as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
     if not targets:
@@ -106,8 +118,9 @@ def _check_auth() -> tuple[bool, str]:
     one fails: aborting on the first would report one problem and leave the
     operator to find the others one call at a time.
     """
-    if not CONFIG_FILE.exists():
-        return False, "Config file missing — skipping auth check"
+    path = resolve_config_path()
+    if not path.exists():
+        return False, f"Config file missing: {path} — skipping auth check"
     try:
         from vmware_storage.config import load_config
         from vmware_storage.connection import ConnectionManager
