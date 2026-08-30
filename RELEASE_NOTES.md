@@ -1,3 +1,37 @@
+## v1.8.14 — the healthy datastore was the one that crashed
+
+Two crashes and a placeholder that stood in for a real answer.
+
+`datastore list` failed every time on a *healthy* datastore: an empty style
+string rendered `[]12.5%[/]`, which Rich parses as markup and rejects. Only the
+normal case crashed, which is how it shipped. A datastore legitimately named
+`[SSD] prod` hit the same parser.
+
+`vsan_health` hardcoded `overall_health: "unknown"` under a note claiming a full
+health check was out of reach. It is not — `vsanapiutils` ships inside pyvmomi
+and the health system sits beside the config system this skill already uses. The
+placeholder was the worst possible one, because vSAN returns "unknown" itself:
+"we did not ask" was spelled identically to "vSAN does not know", and here it
+stood in for **red**.
+
+The suite also stopped writing to the operator's real audit database.
+
+**The `vmware-policy` floor moves to >=1.11.0.** Policy 1.11.0 stops the engine
+failing open: on a host whose locale is not UTF-8, reading `rules.yaml` raised a
+decode error that was swallowed, and a `freeze-production-writes` rule came back
+ALLOW. No new API is used here, so the floor could have stayed — it is raised
+because leaving it low means a user resolving 1.10.0 keeps the permissive engine
+and the fix never reaches them. One behaviour travels with it: on a host whose
+rules file cannot be read, operations move from all-allowed to all-denied.
+`VMWARE_POLICY_DISABLED=1` is checked above the rules, so the escape hatch does
+not itself depend on them loading.
+
+Also in this release: the suite no longer appends to the operator's real
+`~/.vmware/audit.db`. It held over 30,000 rows dominated by tool names nobody
+had invoked, including 1,400 entries for a destructive operation that never
+happened — an audit trail carrying test fiction cannot answer the question it is
+kept for.
+
 ## v1.8.13 — the schema an agent reads now carries the descriptions
 
 Parameter descriptions reach the JSON schema for the first time. An MCP client
