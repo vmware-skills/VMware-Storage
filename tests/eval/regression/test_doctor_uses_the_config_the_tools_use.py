@@ -88,9 +88,9 @@ def sandbox(tmp_path, monkeypatch, listener):
     """A default config and .env that are both entirely valid, so the only way
     the doctor can report on the env var's file is by resolving it."""
     default = tmp_path / "default.yaml"
-    default.write_text(_ONE_TARGET.format(port=listener))
+    default.write_text(_ONE_TARGET.format(port=listener), encoding="utf-8")
     env_file = tmp_path / "dot.env"
-    env_file.write_text("")
+    env_file.write_text("", encoding="utf-8")
     env_file.chmod(0o600)
 
     monkeypatch.setattr(cfg, "CONFIG_FILE", default)
@@ -104,7 +104,7 @@ def sandbox(tmp_path, monkeypatch, listener):
 
 def test_the_env_var_decides_which_file_is_resolved(sandbox, tmp_path, monkeypatch):
     elsewhere = tmp_path / "elsewhere.yaml"
-    elsewhere.write_text(_THREE_TARGETS.format(port=1))
+    elsewhere.write_text(_THREE_TARGETS.format(port=1), encoding="utf-8")
     monkeypatch.setenv("VMWARE_STORAGE_CONFIG", str(elsewhere))
 
     assert cfg.resolve_config_path() == elsewhere
@@ -118,7 +118,7 @@ def test_an_explicit_path_still_beats_the_env_var(sandbox, tmp_path, monkeypatch
     """The control on precedence: an explicit path is the caller saying which
     file they mean, and it has to keep winning."""
     explicit = tmp_path / "explicit.yaml"
-    explicit.write_text(_ONE_TARGET.format(port=1))
+    explicit.write_text(_ONE_TARGET.format(port=1), encoding="utf-8")
     monkeypatch.setenv("VMWARE_STORAGE_CONFIG", str(tmp_path / "ignored.yaml"))
 
     assert cfg.resolve_config_path(explicit) == explicit
@@ -168,7 +168,7 @@ def test_doctor_reads_the_env_vars_file_not_the_default(
     """The positive half: pointed at a real file elsewhere, the doctor reports
     on that one — three targets, not the default's one."""
     elsewhere = tmp_path / "elsewhere.yaml"
-    elsewhere.write_text(_THREE_TARGETS.format(port=1))
+    elsewhere.write_text(_THREE_TARGETS.format(port=1), encoding="utf-8")
     monkeypatch.setenv("VMWARE_STORAGE_CONFIG", str(elsewhere))
 
     doc.run_doctor(skip_auth=True)

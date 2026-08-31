@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import socket
-import stat
 from typing import Callable
 
 from rich.console import Console
 from rich.table import Table
 
 from vmware_storage.config import ENV_FILE, resolve_config_path
+from vmware_policy.fsperms import check_secret_file
 
 console = Console()
 
@@ -52,13 +52,11 @@ def _check_env_file() -> tuple[bool, str]:
             f".env not found: {ENV_FILE} — Run: vmware-storage init "
             f"(or manually create it and: chmod 600 {ENV_FILE})"
         )
-    mode = ENV_FILE.stat().st_mode
-    if mode & (stat.S_IRWXG | stat.S_IRWXO):
-        return (
-            False,
-            f".env permissions too open ({oct(stat.S_IMODE(mode))}) — Run: chmod 600 {ENV_FILE}",
-        )
-    return True, f".env found with correct permissions (600): {ENV_FILE}"
+    # Three states, not two: a platform without POSIX mode bits cannot answer
+    # this, and reporting that as "too open" gave Windows a permanent red whose
+    # remedy (`chmod 600`) exits 0 and changes nothing.
+    check = check_secret_file(ENV_FILE)
+    return not check.is_failure, check.message
 
 
 def _check_targets() -> tuple[bool, str]:
@@ -67,7 +65,7 @@ def _check_targets() -> tuple[bool, str]:
         return False, f"Config file missing: {path}"
     import yaml
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
     if not targets:
@@ -82,7 +80,7 @@ def _check_connectivity() -> tuple[bool, str]:
         return False, f"Config file missing: {path}"
     import yaml
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
     targets = raw.get("targets", [])
     if not targets:

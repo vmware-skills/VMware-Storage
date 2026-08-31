@@ -77,7 +77,7 @@ def _stub_browse(monkeypatch, file_names: list[str]) -> None:
 
 def _stub_registry(monkeypatch, tmp_path, images: list[dict]) -> None:
     registry = tmp_path / "image_registry.json"
-    registry.write_text(json.dumps({"images": images, "last_scan": None}))
+    registry.write_text(json.dumps({"images": images, "last_scan": None}), encoding="utf-8")
     monkeypatch.setattr(dsb, "IMAGE_REGISTRY_FILE", registry)
 
 

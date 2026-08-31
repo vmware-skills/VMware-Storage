@@ -195,7 +195,7 @@ def test_audit_logger_init_failure_degrades_to_stderr(tmp_path, capsys):
     from vmware_storage.notify.audit import AuditLogger
 
     blocker = tmp_path / "blocker"
-    blocker.write_text("not a dir")
+    blocker.write_text("not a dir", encoding="utf-8")
     # parent of log file is a regular file → mkdir raises OSError
     AuditLogger(log_file=str(blocker / "sub" / "audit.log"))
     captured = capsys.readouterr()
@@ -222,7 +222,7 @@ def test_mcp_exposes_12_tools_8_read_4_write():
 
 
 def test_skill_md_claims_match_actual_tool_counts():
-    skill_md = (REPO_ROOT / "skills" / "vmware-storage" / "SKILL.md").read_text()
+    skill_md = (REPO_ROOT / "skills" / "vmware-storage" / "SKILL.md").read_text(encoding="utf-8")
     tools = _list_tools()
     read = sum(1 for t in tools if t.annotations and t.annotations.readOnlyHint)
     write = len(tools) - read

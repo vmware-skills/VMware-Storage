@@ -33,7 +33,7 @@ def test_no_vm_lifecycle_code():
     violations = []
     for source_dir in SOURCE_DIRS:
         for py_file in source_dir.rglob("*.py"):
-            content = py_file.read_text()
+            content = py_file.read_text(encoding="utf-8")
             for pattern in FORBIDDEN_PATTERNS:
                 if pattern in content:
                     violations.append(f"{py_file.relative_to(REPO_ROOT)}: contains '{pattern}'")

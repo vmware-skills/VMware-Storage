@@ -30,7 +30,7 @@ def config_file(tmp_path: Path) -> Path:
         "    host: 10.0.0.1\n"
         "    username: config-file-user\n"
         "    type: vcenter\n"
-    )
+    , encoding="utf-8")
     return path
 
 
