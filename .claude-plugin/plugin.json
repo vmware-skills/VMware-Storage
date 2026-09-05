@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "vmware-storage",
   "displayName": "VMware Storage",
-  "version": "1.8.16",
+  "version": "1.8.17",
   "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
   "author": {
     "name": "Wei Zhou",
