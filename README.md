@@ -82,7 +82,7 @@ vmware-storage doctor
 |----------|-------|------|
 | Datastore | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
 | iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` | Read/Write |
-| vSAN | `vsan_health`, `vsan_capacity` | Read |
+| vSAN | `vsan_health`, `vsan_capacity`, `vsan_efficiency` | Read |
 
 ## Auto-Remediation Patterns (PoC)
 

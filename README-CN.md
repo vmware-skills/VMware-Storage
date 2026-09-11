@@ -91,13 +91,13 @@ targets:
     password_env: VMWARE_ESXIPROD_PASSWORD
 ```
 
-## MCP 工具（11 个）
+## MCP 工具（12 个）
 
 | 类别 | 工具 | 类型 |
 |------|------|------|
 | 数据存储 | `list_all_datastores`、`browse_datastore`、`scan_datastore_images`、`list_cached_images` | 只读 |
 | iSCSI | `storage_iscsi_enable`、`storage_iscsi_status`、`storage_iscsi_add_target`、`storage_iscsi_remove_target`、`storage_rescan` | 读/写 |
-| vSAN | `vsan_health`、`vsan_capacity` | 只读 |
+| vSAN | `vsan_health`、`vsan_capacity`、`vsan_efficiency` | 只读 |
 
 ### 工具说明
 
@@ -117,6 +117,7 @@ targets:
 **vSAN**
 - `vsan_health` — 获取 vSAN 集群健康摘要和磁盘组详情
 - `vsan_capacity` — 获取 vSAN 容量概览（总量/已用/空闲）
+- `vsan_efficiency` — 获取集群的 vSAN 数据效率（去重 + 压缩）状态
 
 ## 自动修复模式（PoC）
 
