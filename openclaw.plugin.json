@@ -1,0 +1,24 @@
+{
+  "id": "vmware-storage",
+  "name": "VMware Storage",
+  "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
+  "skills": [
+    "./skills"
+  ],
+  "mcpServers": {
+    "vmware-storage": {
+      "transport": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "vmware-storage==1.9.0",
+        "vmware-storage-mcp"
+      ]
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

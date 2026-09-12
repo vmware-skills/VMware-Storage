@@ -1,0 +1,20 @@
+{
+  "name": "@zw008/vmware-storage",
+  "version": "1.9.0",
+  "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
+  "private": true,
+  "license": "MIT",
+  "homepage": "https://github.com/vmware-skills/VMware-Storage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vmware-skills/VMware-Storage.git"
+  },
+  "openclaw": {
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2"
+    },
+    "build": {
+      "openclawVersion": "2026.3.24-beta.2"
+    }
+  }
+}
