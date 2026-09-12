@@ -1,3 +1,3 @@
 """VMware Storage — vSphere datastore, iSCSI, and vSAN management."""
 
-__version__ = "1.8.17"
+__version__ = "1.9.0"

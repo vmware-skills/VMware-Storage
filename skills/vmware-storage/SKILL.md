@@ -11,7 +11,7 @@ installer:
   package: vmware-storage
 allowed-tools:
   - Bash
-metadata: {"openclaw":{"requires":{"env":["VMWARE_STORAGE_CONFIG"],"bins":["vmware-storage"],"config":["~/.vmware-storage/config.yaml","~/.vmware-storage/.env"]},"optional":{"env":["VMWARE_<TARGET>_PASSWORD","VMWARE_<TARGET>_USERNAME","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"primaryEnv":"VMWARE_STORAGE_CONFIG","homepage":"https://github.com/vmware-skills/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
+metadata: {"openclaw":{"requires":{"anyBins":["vmware-storage","uvx"]},"optional":{"env":["VMWARE_STORAGE_CONFIG","VMWARE_<TARGET>_PASSWORD","VMWARE_<TARGET>_USERNAME","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"homepage":"https://github.com/vmware-skills/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
   Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-storage/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD (e.g., target "my-vcenter" → VMWARE_MY_VCENTER_PASSWORD). No webhooks or outbound network calls — this skill is local-only (stdio MCP + vSphere API). Audit logs written to ~/.vmware/audit.db (SQLite WAL, local only).
@@ -38,7 +38,7 @@ VMware vSphere storage management — 12 MCP tools for datastores, iSCSI, and vS
 ## Quick Install
 
 ```bash
-uv tool install vmware-storage
+uv tool install vmware-storage==1.9.0
 vmware-storage init      # guided setup: writes config + .env (chmod 600, password grep-safe), then verifies
 vmware-storage doctor
 ```
@@ -244,7 +244,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Setup
 
 ```bash
-uv tool install vmware-storage
+uv tool install vmware-storage==1.9.0
 mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets

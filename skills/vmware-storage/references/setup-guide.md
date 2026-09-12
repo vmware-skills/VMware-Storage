@@ -13,19 +13,19 @@ Complete setup and security guide for `vmware-storage`.
 ### Via uv (recommended)
 
 ```bash
-uv tool install vmware-storage
+uv tool install vmware-storage==1.9.0
 ```
 
 ### Via pip
 
 ```bash
-pip install vmware-storage
+pip install vmware-storage==1.9.0
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/vmware-skills/VMware-Storage.git
+git clone --branch v1.9.0 https://github.com/vmware-skills/VMware-Storage.git
 cd VMware-Storage
 pip install -e .
 ```
@@ -136,7 +136,7 @@ Add to your MCP config (`~/.claude.json` or Claude Desktop settings):
 ```
 
 > v1.5.15+ recommends the single-command form `vmware-storage mcp`. Pre-1.5.15 used
-> `uvx --from vmware-storage vmware-storage-mcp`, which still works but re-resolves from
+> `uvx --from vmware-storage vmware-storage-mcp`, which still works but re-resolves from <!-- install-pin: historical -->
 > PyPI on each launch and breaks behind corporate TLS proxies. The legacy
 > `vmware-storage-mcp` entry point is also kept for backward compatibility.
 

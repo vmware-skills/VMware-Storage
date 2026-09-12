@@ -20,6 +20,9 @@ from vmware_storage.notify.audit import AuditLogger
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.iscsi_config import HostNotFoundError, ISCSIError
 from vmware_storage.ops.vsan import VSANError
+# Registers this skill's environment resolver, so environment-scoped policy
+# rules apply to @guarded CLI writes exactly as they do to MCP tools.
+import vmware_storage.policy_environment  # noqa: E402,F401
 
 
 def _harden_console_encoding() -> None:
@@ -271,7 +274,7 @@ app.add_typer(iscsi_app, name="iscsi")
 
 @iscsi_app.command("enable")
 @handle_cli_errors
-@guarded(risk_level='medium')
+@guarded("storage_iscsi_enable", risk_level="medium")
 def iscsi_enable(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
@@ -317,7 +320,7 @@ def iscsi_status(
 
 @iscsi_app.command("add-target")
 @handle_cli_errors
-@guarded(risk_level='medium')
+@guarded("storage_iscsi_add_target", risk_level="medium")
 def iscsi_add_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -354,7 +357,7 @@ def iscsi_add_target(
 
 @iscsi_app.command("remove-target")
 @handle_cli_errors
-@guarded(risk_level='high')
+@guarded("storage_iscsi_remove_target", risk_level="high")
 def iscsi_remove_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -391,7 +394,7 @@ def iscsi_remove_target(
 
 @iscsi_app.command("rescan")
 @handle_cli_errors
-@guarded(risk_level='medium')
+@guarded("storage_rescan", risk_level="medium")
 def iscsi_rescan(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),

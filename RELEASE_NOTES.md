@@ -1,3 +1,44 @@
+## v1.9.0 — CLI writes answer to the same rules as the MCP tools
+
+CLI commands are now authorised and audited under their MCP tool names, so one
+deny rule scopes both surfaces. `@guarded` had defaulted to the Python function
+name, so a rule denying `storage_iscsi_remove_target` refused the agent and let
+`vmware-storage iscsi remove-target` do the same teardown. Audit rows for these
+commands carry the new names from this release on:
+
+| CLI command | was | now |
+|---|---|---|
+| `iscsi enable` | `iscsi_enable` | `storage_iscsi_enable` |
+| `iscsi add-target` | `iscsi_add_target` | `storage_iscsi_add_target` |
+| `iscsi remove-target` | `iscsi_remove_target` | `storage_iscsi_remove_target` |
+| `iscsi rescan` | `iscsi_rescan` | `storage_rescan` |
+
+Rows written before this release keep the old names, so a query over `~/.vmware/audit.db` that
+spans the upgrade needs both. **A deny rule written against an old CLI name no longer matches** —
+rename it to the MCP tool name in the table, or the command it was meant to stop runs unchecked.
+
+**Environment-scoped deny rules now apply to CLI writes.** The skill's environment resolver was
+registered only when the MCP server was imported, which the CLI never does — so a
+`freeze-production-writes` rule stopped the MCP tool and not the CLI command doing the same
+thing. It now lives in `policy_environment.py`, imported by both surfaces. (With vmware-policy
+1.13.1 the CLI's `--config` file is the one whose labels are judged.)
+
+**OpenClaw could not show this skill to the model.** `metadata.openclaw.requires` listed
+config *file paths* under `requires.config`, which OpenClaw reads as `openclaw.json` keys that
+must be truthy — so the skill was "needs setup / not visible to the model" whatever was on disk
+(verified on OpenClaw 2026.6.35). `requires.env` named an optional override and `requires.bins`
+demanded a CLI that a plugin install (uvx) never has. `requires` is now `anyBins: [<cli>, "uvx"]`;
+the variables are still declared, under `optional.env`.
+
+**Install commands in the skill pin this release.** ClawHub reviews SKILL.md and references/,
+not the package they install, so an unpinned `uv tool install` vouched for code nobody reviewed.
+Every install command for this package in the skill now names this version.
+
+**A config path written as `~/…` now resolves.** Every MCP example config and setup-guide snippet
+sets `VMWARE_STORAGE_CONFIG` to `~/.vmware-storage/config.yaml`, but MCP clients pass env values verbatim and the
+path was used unexpanded, so copying the snippet gave "Config file not found" for a file that was
+there. `~` is now expanded in the variable and in `--config`.
+
 ## v1.8.17 — a dropped connection no longer keeps itself alive
 
 Every `connect()` registered an `atexit` cleanup that closes over the
