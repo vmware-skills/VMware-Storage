@@ -1,6 +1,6 @@
 {
   "name": "@zw008/vmware-storage",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
   "private": true,
   "license": "MIT",
