@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
-from vmware_policy import PolicyDenied, guarded
+from vmware_policy import PolicyDenied, audited, cli_local, guarded
 
 from vmware_storage.config import load_config
 from vmware_storage.connection import ConnectionManager
@@ -199,6 +199,7 @@ def _usage_cell(usage_pct: float | None) -> Text:
 
 @ds_app.command("list")
 @handle_cli_errors
+@audited("list_all_datastores")
 def ds_list(
     target: str | None = typer.Option(None, help="Target name"),
     config: str | None = typer.Option(None, "--config", help="Config file path"),
@@ -232,6 +233,7 @@ def ds_list(
 
 @ds_app.command("browse")
 @handle_cli_errors
+@audited("browse_datastore")
 def ds_browse(
     ds_name: str = typer.Argument(help="Datastore name"),
     path: str = typer.Option("", help="Subdirectory path"),
@@ -250,6 +252,7 @@ def ds_browse(
 
 @ds_app.command("scan-images")
 @handle_cli_errors
+@audited("scan_datastore_images")
 def ds_scan_images(
     ds_name: str = typer.Argument(help="Datastore name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -306,6 +309,7 @@ def iscsi_enable(
 
 @iscsi_app.command("status")
 @handle_cli_errors
+@audited("storage_iscsi_status")
 def iscsi_status(
     host_name: str = typer.Argument(help="ESXi host name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -429,6 +433,7 @@ app.add_typer(vsan_app, name="vsan")
 
 @vsan_app.command("health")
 @handle_cli_errors
+@audited("vsan_health")
 def vsan_health_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -443,6 +448,7 @@ def vsan_health_cmd(
 
 @vsan_app.command("capacity")
 @handle_cli_errors
+@audited("vsan_capacity")
 def vsan_capacity_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -457,6 +463,7 @@ def vsan_capacity_cmd(
 
 @vsan_app.command("efficiency")
 @handle_cli_errors
+@audited("vsan_efficiency")
 def vsan_efficiency_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -476,6 +483,7 @@ def vsan_efficiency_cmd(
 
 @app.command("init")
 @handle_cli_errors
+@audited("init")
 def init(
     force: bool = typer.Option(False, "--force", help="Overwrite an existing config"),
     skip_test: bool = typer.Option(False, "--skip-test", help="Skip the connection test"),
@@ -493,6 +501,7 @@ def init(
 
 @app.command()
 @handle_cli_errors
+@audited("doctor")
 def doctor(
     skip_auth: bool = typer.Option(False, "--skip-auth", help="Skip auth check"),
 ) -> None:
@@ -504,6 +513,7 @@ def doctor(
 
 @app.command("mcp")
 @handle_cli_errors
+@cli_local("starts the MCP server; its tools audit themselves")
 def mcp_cmd() -> None:
     """Start the MCP server (stdio transport).
 

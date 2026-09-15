@@ -5,7 +5,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "vmware-storage==1.9.0",
+        "vmware-storage==1.9.1",
         "vmware-storage-mcp"
       ]
     }
