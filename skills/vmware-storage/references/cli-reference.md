@@ -182,6 +182,47 @@ vmware-storage vsan capacity Cluster-Prod
 
 Output: JSON with `total_gb`, `used_gb`, `free_gb`, `usage_pct`, `datastore_name`.
 
+## Fibre Channel / Multipath Commands (read-only)
+
+### `paths fc-adapters`
+
+List FC and FCoE HBAs per host with WWPN/WWNN, port type, status and the raw reported speed.
+
+```bash
+vmware-storage paths fc-adapters --cluster Cluster-Prod
+vmware-storage paths fc-adapters --host esxi-01.example.com
+vmware-storage paths fc-adapters            # every host on the target
+```
+
+| Option | Required | Default | Description |
+|--------|:--------:|---------|-------------|
+| `--cluster` | No | - | Cluster name |
+| `--host` | No | - | ESXi host name |
+| `--limit` / `--offset` | No | 50 / 0 | Paging (limit 1-200) |
+
+Output: list envelope plus `hosts_without_fc` and `hosts_not_read` (hosts that were not read are never reported as having no FC HBA).
+
+### `paths devices`
+
+Per-device SCSI multipath state across the hosts of one scope.
+
+```bash
+vmware-storage paths devices --datastore ds-fc-01                     # dead/disabled paths behind a datastore
+vmware-storage paths devices --cluster Cluster-Prod --only-differences # path counts differ, or a shared device is missing
+vmware-storage paths devices --cluster Cluster-Prod --device naa.60060e80123456
+vmware-storage paths devices --host esxi-01 --adapter vmhba2          # what depends on one HBA
+```
+
+| Option | Required | Default | Description |
+|--------|:--------:|---------|-------------|
+| `--cluster` / `--host` / `--datastore` | Exactly one | - | Scope |
+| `--device` | No | - | Canonical name (`naa.…`) or display name, case-insensitive |
+| `--adapter` | No | - | vmhba name; adds `paths_via_adapter` and `only_paths_via_adapter` per host. Matched by name: in a cluster scope `vmhba2` can be a different card on each host |
+| `--only-differences` | No | false | Only devices whose visibility or path count differs across the hosts read |
+| `--limit` / `--offset` | No | 50 / 0 | Paging over devices (limit 1-200) |
+
+Output: list envelope of devices (those with dead/disabled paths first), plus `summary`, `hosts_read`, `hosts_not_read`, `complete`, `scope_note` and `note`. Path states are reported as vSphere reports them; `standby` is not flagged.
+
 ## Diagnostics
 
 ### `doctor`

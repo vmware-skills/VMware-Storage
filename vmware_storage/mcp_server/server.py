@@ -7,7 +7,8 @@ stdio transport.
 Tool categories
 ---------------
 * **Read-only**: list_all_datastores, browse_datastore, scan_datastore_images,
-  list_cached_images, storage_iscsi_status, vsan_health, vsan_capacity
+  list_cached_images, storage_iscsi_status, vsan_health, vsan_capacity,
+  vsan_efficiency, fc_adapter_list, storage_device_paths
 * **Write**: storage_iscsi_enable, storage_iscsi_add_target,
   storage_iscsi_remove_target, storage_rescan
 
@@ -50,6 +51,8 @@ from vmware_storage.ops.iscsi_config import (
     remove_iscsi_target,
     rescan_storage,
 )
+from vmware_storage.ops.multipath import device_paths
+from vmware_storage.ops.storage_paths import StoragePathError, list_fc_adapters
 from vmware_storage.ops.vsan import VSANError, get_vsan_capacity, get_vsan_health
 from vmware_storage.ops.vsan_efficiency import get_vsan_efficiency
 
@@ -109,6 +112,7 @@ def _safe_error(exc: Exception, tool: str) -> str:
         DatastoreBrowseError,
         HostNotFoundError,
         ISCSIError,
+        StoragePathError,
         VSANError,
     )
     if isinstance(exc, _passthrough):
@@ -622,6 +626,114 @@ def vsan_efficiency(
         return get_vsan_efficiency(si, cluster_name)
     except Exception as e:
         logger.error("vsan_efficiency failed: %s", e)
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+
+
+# ---------------------------------------------------------------------------
+# Fibre Channel / multipath tools (read-only)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+def fc_adapter_list(
+    cluster: Optional[str] = None,
+    host: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    target: Optional[str] = None,
+) -> dict:
+    """[READ] List Fibre Channel HBAs (FC and FCoE) per ESXi host: vmhba, model, driver, status, port type, WWPN/WWNN and reported link speed.
+
+    Use this for "which FC adapters does each host have" or to find a
+    host's WWPNs; use storage_device_paths for devices and paths behind them.
+    Scope with cluster OR host; with neither, every host on the target is
+    read (only the adapter list is fetched, so this stays cheap).
+
+    Returns the list envelope ('items', 'returned', 'total', 'truncated',
+    'next_offset') plus hosts_without_fc (read, no FC HBA) and
+    hosts_not_read [{host, reason}]. A host in hosts_not_read was NOT read —
+    never report it as having no FC adapters. speed_reported is the raw
+    vSphere value: the API documents bits per second, but hosts commonly report
+    Gbit/s, so it is not converted. Reads host config only; no rescans.
+
+    Args:
+        cluster: Cluster name exactly as in vCenter. Omit to use host or the whole target.
+        host: ESXi host name exactly as in vCenter inventory (FQDN or IP).
+        limit: Rows per page, 1-200 (default 50).
+        offset: Rows to skip; pass the previous page's next_offset.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return list_fc_adapters(si, cluster=cluster, host=host, limit=limit, offset=offset)
+    except Exception as e:
+        logger.error("fc_adapter_list failed: %s", e)
+        return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+def storage_device_paths(
+    cluster: Optional[str] = None,
+    host: Optional[str] = None,
+    datastore: Optional[str] = None,
+    device: Optional[str] = None,
+    adapter: Optional[str] = None,
+    only_differences: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    target: Optional[str] = None,
+) -> dict:
+    """[READ] SCSI multipath state per device (NAA) across the hosts of one scope: which hosts see it, path counts and states, working paths, adapters, target WWPN, PSP/SATP policy, and the VMFS datastores on it.
+
+    Use for: "does datastore X have dead or disabled paths on any host"
+    (datastore=X), "which hosts see naa.… and through which adapters"
+    (cluster + device), "do hosts see different numbers of paths"
+    (cluster + only_differences=true), "which devices and datastores depend on
+    vmhba2" (host + adapter). Exactly one of cluster, host or datastore is
+    required — this tool will not read every host at once.
+
+    Per device: shared (reached over FC/iSCSI or seen by 2+ hosts), seen_by,
+    not_seen_on (hosts that WERE read and do not see a shared device; a disk
+    inside one host is never listed), path_count_differs,
+    states_needing_attention
+    (dead/disabled only) and per-host {paths_total, by_state, working_paths,
+    policy, satp, adapters}; with adapter set, also paths_via_adapter and
+    only_paths_via_adapter (matched by vmhba name, which can be a different
+    card on each host of a cluster). Per-path detail is included when device or
+    datastore is given. Devices needing attention sort first; 'summary'
+    counts the whole result, not just this page.
+
+    Gotchas: hosts in hosts_not_read were NOT read (refused, not connected —
+    vCenter's copy of a lost host's config may be stale — or missing from the
+    reply) and are never in
+    not_seen_on — when complete is false, say which hosts are unknown instead
+    of concluding a device is missing. States are as vSphere reports them:
+    'standby' can be normal (active/passive arrays), and a path count does not
+    prove independent fabrics. NFS/vSAN/vVol datastores have no SCSI paths
+    (scope_note says so). NVMe-oF namespaces may not appear. No rescans.
+
+    Args:
+        cluster: Cluster name exactly as in vCenter.
+        host: ESXi host name exactly as in vCenter inventory.
+        datastore: Datastore name; scopes to the hosts that mount it and its VMFS extents.
+        device: Canonical name (e.g. naa.60060e80...) or display name; case-insensitive.
+        adapter: vmhba name (e.g. vmhba2) to keep devices with a path through it.
+        only_differences: Keep only devices whose visibility or path count
+            differs across the hosts that were read.
+        limit: Devices per page, 1-200 (default 50).
+        offset: Devices to skip; pass the previous page's next_offset.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return device_paths(
+            si, cluster=cluster, host=host, datastore=datastore, device=device,
+            adapter=adapter, only_differences=only_differences, limit=limit, offset=offset,
+        )
+    except Exception as e:
+        logger.error("storage_device_paths failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 

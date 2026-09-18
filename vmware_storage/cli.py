@@ -19,6 +19,7 @@ from vmware_storage.connection import ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.iscsi_config import HostNotFoundError, ISCSIError
+from vmware_storage.ops.storage_paths import StoragePathError
 from vmware_storage.ops.vsan import VSANError
 # Registers this skill's environment resolver, so environment-scoped policy
 # rules apply to @guarded CLI writes exactly as they do to MCP tools.
@@ -68,6 +69,7 @@ _EXPECTED_ERRORS = (
     DatastoreBrowseError,
     HostNotFoundError,
     ISCSIError,
+    StoragePathError,
     VSANError,
     ValueError,
     OSError,  # includes FileNotFoundError, PermissionError, socket errors
@@ -474,6 +476,59 @@ def vsan_efficiency_cmd(
 
     si = _get_connection(target, config)
     _print_json(get_vsan_efficiency(si, cluster_name))
+
+
+# ---------------------------------------------------------------------------
+# Fibre Channel / multipath (read-only)
+# ---------------------------------------------------------------------------
+
+paths_app = typer.Typer(help="Fibre Channel adapters and SCSI multipath state (read-only).")
+app.add_typer(paths_app, name="paths")
+
+
+@paths_app.command("fc-adapters")
+@handle_cli_errors
+@audited("fc_adapter_list")
+def paths_fc_adapters(
+    cluster: str | None = typer.Option(None, help="Cluster name"),
+    host: str | None = typer.Option(None, help="ESXi host name"),
+    limit: int = typer.Option(50, help="Rows per page (1-200)"),
+    offset: int = typer.Option(0, help="Rows to skip"),
+    target: str | None = typer.Option(None, help="Target name"),
+    config: str | None = typer.Option(None, "--config", help="Config file path"),
+) -> None:
+    """List FC/FCoE HBAs with WWPN/WWNN per host."""
+    from vmware_storage.ops.storage_paths import list_fc_adapters
+
+    si = _get_connection(target, config)
+    _print_json(list_fc_adapters(si, cluster=cluster, host=host, limit=limit, offset=offset))
+
+
+@paths_app.command("devices")
+@handle_cli_errors
+@audited("storage_device_paths")
+def paths_devices(
+    cluster: str | None = typer.Option(None, help="Cluster name"),
+    host: str | None = typer.Option(None, help="ESXi host name"),
+    datastore: str | None = typer.Option(None, help="Datastore name"),
+    device: str | None = typer.Option(None, help="Device canonical name (naa.…)"),
+    adapter: str | None = typer.Option(None, help="vmhba name"),
+    only_differences: bool = typer.Option(
+        False, "--only-differences", help="Only devices whose visibility or path count differs"
+    ),
+    limit: int = typer.Option(50, help="Devices per page (1-200)"),
+    offset: int = typer.Option(0, help="Devices to skip"),
+    target: str | None = typer.Option(None, help="Target name"),
+    config: str | None = typer.Option(None, "--config", help="Config file path"),
+) -> None:
+    """Show per-device multipath state for one cluster, host or datastore."""
+    from vmware_storage.ops.multipath import device_paths
+
+    si = _get_connection(target, config)
+    _print_json(device_paths(
+        si, cluster=cluster, host=host, datastore=datastore, device=device,
+        adapter=adapter, only_differences=only_differences, limit=limit, offset=offset,
+    ))
 
 
 # ---------------------------------------------------------------------------

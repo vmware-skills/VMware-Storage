@@ -211,12 +211,12 @@ def _list_tools():
     return asyncio.run(mcp.list_tools())
 
 
-def test_mcp_exposes_12_tools_8_read_4_write():
+def test_mcp_exposes_14_tools_10_read_4_write():
     tools = _list_tools()
-    assert len(tools) == 12, f"Expected 12 MCP tools, got {len(tools)}: {[t.name for t in tools]}"
+    assert len(tools) == 14, f"Expected 14 MCP tools, got {len(tools)}: {[t.name for t in tools]}"
     read = [t.name for t in tools if t.annotations and t.annotations.readOnlyHint]
     write = [t.name for t in tools if not (t.annotations and t.annotations.readOnlyHint)]
-    assert len(read) == 8, f"Expected 8 read tools, got {len(read)}: {read}"
+    assert len(read) == 10, f"Expected 10 read tools, got {len(read)}: {read}"
     assert len(write) == 4, f"Expected 4 write tools, got {len(write)}: {write}"
     assert sorted(write) == sorted(_WRITE_TOOLS)
 

@@ -40,12 +40,33 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | `storage_iscsi_remove_target` | Remove iSCSI send target and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `target` (string, optional) | Medium | Yes |
 | `storage_rescan` | Rescan all HBAs and VMFS volumes on a host | `host` (string, **required**), `target` (string, optional) | Low | No |
 
-## vSAN (2 tools)
+## vSAN (3 tools)
 
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
 | `vsan_health` | Cluster health summary with disk group details per host | `cluster` (string, **required**), `target` (string, optional) | Low | No |
 | `vsan_capacity` | Total/used/free capacity in GB and usage percentage | `cluster` (string, **required**), `target` (string, optional) | Low | No |
+| `vsan_efficiency` | Dedup + compression status (vSAN Management SDK) | `cluster_name` (string, **required**), `target` (string, optional) | Low | No |
+
+## Fibre Channel / multipath (2 tools, read-only)
+
+| Tool | Description | Parameters | Risk | Confirm |
+|------|-------------|------------|:----:|:-------:|
+| `fc_adapter_list` | FC and FCoE HBAs per host: vmhba, model, driver, status, port type, WWPN/WWNN, `speed_reported` | `cluster` or `host` (optional; neither = every host on the target), `limit` (1-200, default 50), `offset`, `target` | Low | No |
+| `storage_device_paths` | Per-device (NAA) SCSI multipath state across the hosts of one scope: `shared`, `seen_by`, `not_seen_on`, `path_count_differs`, `states_needing_attention`, per-host path counts by state, working paths, adapters, PSP/SATP, VMFS datastores | exactly one of `cluster` / `host` / `datastore` (**required**); `device`, `adapter`, `only_differences`, `limit`, `offset`, `target` | Low | No |
+
+Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) and `config.fileSystemVolume.mountInfo`, fetched in one PropertyCollector call per scope. No SSH, no array or switch credentials, no rescans. Requested in [VMware-Storage#18](https://github.com/vmware-skills/VMware-Storage/issues/18).
+
+- **Unread is not empty.** A host whose storage view could not be read — `NoPermission`, not connected (vCenter keeps a lost host's last-known config, so it is not treated as current), or missing from vCenter's reply — is listed in `hosts_not_read` with the reason, `complete` is `false`, and that host is never counted in `not_seen_on` or `hosts_without_fc`.
+- **Observed state, not verdicts.** `states_needing_attention` holds only `dead` and `disabled`. `standby` is reported in `by_state` but not flagged (it is normal on active/passive arrays), and a path count does not prove independent fabrics.
+- **Only shared devices can be missing.** `not_seen_on` is filled only when `shared` is true: the device is reached over FC or iSCSI (judged by the path's adapter type, so a dead path that lost its transport still counts) or already seen by more than one host. A local-marked device is exempt even on a SAN — that is how a boot-from-SAN LUN zoned to one host is usually marked. A disk inside one host — local, or a SAS/NVMe drive ESXi marks non-local — is never reported missing elsewhere. `mpx.*` names, non-disk LUNs (CD-ROM) and unresolved LUNs are per-host and never merged across hosts, since every host can have its own `mpx.vmhba0:C0:T0:L0`. A side effect: an array LUN that has no NAA identifier and is named `mpx.*` is shown once per host rather than as one shared device. Each path row carries `protocol` (`fc`, `iscsi` or null).
+- **`adapter`** matches by vmhba name; in a cluster scope `vmhba2` can be a different card on each host.
+- **`complete`** is false when any host was not read, or when a datastore's backing devices are unknown (no readable host reports the VMFS volume mounted).
+- **`speed_reported`** is the raw vSphere value. The API documents bits per second, but hosts commonly report Gbit/s (e.g. `16`), so it is not converted.
+- **Scope**: `storage_device_paths` requires one scope and refuses to read every host at once — multipath data is large on estates with hundreds of hosts. Per-path detail is returned only when `device` or `datastore` is given.
+- **Not covered**: NVMe-oF namespaces may not appear (they are not in `multipathInfo`); zoning, array masking and switch health are out of scope.
+- **Privileges**: reads host configuration only. Expected to work with the Read-Only role; not yet validated against a restricted account.
+- **Typical response**: `fc_adapter_list` ~80 tokens per adapter; `storage_device_paths` ~120 tokens per device per host in summary form, 2–3× that with per-path detail.
 
 ## Risk Level Definitions
 
@@ -58,7 +79,7 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 | Risk | Count | Tools |
 |------|:-----:|-------|
-| Low | 8 | All read-only tools + `storage_rescan` |
+| Low | 11 | All read-only tools + `storage_rescan` |
 | Medium | 3 | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target` |
 
 > Note: `storage_rescan` triggers a host-level HBA rescan which is non-destructive (discovery only) and classified as Low risk. The iSCSI write tools (`enable`, `add_target`, `remove_target`) are Medium risk because they modify the host's iSCSI configuration, but changes are reversible.
@@ -75,7 +96,7 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 ## Audit Coverage
 
-All 11 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
+All 14 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 - **Pre-execution**: Policy rule check against `~/.vmware/rules.yaml` (deny rules, maintenance windows)
 - **Post-execution**: Audit log entry written to `~/.vmware/audit.db` (SQLite WAL mode)
@@ -85,7 +106,7 @@ All 11 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 | Type | Count | Tools |
 |------|:-----:|-------|
-| Read | 7 | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `storage_iscsi_status`, `vsan_health`, `vsan_capacity` |
+| Read | 10 | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `storage_iscsi_status`, `vsan_health`, `vsan_capacity`, `vsan_efficiency`, `fc_adapter_list`, `storage_device_paths` |
 | Write | 4 | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` |
 
 > Write tools require explicit parameters (host name, IP address) and support `--dry-run` in CLI mode. All write operations are audit-logged with timestamp, user, target, operation, parameters, and result.

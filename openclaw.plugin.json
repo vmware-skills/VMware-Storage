@@ -1,7 +1,7 @@
 {
   "id": "vmware-storage",
   "name": "VMware Storage",
-  "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
+  "description": "VMware vSphere storage with 14 MCP tools: datastores, iSCSI, vSAN, FC multipath.",
   "skills": [
     "./skills"
   ],
@@ -11,7 +11,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "vmware-storage==1.9.3",
+        "vmware-storage==1.10.0",
         "vmware-storage-mcp"
       ]
     }

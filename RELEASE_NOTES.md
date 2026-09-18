@@ -1,3 +1,49 @@
+## v1.10.0 — read-only Fibre Channel inventory and multipath diagnostics
+
+Requested in [#18](https://github.com/vmware-skills/VMware-Storage/issues/18) by an operator running this skill
+against a vSphere 8 estate on Hitachi VSP over Fibre Channel: datastore listing was there, the adapters, devices
+and paths underneath it were not. Two new read-only tools (12 → 14; 10 read, 4 write), CLI group `paths`:
+
+* **`fc_adapter_list`** (`paths fc-adapters`) — FC and FCoE HBAs per host: vmhba, model, driver, status, port
+  type, WWPN/WWNN and `speed_reported`. The speed is the raw vSphere value and is not converted: the API documents
+  bits per second, but hosts commonly report Gbit/s.
+* **`storage_device_paths`** (`paths devices`) — per device (NAA), across the hosts of one cluster, host or
+  datastore: which hosts see it, path counts by state, working paths, adapters, target WWPN, PSP/SATP policy and
+  the VMFS datastores on it. `datastore=` answers "does this datastore have dead or disabled paths on any host";
+  `only_differences` finds shared devices that hosts see through different numbers of paths, or not at all;
+  `adapter=` shows what rides on one HBA and whether a host has any other path.
+
+How it behaves, since these are diagnostic tools:
+
+* **A host that could not be read is not a host with zero paths.** It is listed in `hosts_not_read` with the
+  reason, `complete` is false, and it is never counted in `not_seen_on` or `hosts_without_fc`. That covers a
+  refused read (`NoPermission`), a host that is not connected (vCenter keeps a lost host's last-known config, which
+  would otherwise be reported as current), and a host missing from vCenter's reply.
+* **Only shared devices can be missing.** `not_seen_on` is filled only for a device reached over FC/iSCSI or already
+  seen by two or more hosts. A disk inside one host is never reported missing on the others, and `mpx.*` names,
+  CD-ROMs and unresolved LUNs are never merged across hosts — every host can have its own `mpx.vmhba0:C0:T0:L0`.
+* **Observed state, not verdicts.** Only `dead` and `disabled` are flagged. `standby` is reported but not flagged
+  (normal on active/passive arrays), and a path count does not prove independent fabrics.
+* **Bounded.** `storage_device_paths` requires exactly one scope and will not read every host at once; results
+  are paged over devices, sorted with devices needing attention first, and `summary` counts the whole result.
+  Per-path detail comes back only when a device or datastore is named.
+* Everything comes from each host's `config.storageDevice` and `config.fileSystemVolume` in one
+  PropertyCollector call per scope. No SSH, no array or switch credentials, no rescans.
+
+An independent review before release found two high and four medium issues in the first cut — per-host disks
+merged or reported missing, a not-connected host read as live, duplicate names resolved to the first match, the
+last page reported as truncated, a disappearing host — all fixed, each with a test that fails without the fix.
+A second, narrow review of those fixes found a SAN LUN hidden when its only path came back without a transport;
+SAN is now judged by the path's adapter type, which vCenter always reports.
+
+**Not yet validated on Fibre Channel hardware.** The lab has no FC fabric; the tools are built against pyVmomi's
+own type metadata (every property chain is checked by the vim conformance test) and tested with real pyVmomi data
+objects, including a `missingSet` fault and a WWN with the sign bit set. NVMe-oF namespaces may not appear.
+
+Documentation: `capabilities.md`, `cli-reference.md` and `agent-guardrails.md` carry the new tools. The README's
+"Why a separate skill" section and several counts in `capabilities.md` were already stale before this release
+(11 tools, 7 read, vSAN listed as 2 tools) and are corrected.
+
 ## v1.9.3 — a stopped MCP server exits within five seconds, even if its logout hangs
 
 A correction to 1.9.2, from an independent review on 2026-09-15. 1.9.2 made the server log out when Claude Code

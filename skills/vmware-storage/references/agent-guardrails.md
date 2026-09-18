@@ -14,7 +14,7 @@ vmware-monitor and vmware-aria against a production vSphere estate with Llama
 cross-skill rules are identical across this family; the parts below marked
 vmware-storage are specific to this skill.
 
-vmware-storage exposes 12 MCP tools, 4 of which change state. The write
+vmware-storage exposes 14 MCP tools, 4 of which change state. The write
 surface is small but sharp: removing an iSCSI send target can make LUNs — and
 every VM living on them — inaccessible.
 
@@ -61,7 +61,8 @@ your agent's instruction block.
 ## Skill routing
 
 - vmware-storage: datastores, datastore browsing, image scanning, iSCSI
-  adapters and send targets, vSAN health and capacity.
+  adapters and send targets, vSAN health and capacity, and read-only Fibre
+  Channel HBA inventory and multipath path state.
 - vmware-monitor: read-only vCenter inventory, hosts, alarms, events,
   performance. Prefer it for any question that only reads.
 - vmware-aiops: VM lifecycle. This skill cannot power, create, delete or
@@ -123,6 +124,8 @@ checklist when evaluating any local model against these skills:
 | Silently corrects a datastore name's case and reports on the wrong object | Resolve names through `list_all_datastores` first, and have the model echo the resolved name before acting. |
 | Recomputes usage percentages and gets them wrong | The "report capacity in the units the tool returned" rule. |
 | Treats "already enabled" as a failure and retries | It is a stated result. The response carries the HBA device and IQN. |
+| Reports a host as "missing the LUN" when that host was never read | `storage_device_paths` lists such hosts in `hosts_not_read` and sets `complete: false`; they are never in `not_seen_on`, and neither is any disk that lives inside one host. Require the model to name unread hosts as unknown. |
+| Calls a `standby` path a failure | Only `states_needing_attention` (dead/disabled) is a finding. `standby` is normal on active/passive arrays. |
 
 ## Reporting results
 

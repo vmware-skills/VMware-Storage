@@ -2,8 +2,8 @@
 name: vmware-storage
 description: >
   Use this skill whenever the user needs to manage VMware storage — datastores, iSCSI targets, and vSAN clusters.
-  Directly handles: browse datastores, scan for deployable images (OVA/ISO), configure iSCSI adapters and targets, check vSAN health and capacity.
-  Always use this skill for "list datastores", "add iSCSI target", "check vSAN health", "browse datastore files", "scan for OVA images", or any storage-related VMware task.
+  Directly handles: browse datastores, scan for deployable images (OVA/ISO), configure iSCSI adapters and targets, check vSAN health and capacity, read-only Fibre Channel HBA/WWPN inventory and multipath path state.
+  Always use this skill for "list datastores", "add iSCSI target", "check vSAN health", "browse datastore files", "scan for OVA images", "dead paths", "FC HBA WWPN", or any storage-related VMware task.
   Do NOT use for VM lifecycle operations (use vmware-aiops), NSX networking (use vmware-nsx), or Kubernetes clusters (use vmware-vks).
   For load balancing/AVI/AKO use vmware-avi.
 installer:
@@ -21,7 +21,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/vmware-skills/VMware-Storage](https://github.com/vmware-skills/VMware-Storage) under the MIT license.
 
-VMware vSphere storage management — 12 MCP tools for datastores, iSCSI, and vSAN.
+VMware vSphere storage management — 14 MCP tools for datastores, iSCSI, vSAN, and Fibre Channel / multipath diagnostics.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 > **Companion skills**: [vmware-aiops](https://github.com/vmware-skills/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor) (read-only monitoring), [vmware-vks](https://github.com/vmware-skills/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/vmware-skills/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/vmware-skills/VMware-Aria) (metrics/alerts/capacity), [vmware-avi](https://github.com/vmware-skills/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/vmware-skills/VMware-Harden) (compliance baselines).
@@ -34,11 +34,12 @@ VMware vSphere storage management — 12 MCP tools for datastores, iSCSI, and vS
 | **Datastore** | list all datastores, browse files, scan for OVA/ISO/OVF/VMDK images, list cached images | 4 |
 | **iSCSI** | enable adapter, show status, add target, remove target, rescan HBAs | 5 |
 | **vSAN** | cluster health summary, capacity overview (total/used/free), data-efficiency (dedup/compression) | 3 |
+| **FC / multipath** (read-only) | FC HBA inventory with WWPN/WWNN; per-device path state across hosts, datastore backing devices, path-count differences across hosts | 2 |
 
 ## Quick Install
 
 ```bash
-uv tool install vmware-storage==1.9.3
+uv tool install vmware-storage==1.10.0
 vmware-storage init      # guided setup: writes config + .env (chmod 600, password grep-safe), then verifies
 vmware-storage doctor
 ```
@@ -48,6 +49,7 @@ vmware-storage doctor
 - Browse datastore files or scan for deployable images (OVA/ISO/VMDK)
 - Configure iSCSI: enable adapter, add/remove send targets, rescan storage
 - Check vSAN cluster health and capacity
+- Fibre Channel: list HBAs and WWPNs, find dead/disabled paths, compare path counts across a cluster, map a datastore to its devices
 - Any storage-focused VMware operation
 
 **Use companion skills for**:
@@ -111,6 +113,17 @@ For filtered queries against the cache: use `list_cached_images` MCP tool with `
 4. **If vSAN not enabled** on this cluster: check cluster type via `vmware-monitor inventory clusters`; vSAN is opt-in, not default
 5. For deep investigation, follow [`references/investigation-protocol.md`](../vmware-aria/skills/vmware-aria/references/investigation-protocol.md) (in companion skill) — vSAN issues frequently fail the Mechanism criterion (capacity is correlated, not causal)
 
+### Check Fibre Channel Paths
+
+**Judgment**: report what vSphere observed, not a verdict. `standby` paths are normal on active/passive arrays, and equal path counts do not prove two independent fabrics. Zoning, array masking and switch health are out of scope.
+
+1. `paths devices --datastore <ds>` → dead/disabled paths behind one datastore, per host (devices needing attention sort first)
+2. `paths devices --cluster <c> --only-differences` → shared devices some hosts do not see, or see through a different number of paths; each host's `paths_total` shows which has fewer
+3. `paths devices --host <h> --adapter vmhba2` → what depends on one HBA; `only_paths_via_adapter: true` means that host has no other path to the device
+4. `paths fc-adapters --cluster <c>` → WWPNs to hand to the SAN team
+5. **If `complete` is false**: hosts in `hosts_not_read` were not read (the reason says `NoPermission` or the connection state). Name them as unknown — never report them as missing the device
+6. **If "Scope required"**: pass exactly one of `--cluster`, `--host` or `--datastore`; this tool does not read every host at once
+
 ### Multi-Target Operations
 
 All commands accept `--target <name>` to operate against a specific vCenter or ESXi host from your config:
@@ -132,7 +145,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (12 — 8 read, 4 write)
+## MCP Tools (14 — 10 read, 4 write)
 
 All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools also accept `dry_run: true` to preview the change without executing it.
 
@@ -152,8 +165,10 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | vSAN | `vsan_health` | Read | Cluster health summary and disk group details |
 | | `vsan_capacity` | Read | Total/used/free capacity in GB and usage % |
 | | `vsan_efficiency` | Read | Dedup + compression status (vSAN Management SDK) |
+| FC / multipath | `fc_adapter_list` | Read | FC/FCoE HBAs per host: WWPN/WWNN, port type, status, reported speed |
+| | `storage_device_paths` | Read | Per-device path state across a cluster/host/datastore; visibility and path-count differences |
 
-**Read/write split**: 8 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
+**Read/write split**: 10 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
 Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
 
@@ -175,6 +190,10 @@ vmware-storage iscsi rescan <host> [--dry-run]
 # vSAN
 vmware-storage vsan health <cluster> [--target <name>]
 vmware-storage vsan capacity <cluster> [--target <name>]
+
+# Fibre Channel / multipath (read-only)
+vmware-storage paths fc-adapters [--cluster <c> | --host <h>]
+vmware-storage paths devices (--cluster <c> | --host <h> | --datastore <ds>) [--device <naa>] [--adapter <vmhba>] [--only-differences]
 
 # Diagnostics
 vmware-storage doctor [--skip-auth]
@@ -230,7 +249,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Safety
 
 - **No VM operations**: This skill cannot power on/off, create, delete, or modify VMs — that scope belongs to `vmware-aiops`
-- **Read-heavy**: 8 of 12 tools are read-only (list, browse, scan, cached images, status, health, capacity, efficiency)
+- **Read-heavy**: 10 of 14 tools are read-only (list, browse, scan, cached images, status, health, capacity, efficiency, FC adapters, device paths)
 - **Audit logging**: All operations (including reads) are logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with timestamp, user, target, operation, parameters, and result
 - **Double confirmation**: CLI write commands (iSCSI enable, add/remove target) require two separate "Are you sure?" prompts before executing
 - **Dry-run mode**: All write commands support `--dry-run` to preview API calls without executing
@@ -244,7 +263,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Setup
 
 ```bash
-uv tool install vmware-storage==1.9.3
+uv tool install vmware-storage==1.10.0
 mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets

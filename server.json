@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.vmware-skills/vmware-storage",
   "title": "VMware Storage",
-  "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
+  "description": "VMware vSphere storage with 14 MCP tools: datastores, iSCSI, vSAN, FC multipath.",
   "repository": {
     "url": "https://github.com/vmware-skills/VMware-Storage",
     "source": "github"
   },
-  "version": "1.9.3",
+  "version": "1.10.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "vmware-storage",
-      "version": "1.9.3",
+      "version": "1.10.0",
       "runtimeHint": "uvx",
       "packageArguments": [
         {

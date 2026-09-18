@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere 存储管理：数据存储、iSCSI、vSAN — 12 个 MCP 工具，领域专注、轻量级。
+VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光纤通道（FC）/ 多路径诊断 — 14 个 MCP 工具，领域专注、轻量级。
 
 > 从 vmware-aiops 拆分，更轻量的上下文，兼容本地小模型。
 
@@ -91,13 +91,14 @@ targets:
     password_env: VMWARE_ESXIPROD_PASSWORD
 ```
 
-## MCP 工具（12 个）
+## MCP 工具（14 个）
 
 | 类别 | 工具 | 类型 |
 |------|------|------|
 | 数据存储 | `list_all_datastores`、`browse_datastore`、`scan_datastore_images`、`list_cached_images` | 只读 |
 | iSCSI | `storage_iscsi_enable`、`storage_iscsi_status`、`storage_iscsi_add_target`、`storage_iscsi_remove_target`、`storage_rescan` | 读/写 |
 | vSAN | `vsan_health`、`vsan_capacity`、`vsan_efficiency` | 只读 |
+| FC / 多路径 | `fc_adapter_list`、`storage_device_paths` | 只读 |
 
 ### 工具说明
 
@@ -118,6 +119,10 @@ targets:
 - `vsan_health` — 获取 vSAN 集群健康摘要和磁盘组详情
 - `vsan_capacity` — 获取 vSAN 容量概览（总量/已用/空闲）
 - `vsan_efficiency` — 获取集群的 vSAN 数据效率（去重 + 压缩）状态
+
+**FC / 多路径（只读）**
+- `fc_adapter_list` — 按主机列出 FC / FCoE HBA：vmhba、型号、驱动、状态、端口类型、WWPN/WWNN、上报的速率
+- `storage_device_paths` — 在一个集群 / 主机 / 数据存储范围内，按设备（NAA）查看多路径状态：哪些主机看得到、各状态路径数、工作路径、适配器、PSP/SATP、所在 VMFS 数据存储
 
 ## 自动修复模式（PoC）
 
@@ -145,6 +150,14 @@ targets:
 2. 检查容量：`vmware-storage vsan capacity Cluster-Prod`
 3. 若发现问题，用 `vmware-monitor` 查看告警和事件
 
+### 检查光纤通道路径
+
+1. 某个数据存储背后的 dead / disabled 路径：`vmware-storage paths devices --datastore ds-fc-01`
+2. 看某个共享设备的路径数与同伴主机不同、或根本看不到它的主机：`vmware-storage paths devices --cluster Cluster-Prod --only-differences`
+3. 给 SAN 团队的 WWPN：`vmware-storage paths fc-adapters --cluster Cluster-Prod`
+
+读不到的主机列在 `hosts_not_read` 中，绝不会被报成"缺设备"。路径状态按 vSphere 上报的原样给出——`standby` 不会被标为问题。
+
 ## CLI
 
 ```bash
@@ -165,6 +178,10 @@ vmware-storage iscsi rescan esxi-01
 # vSAN
 vmware-storage vsan health Cluster-Prod
 vmware-storage vsan capacity Cluster-Prod
+
+# 光纤通道 / 多路径（只读）
+vmware-storage paths fc-adapters --cluster Cluster-Prod
+vmware-storage paths devices --datastore ds-fc-01
 
 # 环境诊断
 vmware-storage doctor
@@ -225,7 +242,7 @@ vmware-storage-mcp
 
 `vmware-aiops` 有 60 个 MCP 工具——对本地小模型（7B-14B）来说上下文占用太重。独立拆分后：
 
-- **12 个工具** — 完全适合小模型上下文窗口
+- **14 个工具** — 完全适合小模型上下文窗口
 - **领域专注** — 存储管理员只看到需要的工具
 - **最小权限** — 可以配置只有存储只读权限的 vCenter 服务账号
 - **可组合** — 可与 vmware-monitor 或 vmware-aiops 同时运行
@@ -244,7 +261,7 @@ vmware-storage-mcp
 
 | 功能 | 说明 |
 |------|------|
-| 只读为主 | 12 个工具中 8 个只读 |
+| 只读为主 | 14 个工具中 10 个只读 |
 | 输入验证 | iSCSI 操作前验证 IP 地址和端口 |
 | 审计日志 | 所有操作记录到 `~/.vmware-storage/audit.log`（JSON Lines） |
 | 双重确认 | CLI iSCSI 写操作需两次确认 |

@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere storage management: datastores, iSCSI, vSAN — 12 MCP tools, domain-focused and lightweight.
+VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 14 MCP tools, domain-focused and lightweight.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 
@@ -76,13 +76,14 @@ chmod 600 ~/.vmware-storage/.env
 vmware-storage doctor
 ```
 
-## MCP Tools (12)
+## MCP Tools (14)
 
 | Category | Tools | Type |
 |----------|-------|------|
 | Datastore | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
 | iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` | Read/Write |
 | vSAN | `vsan_health`, `vsan_capacity`, `vsan_efficiency` | Read |
+| FC / multipath | `fc_adapter_list`, `storage_device_paths` | Read |
 
 ## Auto-Remediation Patterns (PoC)
 
@@ -110,6 +111,14 @@ The `add-target` command automatically rescans storage. Use `--dry-run` to previ
 2. Check capacity: `vmware-storage vsan capacity Cluster-Prod`
 3. If issues found, investigate with `vmware-monitor` for alarms and events
 
+### Check Fibre Channel Paths
+
+1. Dead or disabled paths behind a datastore: `vmware-storage paths devices --datastore ds-fc-01`
+2. Hosts that see a shared device through a different number of paths than their peers, or not at all: `vmware-storage paths devices --cluster Cluster-Prod --only-differences`
+3. WWPNs for the SAN team: `vmware-storage paths fc-adapters --cluster Cluster-Prod`
+
+Hosts that could not be read are listed in `hosts_not_read` and are never reported as missing a device. Path states are reported as vSphere reports them — `standby` is not flagged.
+
 ## CLI
 
 ```bash
@@ -128,6 +137,10 @@ vmware-storage iscsi rescan esxi-01
 # vSAN
 vmware-storage vsan health Cluster-Prod
 vmware-storage vsan capacity Cluster-Prod
+
+# Fibre Channel / multipath (read-only)
+vmware-storage paths fc-adapters --cluster Cluster-Prod
+vmware-storage paths devices --datastore ds-fc-01
 
 # Diagnostics
 vmware-storage doctor
@@ -184,10 +197,11 @@ vmware-storage-mcp
 
 ## Why a Separate Skill?
 
-`vmware-aiops` has 49 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
+`vmware-aiops` has 60 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
 
-- **11 tools** — fits comfortably in small model context windows
+- **14 tools** — fits comfortably in small model context windows
 - **Domain-focused** — storage admins get only what they need
+- **Least privilege** — can run under a vCenter service account with storage read-only permissions
 - **Composable** — use alongside vmware-monitor or vmware-aiops as needed
 
 ## Version Compatibility
@@ -212,7 +226,7 @@ vmware-storage-mcp
 
 | Feature | Description |
 |---------|-------------|
-| Read-heavy | 8/12 tools are read-only |
+| Read-heavy | 10/14 tools are read-only |
 | Input validation | IP addresses and ports validated before iSCSI operations |
 | Audit logging | All operations logged to `~/.vmware-storage/audit.log` |
 | No VM operations | Cannot create, delete, or modify VMs |

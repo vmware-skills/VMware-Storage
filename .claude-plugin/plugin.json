@@ -2,8 +2,8 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "vmware-storage",
   "displayName": "VMware Storage",
-  "version": "1.9.3",
-  "description": "VMware vSphere storage management with 12 MCP tools: datastores, iSCSI, vSAN.",
+  "version": "1.10.0",
+  "description": "VMware vSphere storage with 14 MCP tools: datastores, iSCSI, vSAN, FC multipath.",
   "author": {
     "name": "Wei Zhou",
     "email": "zhouwei008@gmail.com",
