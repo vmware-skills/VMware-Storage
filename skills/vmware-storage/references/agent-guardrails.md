@@ -32,7 +32,8 @@ These are structural, so it cannot.
 
 | Guardrail you would otherwise prompt for | Now enforced by |
 |---|---|
-| "Preview the change before applying it" | **`dry_run`.** All 4 write tools accept `dry_run: true` and return the API call they would have made. This is a parameter, not a convention the model has to remember to honour. |
+| "Preview the change before applying it" | **`confirm` defaults to false.** A call to any of the 4 write tools without `confirm: true` changes nothing and returns `blast_radius`. Previewing is the default path, not a convention the model has to remember to honour. |
+| "Don't cut off storage that is in use" | **Refusal.** `storage_iscsi_remove_target` with `confirm: true` is refused when a datastore would lose every path, or when any path or static target behind the send target cannot be attributed. |
 | "Use explicit limits for queries that may return large amounts of data" | **The list envelope.** The four datastore read tools return `{items, returned, limit, total, truncated, hint}`, so the model reads truncation instead of guessing at it. All four enumerate their collection in full, so `total` is the real count and `truncated` is always `false`. |
 | "If a listing came back empty, say so rather than claiming the call failed" | Same envelope. Empty `items` with `truncated: false` means checked-and-none — a stated result, not a silence the model has to interpret. |
 | "Log every state change you make" | **The `@vmware_tool` decorator.** Every operation is recorded to `~/.vmware/audit.db` before the model sees the result, and policy rules are evaluated ahead of execution. `storage_iscsi_remove_target` is classified `risk:high` and goes through the policy confirmation gate. |
@@ -97,8 +98,8 @@ your agent's instruction block.
 
 ## Writes in vmware-storage
 
-- Pass dry_run: true first for any iSCSI change and show the user the previewed
-  call before executing it for real.
+- Call any iSCSI or rescan tool without confirm first, show the user the
+  returned blast_radius, and pass confirm: true only after they decide.
 - storage_iscsi_remove_target is destructive: LUNs behind that target can become
   inaccessible, taking their VMs with them. Say so before proposing it.
 - "Already enabled" from storage_iscsi_enable is not an error. Report the

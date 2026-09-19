@@ -35,10 +35,10 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
 | `storage_iscsi_status` | Show adapter status, HBA device, IQN, configured send targets | `host` (string, **required**), `target` (string, optional) | Low | No |
-| `storage_iscsi_enable` | Enable software iSCSI adapter on a host | `host` (string, **required**), `target` (string, optional) | Medium | Yes |
-| `storage_iscsi_add_target` | Add iSCSI send target (IP + port) and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `target` (string, optional) | Medium | Yes |
-| `storage_iscsi_remove_target` | Remove iSCSI send target and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `target` (string, optional) | Medium | Yes |
-| `storage_rescan` | Rescan all HBAs and VMFS volumes on a host | `host` (string, **required**), `target` (string, optional) | Low | No |
+| `storage_iscsi_enable` | Enable software iSCSI adapter on a host | `host` (string, **required**), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
+| `storage_iscsi_add_target` | Add iSCSI send target (IP + port) and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
+| `storage_iscsi_remove_target` | Remove iSCSI send target and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
+| `storage_rescan` | Rescan all HBAs and VMFS volumes on a host | `host` (string, **required**), `confirm` (boolean, default: false — previews), `target` (string, optional) | Low | Yes |
 
 ## vSAN (3 tools)
 
@@ -109,7 +109,7 @@ All 14 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 | Read | 10 | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `storage_iscsi_status`, `vsan_health`, `vsan_capacity`, `vsan_efficiency`, `fc_adapter_list`, `storage_device_paths` |
 | Write | 4 | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` |
 
-> Write tools require explicit parameters (host name, IP address) and support `--dry-run` in CLI mode. All write operations are audit-logged with timestamp, user, target, operation, parameters, and result.
+> Write tools require explicit parameters (host name, IP address) and support `--dry-run` in CLI mode. Over MCP they preview by default: without `confirm: true` they return `blast_radius` and change nothing. All write operations are audit-logged with timestamp, user, target, operation, parameters, and result.
 
 ## Connection Requirements
 

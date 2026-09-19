@@ -39,7 +39,7 @@ VMware vSphere storage management — 14 MCP tools for datastores, iSCSI, vSAN, 
 ## Quick Install
 
 ```bash
-uv tool install vmware-storage==1.10.0
+uv tool install vmware-storage==1.11.0
 vmware-storage init      # guided setup: writes config + .env (chmod 600, password grep-safe), then verifies
 vmware-storage doctor
 ```
@@ -147,7 +147,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 
 ## MCP Tools (14 — 10 read, 4 write)
 
-All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools also accept `dry_run: true` to preview the change without executing it.
+All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools take `confirm` (default false): without it they change nothing and return `blast_radius` — the host and adapters touched, and for `storage_iscsi_remove_target` the paths, devices and datastores behind the target. Show it to the user; pass `confirm: true` only after they decide. `dry_run` is a deprecated alias.
 
 The four Datastore read tools return the family list envelope — `{items, returned, limit, total, truncated, hint}` — rather than a bare array. Read the rows from `items`; `truncated` says whether the listing is complete, so it never has to be guessed from the row count. All four enumerate their collection in full, so `total` is the real count and `truncated` is always `false`.
 
@@ -168,7 +168,7 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | FC / multipath | `fc_adapter_list` | Read | FC/FCoE HBAs per host: WWPN/WWNN, port type, status, reported speed |
 | | `storage_device_paths` | Read | Per-device path state across a cluster/host/datastore; visibility and path-count differences |
 
-**Read/write split**: 10 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), support `dry_run`, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
+**Read/write split**: 10 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), preview unless `confirm: true`, refuse when a datastore would lose every path or the host's storage view cannot be read, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
 Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
 
@@ -263,7 +263,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Setup
 
 ```bash
-uv tool install vmware-storage==1.10.0
+uv tool install vmware-storage==1.11.0
 mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets

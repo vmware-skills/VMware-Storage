@@ -1,3 +1,57 @@
+## v1.11.0 — the four iSCSI / rescan write tools no longer act on a bare call
+
+HLD §7 (revised 2026-09-16), MCP surface only. The CLI (`--dry-run`, the two confirmation prompts) is unchanged.
+
+**Breaking for MCP callers — read this first:**
+
+* **A bare call now previews instead of acting.** `storage_iscsi_enable`, `storage_iscsi_add_target`,
+  `storage_iscsi_remove_target` and `storage_rescan` had `dry_run` defaulting to `False`, so a call with only
+  `host_name` (and `address`) changed the host. They now take `confirm: bool = False`; without `confirm=True`
+  nothing changes. Any script, Pilot template or agent prompt that relied on the old default must now pass
+  `confirm=True` — it will otherwise get a preview back and change nothing.
+* **The four tools return a dict, not a string.** Preview:
+  `{"action": "preview", "blast_radius": {...}, "hint": ...}`. Acting: `{"action": "enabled" | "target_added" |
+  "target_removed" | "rescanned", "result": "<the old message>", "blast_radius": {...}}`. Already enabled / target
+  already configured: `{"action": "noop", "result": ..., "blast_radius": ...}`. Errors:
+  `{"error": ..., "hint": ...}` instead of `"Error: ..."`. The `[DRY-RUN] ...` preview strings are gone.
+* `dry_run` is a deprecated alias (default `None`), removed in the next minor release: `dry_run=False` still acts,
+  `dry_run=True` previews even next to `confirm=True`. A response to a call that used it carries
+  `"deprecated": "dry_run is deprecated; use confirm. Removed in the next minor release."`
+
+**What `blast_radius` reports** — all from the host's own storage view this skill already reads, no new calls:
+
+* every tool: the host name and moref id, `blockers`, `unmeasured`;
+* `storage_iscsi_enable`: whether the software adapter already exists, and the host's adapters;
+* `storage_iscsi_add_target`: the software adapter and IQN, the send targets configured now, and the adapters the
+  follow-up rescan touches;
+* `storage_iscsi_remove_target`: the static targets only this send target discovered (by their `parent`), the
+  paths that go with them, the devices losing all or some of their paths, and the VMFS datastores on those
+  devices;
+* `storage_rescan`: the host, every adapter rescanned, and the mounted VMFS volumes.
+
+**Refusals on `confirm=True`** (nothing changed, audited as a failure): software iSCSI not enabled, a send target
+that is not configured, a host with no storage-system manager — as before — and, new: **a VMFS datastore that
+would lose every path** through the removed target (unmount it first), a host that is not `connected` (vCenter
+keeps its stale view), a host storage view that cannot be read, a static target discovered through send targets
+whose `parent` names no configured send target, and a path on the software adapter with no iSCSI transport to
+attribute it by. A device with no datastore that loses every path is listed, not refused.
+
+* Portals are compared normalised, not as strings: IPv6 bracketed or not, an address with no port (3260 assumed),
+  letter case, IPv4 leading zeros. A path whose target IQN is a removed target's but whose address is unparseable
+  or matches no static target of that IQN is counted in `paths_unmatched_address` and listed as `path_address`
+  in `unmeasured`, so `confirm=True` refuses — it may be the lost portal spelled another way.
+* When the host storage view cannot be read, counts and lists that were not measured (`send_target_count`,
+  `send_targets`, `already_configured`, `adapters`, `adapter_count`, `mounted_vmfs`) are `null`, not `0` / `[]`.
+* If the target appears between the preview read and the add (another client added it), the call returns
+  `action: "noop"` and records no undo token.
+
+* An undo token is now recorded only when a target was really added or removed (vmware-policy recognises a
+  preview only by `dry_run=True`), and the inverse call it describes passes `confirm: true`.
+* Known gap, in vmware-policy: a `confirm=False` preview is audited as `ok`, not `dry_run`.
+* `vmware_policy.report_tool_failure` is no longer called: the `{"error"}` envelope is detected on its own.
+* Requires `vmware-policy>=1.17.0`, which audits a `confirm=False` preview as `dry_run` and redacts long
+  audit text in linear time.
+
 ## v1.10.0 — read-only Fibre Channel inventory and multipath diagnostics
 
 Requested in [#18](https://github.com/vmware-skills/VMware-Storage/issues/18) by an operator running this skill

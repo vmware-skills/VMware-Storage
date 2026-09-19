@@ -9,14 +9,15 @@ Tool categories
 * **Read-only**: list_all_datastores, browse_datastore, scan_datastore_images,
   list_cached_images, storage_iscsi_status, vsan_health, vsan_capacity,
   vsan_efficiency, fc_adapter_list, storage_device_paths
-* **Write**: storage_iscsi_enable, storage_iscsi_add_target,
-  storage_iscsi_remove_target, storage_rescan
+* **Write, gated** (``confirm=False`` previews the blast radius and changes
+  nothing): storage_iscsi_enable, storage_iscsi_add_target,
+  storage_iscsi_remove_target, storage_rescan — see ``ops.iscsi_gate``
 
 Security considerations
 -----------------------
 * Credentials are loaded from environment variables / .env file.
 * Transport: Uses stdio transport (local only); no network listener.
-* iSCSI operations modify host storage configuration; confirmation recommended.
+* iSCSI operations modify host storage configuration; they act only with confirm=True.
 
 Source: https://github.com/vmware-skills/VMware-Storage
 License: MIT
@@ -30,7 +31,6 @@ from typing import Any, Optional
 from mcp.server.fastmcp import FastMCP
 from vmware_policy import (
     describe_tool_parameters,
-    report_tool_failure,
     sanitize,
     vmware_tool,
 )
@@ -40,6 +40,8 @@ from vmware_storage.config import ConfigError, load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
 from vmware_storage.ops import datastore_browser
+from vmware_storage.ops import iscsi_config as _iscsi_config
+from vmware_storage.ops import iscsi_gate as _gate
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.inventory import list_datastores
 from vmware_storage.ops.iscsi_config import (
@@ -120,26 +122,63 @@ def _safe_error(exc: Exception, tool: str) -> str:
     return f"{type(exc).__name__}: operation failed."
 
 
-def _error_reply(exc: Exception, tool: str) -> str:
-    """Agent-safe error string for a write tool, recorded as a *failed* call.
+def _error_reply(exc: Exception, tool: str, decision: Optional[_gate.Decision] = None) -> dict:
+    """The error envelope for a write tool, which vmware-policy audits as a failure.
 
-    The four write tools return their result as a string, so their ``except``
-    block swallows the exception and the ``@vmware_tool`` wrapper above sees an
-    ordinary return. Left alone it records the failed operation as ``ok``,
-    writes an undo token for a change that never landed (vmware-pilot would
-    then offer to reverse it), and reports success to the circuit breaker, so
-    repeated failures never trip it. ``report_tool_failure`` is what tells it
-    otherwise.
-
-    The read tools need no equivalent: they return the ``{"error": ...}``
-    envelope, which vmware-policy detects on its own.
-
-    Must be called from the tool body — that is inside the ``@vmware_tool``
-    wrapper's dynamic extent, which is where the signal is read.
+    The four write tools returned plain strings until the confirmation gate
+    (HLD §7) made them return dicts; a string error was indistinguishable from
+    a success, so this used to call ``report_tool_failure``. The ``{"error"}``
+    envelope is detected on its own: the audit row says ``error``, no undo token
+    is recorded, and the circuit breaker hears a failure.
     """
     msg = _safe_error(exc, tool)
-    report_tool_failure(msg)
-    return f"Error: {msg} Run 'vmware-storage doctor' to verify connectivity."
+    if isinstance(exc, _gate.GateRefusedError):
+        hint = "Nothing was changed. Call the tool without confirm to see the blast radius."
+    else:
+        hint = "Run 'vmware-storage doctor' to verify connectivity."
+    payload = {"error": msg, "hint": hint}
+    if decision is not None and decision.deprecated:
+        payload["deprecated"] = decision.deprecated
+    return payload
+
+
+def _with_note(payload: dict, decision: _gate.Decision) -> dict:
+    return {**payload, "deprecated": decision.deprecated} if decision.deprecated else payload
+
+
+def _preview(radius: dict, decision: _gate.Decision) -> dict:
+    """The L2 answer to a call that did not confirm: the radius, nothing changed."""
+    return _with_note({
+        "action": "preview",
+        "blast_radius": radius,
+        "hint": "Nothing was changed. Show blast_radius to the user; to apply, "
+                "re-run with confirm=True.",
+    }, decision)
+
+
+def _acted_undo(action: str, tool: str, note: str):
+    """An undo callable that fires only when the call really ``action``-ed.
+
+    vmware-policy recognises a preview only by ``dry_run=True``; a bare
+    ``confirm=False`` call is a preview it would otherwise record an undo
+    token for — an offer to reverse a change that never happened.
+    """
+    def _undo(params: dict, result: object) -> Optional[dict]:
+        if not (isinstance(result, dict) and result.get("action") == action):
+            return None
+        return {
+            "tool": tool,
+            "params": {
+                "host_name": params.get("host_name"),
+                "address": params.get("address"),
+                "port": params.get("port", 3260),
+                "target": params.get("target"),
+                "confirm": True,
+            },
+            "skill": "storage",
+            "note": note,
+        }
+    return _undo
 
 
 mcp = FastMCP("VMware Storage")
@@ -312,35 +351,52 @@ def list_cached_images(
 @vmware_tool(risk_level="medium")
 def storage_iscsi_enable(
     host_name: str,
-    dry_run: bool = False,
+    confirm: bool = False,
+    dry_run: Optional[bool] = None,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Enable the software iSCSI adapter (vmhba) on an ESXi host.
 
-    Required prerequisite before storage_iscsi_add_target. Idempotent: if the
-    adapter is already enabled, returns its HBA device and IQN without making
-    changes. Modifies host storage configuration but is non-disruptive (no
-    reboot, no impact on existing datastores). Audit-logged to
-    ~/.vmware/audit.db. Check current state first with storage_iscsi_status.
-    Returns a confirmation string; errors include remediation hints.
+    Required prerequisite before storage_iscsi_add_target. Without
+    confirm=True this only previews: it returns blast_radius (the host, its
+    current adapters, whether the software adapter already exists) and changes
+    nothing. Show it to the user. Do not set confirm=True on your own because
+    the user asked earlier — they have not seen the preview yet. Already
+    enabled returns action "noop" with the HBA device and IQN. Non-disruptive
+    (no reboot, no impact on existing datastores). Refused when the host's
+    storage view cannot be read. Returns a dict; check state first with
+    storage_iscsi_status.
 
     Args:
         host_name: ESXi host name exactly as shown in vCenter inventory
             (FQDN or IP). Errors if not found.
-        dry_run: If true, return a preview of the change without executing it.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
+        dry_run: Deprecated alias for confirm; removed in the next minor release.
+            dry_run=False acts, dry_run=True previews.
         target: Optional vCenter/ESXi target name from config.
     """
+    decision = _gate.decide(confirm, dry_run)
     try:
-        if dry_run:
-            return f"[DRY-RUN] Would enable software iSCSI on host '{host_name}'. No changes made."
         si = _get_connection(target)
+        radius = _gate.measure_enable(si, host_name)
+        if radius["already_enabled"]:
+            adapter = radius["adapter"]
+            return _with_note({
+                "action": "noop",
+                "result": f"Software iSCSI is already enabled on host '{host_name}' "
+                          f"(HBA: {adapter['device']}, IQN: {adapter['iqn']}).",
+                "blast_radius": radius,
+            }, decision)
+        if not decision.act:
+            return _preview(radius, decision)
+        _gate.refuse_if_blocked("storage_iscsi_enable", host_name, radius)
         result = enable_software_iscsi(si, host_name)
         _safe_audit(target=target or "default", operation="iscsi_enable",
                     resource=host_name, parameters={"host_name": host_name}, result=result)
-        return result
+        return _with_note({"action": "enabled", "result": result, "blast_radius": radius}, decision)
     except Exception as e:
         logger.error("storage_iscsi_enable failed: %s", e)
-        return _error_reply(e, "storage")
+        return _error_reply(e, "storage", decision)
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
@@ -374,147 +430,176 @@ def storage_iscsi_status(
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(
     risk_level="medium",
-    undo=lambda params, result: {
-        "tool": "storage_iscsi_remove_target",
-        "params": {
-            "host_name": params.get("host_name"),
-            "address": params.get("address"),
-            "port": params.get("port", 3260),
-            "target": params.get("target"),
-        },
-        "skill": "storage",
-        "note": "Inverse of storage_iscsi_add_target: remove the iSCSI send target that was added.",
-    },
+    undo=_acted_undo(
+        "target_added", "storage_iscsi_remove_target",
+        "Inverse of storage_iscsi_add_target: remove the iSCSI send target that was added.",
+    ),
 )
 def storage_iscsi_add_target(
     host_name: str,
     address: str,
     port: int = 3260,
-    dry_run: bool = False,
+    confirm: bool = False,
+    dry_run: Optional[bool] = None,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Add an iSCSI send (dynamic discovery) target to an ESXi host's software iSCSI adapter, then automatically rescan all HBAs and VMFS volumes to discover new LUNs.
 
-    Prerequisite: software iSCSI must be enabled first (storage_iscsi_enable);
-    otherwise returns an error with guidance. Idempotent: a duplicate
-    address:port returns "already configured" without changes. No separate
-    storage_rescan call is needed afterwards. Audit-logged to
-    ~/.vmware/audit.db. Returns a confirmation string.
+    Without confirm=True this only previews: it returns blast_radius (the
+    adapter, the send targets configured now, and the adapters the rescan
+    touches) and changes nothing. Show it to the user. Do not set confirm=True
+    on your own because the user asked earlier — they have not seen the
+    preview yet. Refused when software iSCSI is not enabled (run
+    storage_iscsi_enable first) or the host's storage view cannot be read. A
+    duplicate address:port returns action "noop". No separate storage_rescan
+    call is needed afterwards. Returns a dict.
 
     Args:
         host_name: ESXi host name as shown in vCenter inventory.
         address: iSCSI portal IP address (IPv4/IPv6 literal; hostnames are
             rejected with a validation error).
         port: iSCSI TCP port, 1-65535 (default 3260).
-        dry_run: If true, return a preview of the change without executing it.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
+        dry_run: Deprecated alias for confirm; removed in the next minor release.
+            dry_run=False acts, dry_run=True previews.
         target: Optional vCenter/ESXi target name from config.
     """
+    decision = _gate.decide(confirm, dry_run)
     try:
-        if dry_run:
-            return (f"[DRY-RUN] Would add iSCSI target {address}:{port} to host "
-                    f"'{host_name}' and rescan storage. No changes made.")
         si = _get_connection(target)
+        radius = _gate.measure_add_target(si, host_name, address, port)
+        if radius["already_configured"]:
+            return _with_note({
+                "action": "noop",
+                "result": f"iSCSI target {address}:{port} already configured on '{host_name}'.",
+                "blast_radius": radius,
+            }, decision)
+        if not decision.act:
+            return _preview(radius, decision)
+        _gate.refuse_if_blocked("storage_iscsi_add_target", host_name, radius)
         result = add_iscsi_target(si, host_name, address, port)
+        if _iscsi_config.ALREADY_CONFIGURED in result:
+            # Added by someone else after the gate read: this call changed
+            # nothing, so it must not record an undo that would remove it.
+            return _with_note(
+                {"action": "noop", "result": result, "blast_radius": radius}, decision
+            )
         _safe_audit(target=target or "default", operation="iscsi_add_target",
                     resource=host_name,
                     parameters={"host_name": host_name, "address": address, "port": port},
                     result=result)
-        return result
+        return _with_note(
+            {"action": "target_added", "result": result, "blast_radius": radius}, decision
+        )
     except Exception as e:
         logger.error("storage_iscsi_add_target failed: %s", e)
-        return _error_reply(e, "storage")
+        return _error_reply(e, "storage", decision)
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(
     risk_level="high",
-    undo=lambda params, result: {
-        "tool": "storage_iscsi_add_target",
-        "params": {
-            "host_name": params.get("host_name"),
-            "address": params.get("address"),
-            "port": params.get("port", 3260),
-            "target": params.get("target"),
-        },
-        "skill": "storage",
-        "note": "Inverse of storage_iscsi_remove_target: re-add the iSCSI send target that was removed.",
-    },
+    undo=_acted_undo(
+        "target_removed", "storage_iscsi_add_target",
+        "Inverse of storage_iscsi_remove_target: re-add the iSCSI send target that was removed.",
+    ),
 )
 def storage_iscsi_remove_target(
     host_name: str,
     address: str,
     port: int = 3260,
-    dry_run: bool = False,
+    confirm: bool = False,
+    dry_run: Optional[bool] = None,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Remove an iSCSI send target from an ESXi host's software iSCSI adapter, then rescan all HBAs and VMFS volumes.
 
-    Destructive: LUNs served only by this target become inaccessible after the
-    rescan — first verify the target exists (storage_iscsi_status) and that no
-    datastores depend on it (list_all_datastores). Errors if the address:port
-    pair is not configured or software iSCSI is disabled. Reversible only by
-    re-adding via storage_iscsi_add_target. Audit-logged to
-    ~/.vmware/audit.db. Returns a confirmation string.
+    Destructive: LUNs served only through this target become inaccessible
+    after the rescan. Without confirm=True this only previews: it returns
+    blast_radius (the static targets it discovered, the paths that go with
+    them, the devices and VMFS datastores that lose all or some paths) and
+    changes nothing. Show that to the user and get their explicit decision. Do
+    not set confirm=True on your own because the user asked earlier — they
+    have not seen what it cuts off yet. Refused when a datastore would lose
+    every path (unmount it first), when the address:port is not configured or
+    software iSCSI is disabled, and when any path or static target cannot be
+    attributed. Reversible only by re-adding via storage_iscsi_add_target.
+    Returns a dict.
 
     Args:
         host_name: ESXi host name as shown in vCenter inventory.
         address: Configured iSCSI portal IP (IPv4/IPv6 literal; hostnames
             rejected). Must match the existing entry exactly.
         port: Configured iSCSI TCP port, 1-65535 (default 3260).
-        dry_run: If true, return a preview of the change without executing it.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
+        dry_run: Deprecated alias for confirm; removed in the next minor release.
+            dry_run=False acts, dry_run=True previews.
         target: Optional vCenter/ESXi target name from config.
     """
+    decision = _gate.decide(confirm, dry_run)
     try:
-        if dry_run:
-            return (f"[DRY-RUN] Would remove iSCSI target {address}:{port} from host "
-                    f"'{host_name}' and rescan storage. No changes made.")
         si = _get_connection(target)
+        radius = _gate.measure_remove_target(si, host_name, address, port)
+        if not decision.act:
+            return _preview(radius, decision)
+        _gate.refuse_if_blocked("storage_iscsi_remove_target", host_name, radius)
         result = remove_iscsi_target(si, host_name, address, port)
         _safe_audit(target=target or "default", operation="iscsi_remove_target",
                     resource=host_name,
                     parameters={"host_name": host_name, "address": address, "port": port},
                     result=result)
-        return result
+        return _with_note(
+            {"action": "target_removed", "result": result, "blast_radius": radius}, decision
+        )
     except Exception as e:
         logger.error("storage_iscsi_remove_target failed: %s", e)
-        return _error_reply(e, "storage")
+        return _error_reply(e, "storage", decision)
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
 def storage_rescan(
     host_name: str,
-    dry_run: bool = False,
+    confirm: bool = False,
+    dry_run: Optional[bool] = None,
     target: Optional[str] = None,
-) -> str:
+) -> dict:
     """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host to discover newly presented LUNs and datastores.
 
     Use this when a storage array presents new LUNs, or after out-of-band SAN
     changes. Not needed after storage_iscsi_add_target /
-    storage_iscsi_remove_target — those rescan automatically. Non-destructive:
-    only triggers device and VMFS discovery (deletes nothing), but it is
-    I/O-visible on the host and may take a minute or two with many paths.
-    Audit-logged to ~/.vmware/audit.db. Returns a confirmation string; errors
-    include remediation hints.
+    storage_iscsi_remove_target — those rescan automatically. Without
+    confirm=True this only previews: it returns blast_radius (the host, every
+    adapter the rescan touches, the mounted VMFS volumes) and changes nothing.
+    Show it to the user. Do not set confirm=True on your own because the user
+    asked earlier — they have not seen the preview yet. Deletes nothing, but it
+    is I/O-visible on the host and may take a minute or two with many paths.
+    Refused when the host's storage view cannot be read. Returns a dict.
 
     Args:
         host_name: ESXi host name as shown in vCenter inventory (FQDN or IP).
             Errors if not found.
-        dry_run: If true, return a preview of the change without executing it.
+        confirm: False (default) returns the blast radius and changes nothing. True applies it.
+        dry_run: Deprecated alias for confirm; removed in the next minor release.
+            dry_run=False acts, dry_run=True previews.
         target: Optional vCenter/ESXi target name from config.
     """
+    decision = _gate.decide(confirm, dry_run)
     try:
-        if dry_run:
-            return (f"[DRY-RUN] Would rescan all HBAs and VMFS volumes on host "
-                    f"'{host_name}'. No changes made.")
         si = _get_connection(target)
+        radius = _gate.measure_rescan(si, host_name)
+        if not decision.act:
+            return _preview(radius, decision)
+        _gate.refuse_if_blocked("storage_rescan", host_name, radius)
         result = rescan_storage(si, host_name)
         _safe_audit(target=target or "default", operation="storage_rescan",
                     resource=host_name, parameters={"host_name": host_name}, result=result)
-        return result
+        return _with_note(
+            {"action": "rescanned", "result": result, "blast_radius": radius}, decision
+        )
     except Exception as e:
         logger.error("storage_rescan failed: %s", e)
-        return _error_reply(e, "storage")
+        return _error_reply(e, "storage", decision)
 
 
 # ---------------------------------------------------------------------------

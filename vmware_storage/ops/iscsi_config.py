@@ -214,6 +214,12 @@ def get_iscsi_status(si: ServiceInstance, host_name: str) -> dict:
 # ─── Target Management ───────────────────────────────────────────────────────
 
 
+#: The phrase ``add_iscsi_target`` returns when the target was already there
+#: and nothing was added. The MCP layer matches it to report "noop" (a target
+#: that appeared between its gate read and this call must not get an undo).
+ALREADY_CONFIGURED = "already configured on"
+
+
 def add_iscsi_target(
     si: ServiceInstance,
     host_name: str,
@@ -236,7 +242,7 @@ def add_iscsi_target(
     if hba.configuredSendTarget:
         for t in hba.configuredSendTarget:
             if t.address == address and t.port == port:
-                return f"iSCSI target {address}:{port} already configured on '{host_name}'."
+                return f"iSCSI target {address}:{port} {ALREADY_CONFIGURED} '{host_name}'."
 
     storage_system = _get_storage_system(host)
     target = vim.host.InternetScsiHba.SendTarget(address=address, port=port)

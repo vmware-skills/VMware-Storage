@@ -35,8 +35,9 @@ All write operations pass through multiple safety layers:
 1. **`@vmware_tool` decorator** — mandatory on every MCP tool; provides pre-checks, audit logging, data sanitization, and timeout control
 2. **Double confirmation** — CLI destructive commands (iSCSI enable, add-target, remove-target) require two separate "Are you sure?" prompts
 3. **`--dry-run` mode** — all CLI write commands support preview without execution
-4. **Audit logging** — every operation (read and write) is logged to `~/.vmware/audit.db` (SQLite WAL) with timestamp, user, target, operation, parameters, and result
-5. **Policy engine** — `~/.vmware/rules.yaml` can deny operations by pattern, enforce maintenance windows, and set risk-level thresholds
+4. **MCP preview by default** — the 4 MCP write tools take `confirm` (default `false`); without it they change nothing and return `blast_radius`. `confirm=true` is refused when a datastore would lose every path through a removed target, or when any part of the blast radius (host storage view, path attribution) could not be read. `dry_run` is a deprecated alias removed in the next minor release
+5. **Audit logging** — every operation (read and write) is logged to `~/.vmware/audit.db` (SQLite WAL) with timestamp, user, target, operation, parameters, and result
+6. **Policy engine** — `~/.vmware/rules.yaml` can deny operations by pattern, enforce maintenance windows, and set risk-level thresholds
 
 ### Network Scope
 

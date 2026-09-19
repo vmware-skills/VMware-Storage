@@ -1,10 +1,12 @@
 """A write tool that catches its exception must still be audited as a failure.
 
 ``@vmware_tool`` records a call as failed when an exception reaches it, or when
-the returned payload is a dict carrying a truthy ``error`` key. This skill's
-four write tools return their result as a plain **string**: their ``except``
-block swallows the exception and hands back ``"Error: ..."``, which from the
-wrapper's side is indistinguishable from a successful return.
+the returned payload is a dict carrying a truthy ``error`` key. Until the
+confirmation gate (HLD §7) this skill's four write tools returned a plain
+**string**: their ``except`` block swallowed the exception and handed back
+``"Error: ..."``, which from the wrapper's side was indistinguishable from a
+successful return. They now return dicts, and the error is the ``{"error"}``
+envelope — this file keeps asserting the three consequences below either way.
 
 Three things went wrong because of that, and all three are asserted here or
 follow directly from what is:
@@ -15,20 +17,20 @@ follow directly from what is:
 3. the circuit breaker was told ``success=True``, so repeated failures never
    tripped it — layer three of CLAUDE.md's recovery model.
 
-``vmware_policy.report_tool_failure`` exists for exactly this and is called from
-``server._error_reply``. All three consequences key off the same ``state.status``
-in ``vmware_policy.decorators``, so the audited status is the honest thing to
+All three consequences key off the same ``state.status`` in
+``vmware_policy.decorators``, so the audited status is the honest thing to
 assert; the undo suppression is checked separately because it is the one with a
 destructive failure mode.
 
 The discovery below is deliberately structural rather than a hard-coded list of
-four names: a write tool added later that returns a string and forgets to route
-through ``_error_reply`` fails this test instead of shipping the same defect
-again.
+four names: every tool the MCP registry advertises as a write
+(``readOnlyHint`` false) is checked, so a write tool added later whose failure
+payload is not the envelope fails this test instead of shipping the defect.
 """
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 
 import pytest
@@ -47,20 +49,17 @@ _HOST_NOT_FOUND = (
 )
 
 
-def _string_returning_tools() -> list[str]:
-    """Names of every ``@vmware_tool`` in the server module that returns a string.
+def _write_tools() -> list[str]:
+    """Names of every tool the MCP registry advertises as a write.
 
     Asserts it found something: a discovery loop that silently matches nothing
     would leave this whole file reporting green while checking nothing at all.
     """
-    names = []
-    for name in dir(server):
-        fn = getattr(server, name)
-        if not getattr(fn, "_is_vmware_tool", False):
-            continue
-        if inspect.signature(fn).return_annotation is str:
-            names.append(name)
-    assert names, "found no string-returning tools — this file would check nothing"
+    names = [
+        t.name for t in asyncio.run(server.mcp.list_tools())
+        if t.annotations is not None and t.annotations.readOnlyHint is False
+    ]
+    assert names, "found no write tools — this file would check nothing"
     return sorted(names)
 
 
@@ -90,8 +89,8 @@ def _call(tool_name: str, **overrides):
     return fn(**kwargs)
 
 
-@pytest.mark.parametrize("tool_name", _string_returning_tools())
-def test_returned_error_string_is_audited_as_a_failure(tool_name, audit, monkeypatch):
+@pytest.mark.parametrize("tool_name", _write_tools())
+def test_returned_error_is_audited_as_a_failure(tool_name, audit, monkeypatch):
     def _boom(target=None):
         raise HostNotFoundError(_HOST_NOT_FOUND)
 
@@ -99,13 +98,13 @@ def test_returned_error_string_is_audited_as_a_failure(tool_name, audit, monkeyp
 
     result = _call(tool_name)
 
-    # The agent-facing contract is unchanged: still a string, still teaching.
-    assert result.startswith("Error:")
-    assert "list_esxi_hosts" in result
+    # The agent-facing contract: the error envelope, still teaching.
+    assert isinstance(result, dict) and result["error"]
+    assert "list_esxi_hosts" in result["error"]
 
     assert audit.rows, f"{tool_name} was never audited"
     assert audit.rows[-1]["status"] == "error", (
-        f"{tool_name} returned {result[:40]!r} but audited as "
+        f"{tool_name} returned {result['error'][:40]!r} but audited as "
         f"{audit.rows[-1]['status']!r} — a failed write recorded as a success"
     )
 
@@ -114,13 +113,18 @@ def test_a_successful_write_still_audits_as_ok(audit, monkeypatch):
     """The other direction: reporting every call failed would be the same lie."""
     monkeypatch.setattr(server, "_get_connection", lambda target=None: object())
     monkeypatch.setattr(
+        server._gate, "measure_enable",
+        lambda si, host: {"already_enabled": False, "blockers": [], "unmeasured": []},
+    )
+    monkeypatch.setattr(
         server, "enable_software_iscsi", lambda si, host: "Software iSCSI enabled."
     )
     monkeypatch.setattr(server._audit, "log", lambda **kw: None)
 
-    result = _call("storage_iscsi_enable")
+    result = _call("storage_iscsi_enable", confirm=True)
 
-    assert result == "Software iSCSI enabled."
+    assert result["action"] == "enabled"
+    assert result["result"] == "Software iSCSI enabled."
     assert audit.rows[-1]["status"] == "ok"
 
 
@@ -145,7 +149,7 @@ def test_a_failed_add_target_records_no_undo_token(audit, monkeypatch):
 
     monkeypatch.setattr(server, "_get_connection", _boom)
 
-    result = _call("storage_iscsi_add_target")
+    result = _call("storage_iscsi_add_target", confirm=True)
 
-    assert result.startswith("Error:")
+    assert result["error"]
     assert not recorded, "recorded an undo token for a target that was never added"

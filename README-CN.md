@@ -262,6 +262,7 @@ vmware-storage-mcp
 | 功能 | 说明 |
 |------|------|
 | 只读为主 | 14 个工具中 10 个只读 |
+| 默认只预览（MCP） | 4 个写工具接受 `confirm`（默认 `false`）：不带它的调用不做任何变更，只返回 `blast_radius`（主机、适配器；移除目标时还有该目标背后的路径、设备和数据存储）。某个数据存储会失去全部路径、或影响范围有任何部分读不到时，`confirm=true` 会被拒绝。`dry_run` 为已弃用的别名 |
 | 输入验证 | iSCSI 操作前验证 IP 地址和端口 |
 | 审计日志 | 所有操作记录到 `~/.vmware-storage/audit.log`（JSON Lines） |
 | 双重确认 | CLI iSCSI 写操作需两次确认 |

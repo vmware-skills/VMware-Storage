@@ -101,17 +101,20 @@ def test_iscsi_status_risk_level_is_low():
 
 
 @pytest.mark.parametrize("tool_name", _WRITE_TOOLS)
-def test_write_tools_accept_dry_run(tool_name):
+def test_write_tools_take_confirm_and_keep_dry_run_as_alias(tool_name):
+    """HLD §7: ``confirm`` defaults to False; ``dry_run`` is a deprecated alias.
+
+    Until the confirmation gate, ``dry_run`` defaulted to False, so a bare call
+    acted. The alias now defaults to None so the schema shows it was not passed.
+    """
     import inspect
 
     from vmware_storage.mcp_server import server
 
     fn = getattr(server, tool_name)
     sig = inspect.signature(inspect.unwrap(fn))
-    assert "dry_run" in sig.parameters, f"{tool_name} must accept dry_run"
-    param = sig.parameters["dry_run"]
-    assert param.default is False
-    assert param.annotation in (bool, "bool")
+    assert sig.parameters["confirm"].default is False
+    assert sig.parameters["dry_run"].default is None
 
 
 @pytest.mark.parametrize(
@@ -123,21 +126,33 @@ def test_write_tools_accept_dry_run(tool_name):
         ("storage_rescan", {"host_name": "esxi-01"}),
     ],
 )
-def test_dry_run_previews_without_connecting(tool_name, kwargs, monkeypatch):
-    """dry_run=True must return a preview and never touch the connection."""
+def test_dry_run_previews_without_writing(tool_name, kwargs, monkeypatch):
+    """dry_run=True must return a preview and never reach an executor.
+
+    It used to return a canned string without connecting. The preview now
+    measures the blast radius (HLD §7), which needs the connection, so the
+    invariant kept is the one that matters: no executor runs.
+    """
     import inspect
 
     from vmware_storage.mcp_server import server
 
     def explode(*a, **k):  # pragma: no cover - failure path
-        raise AssertionError("dry_run must not open a vSphere connection")
+        raise AssertionError("a dry_run preview must not reach an executor")
 
-    monkeypatch.setattr(server, "_get_connection", explode)
+    radius = {"already_enabled": False, "already_configured": False,
+              "blockers": [], "unmeasured": []}
+    monkeypatch.setattr(server, "_get_connection", lambda target=None: object())
+    for measure in ("measure_enable", "measure_add_target", "measure_remove_target",
+                    "measure_rescan"):
+        monkeypatch.setattr(server._gate, measure, lambda *a, **k: dict(radius))
+    for executor in ("enable_software_iscsi", "add_iscsi_target", "remove_iscsi_target",
+                     "rescan_storage"):
+        monkeypatch.setattr(server, executor, explode)
     fn = inspect.unwrap(getattr(server, tool_name))
     result = fn(dry_run=True, **kwargs)
-    assert isinstance(result, str)
-    assert result.startswith("[DRY-RUN]")
-    assert "No changes made" in result
+    assert result["action"] == "preview"
+    assert "dry_run is deprecated" in result["deprecated"]
 
 
 # ── Fix 3: audit failure must not flip a successful write ──────────────────
@@ -159,10 +174,14 @@ def test_audit_oserror_does_not_flip_tool_success(monkeypatch):
 
     monkeypatch.setattr(server._audit, "log", broken_log)
 
+    monkeypatch.setattr(
+        server._gate, "measure_enable",
+        lambda si, host: {"already_enabled": False, "blockers": [], "unmeasured": []},
+    )
     fn = inspect.unwrap(server.storage_iscsi_enable)
-    result = fn(host_name="esxi-01")
-    assert result == "Software iSCSI enabled on host 'esxi-01'."
-    assert not result.startswith("Error")
+    result = fn(host_name="esxi-01", confirm=True)
+    assert result["result"] == "Software iSCSI enabled on host 'esxi-01'."
+    assert "error" not in result
 
 
 def test_safe_audit_swallows_any_audit_exception(monkeypatch):
