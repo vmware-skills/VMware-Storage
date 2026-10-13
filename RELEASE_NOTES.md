@@ -1,3 +1,15 @@
+## v1.12.1 — the setup guide no longer turns TLS verification off
+
+Docs only; no code change.
+
+* **The copy-ready `config.yaml` in `references/setup-guide.md` set `verify_ssl: false` on both example targets**,
+  with administrator/root accounts, while the code defaults to `true`. Anyone who copied it ran with certificate
+  verification off, so anyone on the network path could impersonate vCenter/ESXi and capture the password. Both
+  examples now use `verify_ssl: true`, followed by guidance: add a self-signed host's CA to the trust store instead of
+  turning verification off; `false` is for an isolated lab host only. Raised by ClawHub's review of 1.12.0.
+* **The skill description no longer claims "any storage-related VMware task".** It now triggers only when the context
+  is explicitly VMware/vSphere/ESXi storage, which is narrower and matches the family rule for write-capable skills.
+
 ## v1.12.0 — the MCP instructions name the configured targets
 
 `initialize` hands the client this server's `instructions`, and for a skill whose every tool takes a target that
