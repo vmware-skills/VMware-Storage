@@ -13,19 +13,19 @@ Complete setup and security guide for `vmware-storage`.
 ### Via uv (recommended)
 
 ```bash
-uv tool install vmware-storage==1.12.0
+uv tool install vmware-storage==1.12.1
 ```
 
 ### Via pip
 
 ```bash
-pip install vmware-storage==1.12.0
+pip install vmware-storage==1.12.1
 ```
 
 ### From source
 
 ```bash
-git clone --branch v1.12.0 https://github.com/vmware-skills/VMware-Storage.git
+git clone --branch v1.12.1 https://github.com/vmware-skills/VMware-Storage.git
 cd VMware-Storage
 pip install -e .
 ```
@@ -53,7 +53,7 @@ targets:
     username: administrator@vsphere.local
     type: vcenter              # "vcenter" or "esxi"
     port: 443
-    verify_ssl: false          # Set true if using valid certs
+    verify_ssl: true           # Default. Verifies the vCenter certificate
     environment: production    # Which environment this target is — see below
 
   - name: esxi-standalone
@@ -61,12 +61,17 @@ targets:
     username: root
     type: esxi
     port: 443
-    verify_ssl: false
+    verify_ssl: true
     environment: lab
 
 notify:
   webhook_url: ""              # Optional: webhook for notifications
 ```
+
+**Keep `verify_ssl: true`.** These accounts are privileged, and with verification off anyone on the
+network path can impersonate vCenter/ESXi and capture the password. If a host uses a self-signed
+certificate, add its CA to the system trust store rather than turning verification off. Setting
+`verify_ssl: false` on a target is supported only for an isolated lab host, never for production.
 
 The first target in the list is the default (used when `--target` is not specified).
 
@@ -277,7 +282,7 @@ This prevents malicious file names on datastores from injecting prompts or instr
 
 - The MCP server uses **stdio transport** (local only) -- no network listener is opened
 - vSphere connections use SSL/TLS on port 443 by default
-- SSL certificate verification can be enabled per-target via `verify_ssl: true` in config.yaml
+- SSL certificate verification is **on by default** (`verify_ssl: true`); turn it off per target only for an isolated lab host with a self-signed certificate
 
 ### What This Skill Cannot Do
 

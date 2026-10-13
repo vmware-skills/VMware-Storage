@@ -3,7 +3,7 @@ name: vmware-storage
 description: >
   Use this skill whenever the user needs to manage VMware storage — datastores, iSCSI targets, and vSAN clusters.
   Directly handles: browse datastores, scan for deployable images (OVA/ISO), configure iSCSI adapters and targets, check vSAN health and capacity, read-only Fibre Channel HBA/WWPN inventory and multipath path state.
-  Always use this skill for "list datastores", "add iSCSI target", "check vSAN health", "browse datastore files", "scan for OVA images", "dead paths", "FC HBA WWPN", or any storage-related VMware task.
+  Always use this skill for "list datastores", "add iSCSI target", "check vSAN health", "browse datastore files", "scan for OVA images", "dead paths", "FC HBA WWPN" when the context is explicitly VMware/vSphere/ESXi storage.
   Do NOT use for VM lifecycle operations (use vmware-aiops), NSX networking (use vmware-nsx), or Kubernetes clusters (use vmware-vks).
   For load balancing/AVI/AKO use vmware-avi.
 installer:
@@ -39,7 +39,7 @@ VMware vSphere storage management — 14 MCP tools for datastores, iSCSI, vSAN, 
 ## Quick Install
 
 ```bash
-uv tool install vmware-storage==1.12.0
+uv tool install vmware-storage==1.12.1
 vmware-storage init      # guided setup: writes config + .env (chmod 600, password grep-safe), then verifies
 vmware-storage doctor
 ```
@@ -263,7 +263,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Setup
 
 ```bash
-uv tool install vmware-storage==1.12.0
+uv tool install vmware-storage==1.12.1
 mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets
