@@ -15,7 +15,7 @@ VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光�
 
 ## 升级到 2.0
 
-2.0 把 10 个 MCP 工具改成动词在前（例如 `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`），完整的新旧名对照表见
+2.0 把 14 个 MCP 工具中的 10 个改成动词在前（例如 `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`），完整的新旧名对照表见
 [RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first)。另有三个工具改了参数：`browse_datastore` 和 `scan_datastore_images` 的参数 `ds_name` 改名为 `datastore_name`（与 vmware-aiops 的 `browse_datastore` 一致），`list_all_datastores` 新增可选参数 `limit`（与 vmware-monitor 一致）。其余不变：工具、安全确认门和 CLI 命令都一样（CLI 仍按原来的方式接收数据存储名）。
 如果 agent 提示词、脚本或 `~/.vmware/rules.yaml` 里写了工具名，请改成新名——不过用旧名写的 deny 规则在
 vmware-policy ≥ 1.18 下仍然生效（`vmware-audit policy` 会列出因改名而多匹配的规则），vmware-pilot ≥ 1.13 也会自动转换已保存工作流里的旧名。
