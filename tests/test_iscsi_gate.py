@@ -156,15 +156,15 @@ def _no_writes(f: FakeHost) -> None:
 
 
 def _remove(**kw):
-    return server.storage_iscsi_remove_target(host_name=HOST, address="10.0.0.5", **kw)
+    return server.remove_iscsi_target(host_name=HOST, address="10.0.0.5", **kw)
 
 
 def _add(**kw):
-    return server.storage_iscsi_add_target(host_name=HOST, address="10.0.0.20", **kw)
+    return server.add_iscsi_target(host_name=HOST, address="10.0.0.20", **kw)
 
 
-GATED = ("storage_iscsi_enable", "storage_iscsi_add_target",
-         "storage_iscsi_remove_target", "storage_rescan")
+GATED = ("enable_iscsi", "add_iscsi_target",
+         "remove_iscsi_target", "rescan_storage")
 
 
 # ---------------------------------------------------------------------------
@@ -186,13 +186,13 @@ def test_schema_confirm_defaults_to_false_and_dry_run_to_none(tool):
 
 
 # ---------------------------------------------------------------------------
-# storage_iscsi_enable
+# enable_iscsi
 # ---------------------------------------------------------------------------
 
 
 def test_enable_bare_call_previews(fake):
     fake.enabled = False
-    result = server.storage_iscsi_enable(host_name=HOST)
+    result = server.enable_iscsi(host_name=HOST)
     assert result["action"] == "preview"
     radius = result["blast_radius"]
     assert radius["host"] == HOST and radius["host_id"] == "host-42"
@@ -204,14 +204,14 @@ def test_enable_bare_call_previews(fake):
 
 def test_enable_confirm_enables_once(fake):
     fake.enabled = False
-    result = server.storage_iscsi_enable(host_name=HOST, confirm=True)
+    result = server.enable_iscsi(host_name=HOST, confirm=True)
     assert result["action"] == "enabled"
     assert "blast_radius" in result
     assert fake.writes()["UpdateSoftwareInternetScsiEnabled"] == 1
 
 
 def test_enable_when_already_enabled_is_noop(fake):
-    result = server.storage_iscsi_enable(host_name=HOST, confirm=True)
+    result = server.enable_iscsi(host_name=HOST, confirm=True)
     assert result["action"] == "noop"
     assert result["blast_radius"]["adapter"]["device"] == "vmhba65"
     _no_writes(fake)
@@ -219,9 +219,9 @@ def test_enable_when_already_enabled_is_noop(fake):
 
 def test_enable_unreadable_host_refuses(fake):
     fake.config_readable = False
-    preview = server.storage_iscsi_enable(host_name=HOST)
+    preview = server.enable_iscsi(host_name=HOST)
     assert "host_storage_config" in preview["blast_radius"]["unmeasured"]
-    result = server.storage_iscsi_enable(host_name=HOST, confirm=True)
+    result = server.enable_iscsi(host_name=HOST, confirm=True)
     assert "error" in result and "could not read" in result["error"].lower()
     _no_writes(fake)
 
@@ -229,14 +229,14 @@ def test_enable_unreadable_host_refuses(fake):
 def test_enable_missing_storage_system_blocks(fake):
     fake.enabled = False
     fake.storage_system = None
-    preview = server.storage_iscsi_enable(host_name=HOST)
+    preview = server.enable_iscsi(host_name=HOST)
     assert preview["blast_radius"]["blockers"]
-    result = server.storage_iscsi_enable(host_name=HOST, confirm=True)
+    result = server.enable_iscsi(host_name=HOST, confirm=True)
     assert "error" in result and "disconnected" in result["error"]
 
 
 # ---------------------------------------------------------------------------
-# storage_iscsi_add_target
+# add_iscsi_target
 # ---------------------------------------------------------------------------
 
 
@@ -262,7 +262,7 @@ def test_add_confirm_adds_once_and_rescans(fake):
 
 
 def test_add_existing_target_is_noop(fake):
-    result = server.storage_iscsi_add_target(host_name=HOST, address="10.0.0.5", confirm=True)
+    result = server.add_iscsi_target(host_name=HOST, address="10.0.0.5", confirm=True)
     assert result["action"] == "noop"
     _no_writes(fake)
 
@@ -271,7 +271,7 @@ def test_add_without_iscsi_enabled_blocks(fake):
     fake.enabled = False
     assert _add()["blast_radius"]["blockers"]
     result = _add(confirm=True)
-    assert "error" in result and "storage_iscsi_enable" in result["error"]
+    assert "error" in result and "enable_iscsi" in result["error"]
     _no_writes(fake)
 
 
@@ -313,7 +313,7 @@ def test_add_undo_recorded_only_after_a_real_add(fake, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# storage_iscsi_remove_target
+# remove_iscsi_target
 # ---------------------------------------------------------------------------
 
 
@@ -351,10 +351,10 @@ def test_remove_datastore_losing_every_path_blocks(fake):
 
 
 def test_remove_unknown_target_blocks(fake):
-    preview = server.storage_iscsi_remove_target(host_name=HOST, address="10.0.0.99")
+    preview = server.remove_iscsi_target(host_name=HOST, address="10.0.0.99")
     assert preview["blast_radius"]["blockers"]
-    result = server.storage_iscsi_remove_target(host_name=HOST, address="10.0.0.99", confirm=True)
-    assert "error" in result and "storage_iscsi_status" in result["error"]
+    result = server.remove_iscsi_target(host_name=HOST, address="10.0.0.99", confirm=True)
+    assert "error" in result and "get_iscsi_status" in result["error"]
     _no_writes(fake)
 
 
@@ -398,12 +398,12 @@ def test_remove_disconnected_host_is_unmeasured(fake):
 
 
 # ---------------------------------------------------------------------------
-# storage_rescan
+# rescan_storage
 # ---------------------------------------------------------------------------
 
 
 def test_rescan_bare_call_previews_scope(fake):
-    result = server.storage_rescan(host_name=HOST)
+    result = server.rescan_storage(host_name=HOST)
     assert result["action"] == "preview"
     radius = result["blast_radius"]
     assert radius["hosts"] == [HOST]
@@ -415,7 +415,7 @@ def test_rescan_bare_call_previews_scope(fake):
 
 
 def test_rescan_confirm_rescans_once(fake):
-    result = server.storage_rescan(host_name=HOST, confirm=True)
+    result = server.rescan_storage(host_name=HOST, confirm=True)
     assert result["action"] == "rescanned"
     w = fake.writes()
     assert w["RescanAllHba"] == 1 and w["RescanVmfs"] == 1
@@ -423,8 +423,8 @@ def test_rescan_confirm_rescans_once(fake):
 
 def test_rescan_unreadable_host_refuses(fake):
     fake.config_readable = False
-    assert server.storage_rescan(host_name=HOST)["blast_radius"]["unmeasured"]
-    assert "error" in server.storage_rescan(host_name=HOST, confirm=True)
+    assert server.rescan_storage(host_name=HOST)["blast_radius"]["unmeasured"]
+    assert "error" in server.rescan_storage(host_name=HOST, confirm=True)
     _no_writes(fake)
 
 
@@ -433,11 +433,11 @@ def test_rescan_unreadable_host_refuses(fake):
 # ---------------------------------------------------------------------------
 
 CALLS = {
-    "storage_iscsi_enable": (lambda **kw: server.storage_iscsi_enable(host_name=HOST, **kw),
+    "enable_iscsi": (lambda **kw: server.enable_iscsi(host_name=HOST, **kw),
                              "UpdateSoftwareInternetScsiEnabled", "enabled"),
-    "storage_iscsi_add_target": (_add, "AddInternetScsiSendTargets", "target_added"),
-    "storage_iscsi_remove_target": (_remove, "RemoveInternetScsiSendTargets", "target_removed"),
-    "storage_rescan": (lambda **kw: server.storage_rescan(host_name=HOST, **kw),
+    "add_iscsi_target": (_add, "AddInternetScsiSendTargets", "target_added"),
+    "remove_iscsi_target": (_remove, "RemoveInternetScsiSendTargets", "target_removed"),
+    "rescan_storage": (lambda **kw: server.rescan_storage(host_name=HOST, **kw),
                        "RescanAllHba", "rescanned"),
 }
 ALIASES = [
@@ -453,7 +453,7 @@ ALIASES = [
 @pytest.mark.parametrize("tool", GATED)
 @pytest.mark.parametrize("kwargs,acts", ALIASES)
 def test_dry_run_alias(fake, tool, kwargs, acts):
-    fake.enabled = tool != "storage_iscsi_enable"
+    fake.enabled = tool != "enable_iscsi"
     call, write, action = CALLS[tool]
     result = call(**kwargs)
     assert result["action"] == (action if acts else "preview")
@@ -484,7 +484,7 @@ def test_host_not_found_still_teaches(monkeypatch):
     monkeypatch.setattr(server, "_get_connection", lambda target=None: object())
     monkeypatch.setattr("vmware_storage.ops.iscsi_config.find_host_by_name", lambda si, n: None)
     monkeypatch.setattr("vmware_storage.ops.iscsi_config.list_hosts", lambda si: [])
-    result = server.storage_rescan(host_name="nope")
+    result = server.rescan_storage(host_name="nope")
     assert "error" in result and "list_esxi_hosts" in result["error"]
 
 
@@ -538,11 +538,11 @@ def test_remove_ipv6_path_spelling_still_counts_as_lost(fake, spelling):
     _ipv6_host(fake)
     fake.paths["naa.1"] = [_raw_path("vmhba65:C1:T0:L1", IQN_B, "10.0.0.7:3260")]
     fake.paths["naa.2"] = [_raw_path("vmhba65:C0:T0:L2", IQN_A, spelling)]
-    preview = server.storage_iscsi_remove_target(host_name=HOST, address="fd00::5")
+    preview = server.remove_iscsi_target(host_name=HOST, address="fd00::5")
     radius = preview["blast_radius"]
     assert radius["static_targets_removed"] == [{"iqn": IQN_A, "address": "[fd00::6]:3260"}]
     assert radius["datastores_losing_all_paths"] == ["ds-only-a"]
-    result = server.storage_iscsi_remove_target(host_name=HOST, address="fd00::5", confirm=True)
+    result = server.remove_iscsi_target(host_name=HOST, address="fd00::5", confirm=True)
     assert "error" in result and "ds-only-a" in result["error"]
     _no_writes(fake)
 
@@ -576,14 +576,14 @@ def test_remove_path_of_kept_portal_of_same_iqn_is_not_lost(fake):
 
 def test_unreadable_host_previews_show_none_not_zero(fake):
     fake.config_readable = False
-    enable = server.storage_iscsi_enable(host_name=HOST)["blast_radius"]
+    enable = server.enable_iscsi(host_name=HOST)["blast_radius"]
     assert enable["adapters"] is None and enable["already_enabled"] is None
     add = _add()["blast_radius"]
     assert add["send_target_count"] is None
     assert add["send_targets"] is None
     assert add["already_configured"] is None
     assert add["rescan"]["adapters"] is None
-    rescan = server.storage_rescan(host_name=HOST)["blast_radius"]
+    rescan = server.rescan_storage(host_name=HOST)["blast_radius"]
     assert rescan["adapters"] is None and rescan["adapter_count"] is None
     assert rescan["mounted_vmfs"] is None
 

@@ -158,7 +158,7 @@ def test_the_two_meanings_of_target_are_told_apart():
     """`target` is overloaded here, and the two meanings name different things.
 
     The parameter is a configured vCenter or ESXi host; the `target` inside a
-    path row from ``storage_device_paths`` is the array port the path reaches
+    path row from ``list_storage_device_paths`` is the array port the path reaches
     (a WWPN, or an IQN for iSCSI). A reader who conflates them answers "which
     target does this path use" with the name of a vCenter — confidently, and
     about the wrong object. The one place a client is told the difference is
@@ -167,4 +167,4 @@ def test_the_two_meanings_of_target_are_told_apart():
     text = server._target_instructions()
 
     assert "WWPN" in text and "IQN" in text
-    assert "storage_device_paths" in text
+    assert "list_storage_device_paths" in text

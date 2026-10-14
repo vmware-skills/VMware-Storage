@@ -68,10 +68,10 @@
       "detail": {
         "heaviest_tools": {
           "list_cached_images": 243,
-          "storage_iscsi_add_target": 287,
-          "storage_iscsi_remove_target": 294,
-          "vsan_efficiency": 247,
-          "vsan_health": 301
+          "add_iscsi_target": 287,
+          "remove_iscsi_target": 294,
+          "get_vsan_efficiency": 247,
+          "get_vsan_health": 301
         },
         "manifest_tokens": 2781,
         "mean_tokens_per_tool": 231.8,
@@ -110,10 +110,10 @@
         "gated_manifest_tokens": 1257,
         "gated_tool_count": 7,
         "withheld_tools": [
-          "storage_iscsi_add_target",
-          "storage_iscsi_enable",
-          "storage_iscsi_remove_target",
-          "storage_rescan"
+          "add_iscsi_target",
+          "enable_iscsi",
+          "remove_iscsi_target",
+          "rescan_storage"
         ]
       },
       "maximum": 2214,
@@ -176,10 +176,10 @@
           "list_all_datastores": [],
           "list_cached_images": [],
           "scan_datastore_images": [],
-          "storage_iscsi_add_target": [],
-          "storage_iscsi_enable": [],
-          "storage_iscsi_remove_target": [],
-          "storage_iscsi_status": []
+          "add_iscsi_target": [],
+          "enable_iscsi": [],
+          "remove_iscsi_target": [],
+          "get_iscsi_status": []
         }
       },
       "maximum": 72,

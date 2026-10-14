@@ -96,9 +96,9 @@ targets:
 | 类别 | 工具 | 类型 |
 |------|------|------|
 | 数据存储 | `list_all_datastores`、`browse_datastore`、`scan_datastore_images`、`list_cached_images` | 只读 |
-| iSCSI | `storage_iscsi_enable`、`storage_iscsi_status`、`storage_iscsi_add_target`、`storage_iscsi_remove_target`、`storage_rescan` | 读/写 |
-| vSAN | `vsan_health`、`vsan_capacity`、`vsan_efficiency` | 只读 |
-| FC / 多路径 | `fc_adapter_list`、`storage_device_paths` | 只读 |
+| iSCSI | `enable_iscsi`、`get_iscsi_status`、`add_iscsi_target`、`remove_iscsi_target`、`rescan_storage` | 读/写 |
+| vSAN | `get_vsan_health`、`get_vsan_capacity`、`get_vsan_efficiency` | 只读 |
+| FC / 多路径 | `list_fc_adapters`、`list_storage_device_paths` | 只读 |
 
 ### 工具说明
 
@@ -109,20 +109,20 @@ targets:
 - `list_cached_images` — 查询本地镜像注册表（支持按类型/数据存储过滤）
 
 **iSCSI**
-- `storage_iscsi_enable` — 在 ESXi 主机上启用软件 iSCSI 适配器
-- `storage_iscsi_status` — 查看 iSCSI 适配器状态和已配置的发送目标
-- `storage_iscsi_add_target` — 添加 iSCSI 发送目标并自动重扫
-- `storage_iscsi_remove_target` — 移除 iSCSI 发送目标并自动重扫
-- `storage_rescan` — 强制重扫所有 HBA 和 VMFS 卷
+- `enable_iscsi` — 在 ESXi 主机上启用软件 iSCSI 适配器
+- `get_iscsi_status` — 查看 iSCSI 适配器状态和已配置的发送目标
+- `add_iscsi_target` — 添加 iSCSI 发送目标并自动重扫
+- `remove_iscsi_target` — 移除 iSCSI 发送目标并自动重扫
+- `rescan_storage` — 强制重扫所有 HBA 和 VMFS 卷
 
 **vSAN**
-- `vsan_health` — 获取 vSAN 集群健康摘要和磁盘组详情
-- `vsan_capacity` — 获取 vSAN 容量概览（总量/已用/空闲）
-- `vsan_efficiency` — 获取集群的 vSAN 数据效率（去重 + 压缩）状态
+- `get_vsan_health` — 获取 vSAN 集群健康摘要和磁盘组详情
+- `get_vsan_capacity` — 获取 vSAN 容量概览（总量/已用/空闲）
+- `get_vsan_efficiency` — 获取集群的 vSAN 数据效率（去重 + 压缩）状态
 
 **FC / 多路径（只读）**
-- `fc_adapter_list` — 按主机列出 FC / FCoE HBA：vmhba、型号、驱动、状态、端口类型、WWPN/WWNN、上报的速率
-- `storage_device_paths` — 在一个集群 / 主机 / 数据存储范围内，按设备（NAA）查看多路径状态：哪些主机看得到、各状态路径数、工作路径、适配器、PSP/SATP、所在 VMFS 数据存储
+- `list_fc_adapters` — 按主机列出 FC / FCoE HBA：vmhba、型号、驱动、状态、端口类型、WWPN/WWNN、上报的速率
+- `list_storage_device_paths` — 在一个集群 / 主机 / 数据存储范围内，按设备（NAA）查看多路径状态：哪些主机看得到、各状态路径数、工作路径、适配器、PSP/SATP、所在 VMFS 数据存储
 
 ## 自动修复模式（PoC）
 
@@ -278,7 +278,7 @@ vmware-storage-mcp
 |------|-----------|
 | iSCSI enable 报 "already enabled" | 不是错误 — 适配器已启用。运行 `iscsi status` 查看已配置的目标。 |
 | 浏览时报 "Datastore not found" | 数据存储名称**区分大小写**。运行 `datastore list` 获取准确名称。 |
-| `vsan_health` 返回 `overall_health: null` | `null` 表示**没有查询**（原因见 `health_not_queried_reason`），不是测量结果；只要是字符串就一定是 vSAN 自己给的答案，包括它自己的 `"unknown"`。常见原因：连的是独立 ESXi，而健康服务跑在 **vCenter** 上。 |
+| `get_vsan_health` 返回 `overall_health: null` | `null` 表示**没有查询**（原因见 `health_not_queried_reason`），不是测量结果；只要是字符串就一定是 vSAN 自己给的答案，包括它自己的 `"unknown"`。常见原因：连的是独立 ESXi，而健康服务跑在 **vCenter** 上。 |
 | 重扫后未发现新 LUN | 添加目标后等待 15-30 秒再重扫。确认 ESXi 能访问目标 IP。 |
 | "Password not found" 错误 | 变量名规则：`VMWARE_<目标名大写>_PASSWORD`（连字符→下划线）。检查 `~/.vmware-storage/.env`。 |
 | 连接 vCenter 超时 | 使用 `vmware-storage doctor --skip-auth` 跳过高延迟网络的认证检查。 |

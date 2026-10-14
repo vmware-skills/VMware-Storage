@@ -2,10 +2,10 @@
 
 Real-hardware findings, 2026-08-30 (VCF 9.1, 4 of 8 hosts ``notResponding``):
 
-* ``vsan_health`` returned ``disk_groups: []`` and said nothing about the four
+* ``get_vsan_health`` returned ``disk_groups: []`` and said nothing about the four
   hosts it could not read. An empty list is indistinguishable from "this
   cluster has no disk groups", and the cluster's real ``overallHealth`` was red.
-* ``vsan_capacity`` returned total/used/free all ``0`` with no message and no
+* ``get_vsan_capacity`` returned total/used/free all ``0`` with no message and no
   mention of accessibility — a shape that reads as a healthy, empty datastore.
 
 Both are the same failure as the phantom-violation one in vmware-harden, minus

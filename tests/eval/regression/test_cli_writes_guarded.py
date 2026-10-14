@@ -3,7 +3,7 @@
 A write CLI command must route through vmware_policy's guard() + audit_call() —
 the same enforcement @vmware_tool gives the MCP surface — so ``vmware-storage
 iscsi remove-target`` run through Bash is authorized and audited to
-~/.vmware/audit.db exactly like the ``storage_iscsi_remove_target`` MCP tool.
+~/.vmware/audit.db exactly like the ``remove_iscsi_target`` MCP tool.
 Without @guarded a CLI write bypassed policy and landed only in the legacy
 per-skill log (the gap HLD §2.1 documents).
 
@@ -197,7 +197,7 @@ def test_guarded_cli_writes_carry_their_mcp_tool_name():
 
     ``@guarded`` defaults the tool name to the function's ``__name__``, so
     ``iscsi remove-target`` was guarded as ``iscsi_remove_target`` while its MCP
-    twin is ``storage_iscsi_remove_target`` — a rule denying the MCP tool refused
+    twin is ``remove_iscsi_target`` — a rule denying the MCP tool refused
     the agent and let the same teardown through the CLI, and the two surfaces
     wrote the one audit sink under two names. The twin is DERIVED: the MCP write
     tool that calls the same ops function the command calls.

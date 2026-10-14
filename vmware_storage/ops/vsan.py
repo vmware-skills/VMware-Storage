@@ -311,7 +311,7 @@ def get_vsan_capacity(
             "message": (
                 f"vSAN is enabled on cluster '{cluster_name}' but no vSAN datastore "
                 "was found. The datastore may still be forming or inaccessible — "
-                "check vsan_health and the vCenter UI."
+                "check get_vsan_health and the vCenter UI."
             ),
         }
 
@@ -331,7 +331,7 @@ def get_vsan_capacity(
             "message": (
                 f"vSAN datastore '{vsan_ds_name}' is inaccessible, so its capacity "
                 f"was not measured — the figures are null rather than 0, which "
-                f"would read as an empty datastore. Check vsan_health for which "
+                f"would read as an empty datastore. Check get_vsan_health for which "
                 f"hosts are unreachable, then re-run."
             ),
         }

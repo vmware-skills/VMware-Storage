@@ -102,7 +102,9 @@ _DS_PROPS = [
 ]
 
 
-def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> dict:
+def list_datastores(
+    si: ServiceInstance, include_vm_count: bool = False, limit: int | None = None
+) -> dict:
     """List all datastores with capacity info.
 
     ``vm_count`` is opt-in (``include_vm_count=True``) because the backing
@@ -112,8 +114,10 @@ def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> dict
     PropertyCollector call regardless (GitHub issue #31).
 
     Returns the family list envelope. The PropertyCollector walk enumerates
-    every datastore before returning, so ``total`` is the real count and
-    ``truncated`` is always False — callers wanting the rows read ``items``.
+    every datastore before ``limit`` is applied, so ``total`` is the real count
+    and ``truncated`` is True only when ``limit`` cut rows off — callers wanting
+    the rows read ``items``. ``limit=None`` returns every datastore (the same
+    semantics as vmware-monitor's ``list_datastores``).
     """
     paths = list(_DS_PROPS)
     if include_vm_count:
@@ -141,7 +145,10 @@ def list_datastores(si: ServiceInstance, include_vm_count: bool = False) -> dict
             entry["vm_count"] = len(p.get("vm") or [])
         results.append(entry)
     rows = sorted(results, key=lambda x: x["name"])
-    return paginated(rows, total=len(rows))
+    total = len(rows)
+    if limit is not None:
+        rows = rows[:limit]
+    return paginated(rows, limit=limit, total=total)
 
 
 def list_hosts(si: ServiceInstance) -> list[dict]:

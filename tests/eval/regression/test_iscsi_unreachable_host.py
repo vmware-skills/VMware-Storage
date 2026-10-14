@@ -1,6 +1,6 @@
 """iSCSI reads on an unreachable host must teach, not crash — and not lie.
 
-Real-hardware finding, 2026-08-30 (VCF 9.1): ``storage_iscsi_status`` against a
+Real-hardware finding, 2026-08-30 (VCF 9.1): ``get_iscsi_status`` against a
 ``notResponding`` host raised ``AttributeError: 'NoneType' object has no
 attribute 'storageDevice'``. vCenter answers ``HostSystem.config`` with ``None``
 for a host it has lost contact with, and ``_get_iscsi_hba`` dereferenced it.

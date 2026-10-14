@@ -39,7 +39,7 @@ VMware vSphere storage management — 14 MCP tools for datastores, iSCSI, vSAN, 
 ## Quick Install
 
 ```bash
-uv tool install vmware-storage==1.12.1
+uv tool install vmware-storage==2.0.0
 vmware-storage init      # guided setup: writes config + .env (chmod 600, password grep-safe), then verifies
 vmware-storage doctor
 ```
@@ -147,7 +147,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 
 ## MCP Tools (14 — 10 read, 4 write)
 
-All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools take `confirm` (default false): without it they change nothing and return `blast_radius` — the host and adapters touched, and for `storage_iscsi_remove_target` the paths, devices and datastores behind the target. Show it to the user; pass `confirm: true` only after they decide. `dry_run` is a deprecated alias.
+All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools take `confirm` (default false): without it they change nothing and return `blast_radius` — the host and adapters touched, and for `remove_iscsi_target` the paths, devices and datastores behind the target. Show it to the user; pass `confirm: true` only after they decide. `dry_run` is a deprecated alias.
 
 The four Datastore read tools return the family list envelope — `{items, returned, limit, total, truncated, hint}` — rather than a bare array. Read the rows from `items`; `truncated` says whether the listing is complete, so it never has to be guessed from the row count. All four enumerate their collection in full, so `total` is the real count and `truncated` is always `false`.
 
@@ -157,18 +157,18 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | | `browse_datastore` | Read | Browse files with optional path and glob pattern |
 | | `scan_datastore_images` | Read | Find OVA/ISO/OVF/VMDK in a datastore |
 | | `list_cached_images` | Read | Query local image registry with type/datastore filters |
-| iSCSI | `storage_iscsi_status` | Read | Show adapter status, HBA device, IQN, send targets |
-| | `storage_iscsi_enable` | Write | Enable software iSCSI adapter on a host |
-| | `storage_iscsi_add_target` | Write | Add iSCSI send target (IP + port) and rescan |
-| | `storage_iscsi_remove_target` | Write | Remove iSCSI send target and rescan |
-| | `storage_rescan` | Write | Rescan all HBAs and VMFS volumes |
-| vSAN | `vsan_health` | Read | Cluster health summary and disk group details |
-| | `vsan_capacity` | Read | Total/used/free capacity in GB and usage % |
-| | `vsan_efficiency` | Read | Dedup + compression status (vSAN Management SDK) |
-| FC / multipath | `fc_adapter_list` | Read | FC/FCoE HBAs per host: WWPN/WWNN, port type, status, reported speed |
-| | `storage_device_paths` | Read | Per-device path state across a cluster/host/datastore; visibility and path-count differences |
+| iSCSI | `get_iscsi_status` | Read | Show adapter status, HBA device, IQN, send targets |
+| | `enable_iscsi` | Write | Enable software iSCSI adapter on a host |
+| | `add_iscsi_target` | Write | Add iSCSI send target (IP + port) and rescan |
+| | `remove_iscsi_target` | Write | Remove iSCSI send target and rescan |
+| | `rescan_storage` | Write | Rescan all HBAs and VMFS volumes |
+| vSAN | `get_vsan_health` | Read | Cluster health summary and disk group details |
+| | `get_vsan_capacity` | Read | Total/used/free capacity in GB and usage % |
+| | `get_vsan_efficiency` | Read | Dedup + compression status (vSAN Management SDK) |
+| FC / multipath | `list_fc_adapters` | Read | FC/FCoE HBAs per host: WWPN/WWNN, port type, status, reported speed |
+| | `list_storage_device_paths` | Read | Per-device path state across a cluster/host/datastore; visibility and path-count differences |
 
-**Read/write split**: 10 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), preview unless `confirm: true`, refuse when a datastore would lose every path or the host's storage view cannot be read, and are audit-logged. `storage_iscsi_remove_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
+**Read/write split**: 10 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), preview unless `confirm: true`, refuse when a datastore would lose every path or the host's storage view cannot be read, and are audit-logged. `remove_iscsi_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
 Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
 
@@ -211,7 +211,7 @@ Not an error. The software iSCSI adapter is already active on that host. The res
 
 Datastore names are **case-sensitive**. Run `vmware-storage datastore list` to get the exact name. Common mistakes: `Datastore1` vs `datastore1`, trailing spaces.
 
-### `vsan_health` returns `overall_health: null`
+### `get_vsan_health` returns `overall_health: null`
 
 `null` means the health service was **not asked**, and `health_not_queried_reason` says why. It is deliberately not the string `"unknown"` — vSAN returns that itself, so using it for "we did not ask" made the two impossible to tell apart (on one VCF 9.1 cluster it stood in for `red`). A string in `overall_health` is always vSAN's own answer.
 
@@ -263,7 +263,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Setup
 
 ```bash
-uv tool install vmware-storage==1.12.1
+uv tool install vmware-storage==2.0.0
 mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets

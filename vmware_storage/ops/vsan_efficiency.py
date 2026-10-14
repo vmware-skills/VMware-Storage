@@ -42,7 +42,7 @@ def _config_system(si: ServiceInstance) -> object:
     """Return the vSAN cluster-config managed object, or raise a teaching error.
 
     The accessor (SDK import, stub check, TLS context, missing-key message)
-    moved to :mod:`vmware_storage.ops.vsan_sdk` when ``vsan_health`` became a
+    moved to :mod:`vmware_storage.ops.vsan_sdk` when ``get_vsan_health`` became a
     second caller. One copy of the ``verify_ssl: false`` handling in
     particular: a second copy is a second chance to forget it and ship
     ``SSLCertVerificationError`` to a self-signed lab.

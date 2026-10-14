@@ -190,7 +190,7 @@ def test_config_system_teaches_when_stub_absent(monkeypatch):
 
 # ── SSL context propagation to the vSAN SDK (HIGH-1, 踩坑 #32) ───────────────
 #
-# The accessor itself now lives in ``ops/vsan_sdk`` — ``vsan_health`` became a
+# The accessor itself now lives in ``ops/vsan_sdk`` — ``get_vsan_health`` became a
 # second caller and one copy of this handling is the point. These still drive it
 # through ``_config_system`` (the behaviour under test is unchanged and the
 # efficiency path must keep it), so the only thing that moved is where
@@ -277,7 +277,7 @@ def test_mcp_registers_efficiency_but_not_deferred_tools() -> None:
     from vmware_storage.mcp_server import server
 
     tool_names = {t.name for t in asyncio.run(server.mcp.list_tools())}
-    assert "vsan_efficiency" in tool_names, tool_names
+    assert "get_vsan_efficiency" in tool_names, tool_names
     for name in spec.DEFERRED_NOT_TOOLABLE:
         assert name not in tool_names, f"deferred concept {name} was registered as a tool"
     # And no tool advertises global-dedup / replication under another name.

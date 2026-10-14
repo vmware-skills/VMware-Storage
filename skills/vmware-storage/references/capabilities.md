@@ -8,11 +8,11 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 | Level | Meaning | Agent autonomy | Examples in this skill |
 |:-:|---|---|---|
-| **L1** | Read-only, raw data | Always auto-run | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `storage_iscsi_status`, vSAN status queries |
+| **L1** | Read-only, raw data | Always auto-run | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, vSAN status queries |
 | **L2** | Read + analysis / recommendation | Always auto-run | datastore capacity analysis, image registry queries, iSCSI target health correlation |
-| **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm + `--dry-run` (see Confirm column) | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, vSAN cluster ops |
+| **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm + `--dry-run` (see Confirm column) | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`, vSAN cluster ops |
 | **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | *(roadmap — multi-host iSCSI rollout, vSAN expansion plans)* |
-| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | **PoC pattern (v1.5.16+)**: [`patterns/iscsi-target-stale-rescan.yaml`](../../../patterns/iscsi-target-stale-rescan.yaml) — scans for stale iSCSI devices (`devices_inaccessible_count > 0`, missing expected devices, or `last_rescan_age_minutes > 60`); action: invoke `storage_rescan` on the affected `(host, target)`; classified low-risk because the rescan is idempotent and non-destructive (no data, config, or VM state is modified). Schema only — **not yet enforced by the runtime**. |
+| **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | **PoC pattern (v1.5.16+)**: [`patterns/iscsi-target-stale-rescan.yaml`](../../../patterns/iscsi-target-stale-rescan.yaml) — scans for stale iSCSI devices (`devices_inaccessible_count > 0`, missing expected devices, or `last_rescan_age_minutes > 60`); action: invoke `rescan_storage` on the affected `(host, target)`; classified low-risk because the rescan is idempotent and non-destructive (no data, config, or VM state is modified). Schema only — **not yet enforced by the runtime**. |
 
 **Notes**:
 - L1/L2 tools are always safe for agents to call without confirmation.
@@ -23,9 +23,9 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
-| `list_all_datastores` | List datastores with capacity, usage %, VM count | `target` (string, optional) | Low | No |
-| `browse_datastore` | Browse files with optional path and glob pattern | `datastore` (string, **required**), `path` (string, optional), `pattern` (string, optional), `target` (string, optional) | Low | No |
-| `scan_datastore_images` | Find OVA/ISO/OVF/VMDK deployable images in a datastore | `datastore` (string, **required**), `target` (string, optional) | Low | No |
+| `list_all_datastores` | List datastores with capacity, usage %, VM count | `target` (string, optional), `limit` (int, optional; omit for all) | Low | No |
+| `browse_datastore` | Browse files with optional path and glob pattern | `datastore_name` (string, **required**), `path` (string, optional), `pattern` (string, optional), `target` (string, optional) | Low | No |
+| `scan_datastore_images` | Find OVA/ISO/OVF/VMDK deployable images in a datastore | `datastore_name` (string, **required**), `target` (string, optional) | Low | No |
 | `list_cached_images` | Query local image registry with type/datastore filters | `image_type` (string, optional), `datastore` (string, optional) | Low | No |
 
 **List envelope**: all four return `{items, returned, limit, total, truncated, hint}` instead of a bare array, so an agent can tell a complete answer from a first page rather than inferring it (VMware-AIops issue #31). Each enumerates its collection in full — a PropertyCollector walk, a datastore browse task, or the on-disk registry — so `total` is the real count and `truncated` is always `false`. On error the tools return `{error, hint}` (a dict, not a one-element list).
@@ -34,26 +34,26 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
-| `storage_iscsi_status` | Show adapter status, HBA device, IQN, configured send targets | `host` (string, **required**), `target` (string, optional) | Low | No |
-| `storage_iscsi_enable` | Enable software iSCSI adapter on a host | `host` (string, **required**), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
-| `storage_iscsi_add_target` | Add iSCSI send target (IP + port) and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
-| `storage_iscsi_remove_target` | Remove iSCSI send target and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
-| `storage_rescan` | Rescan all HBAs and VMFS volumes on a host | `host` (string, **required**), `confirm` (boolean, default: false — previews), `target` (string, optional) | Low | Yes |
+| `get_iscsi_status` | Show adapter status, HBA device, IQN, configured send targets | `host` (string, **required**), `target` (string, optional) | Low | No |
+| `enable_iscsi` | Enable software iSCSI adapter on a host | `host` (string, **required**), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
+| `add_iscsi_target` | Add iSCSI send target (IP + port) and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
+| `remove_iscsi_target` | Remove iSCSI send target and rescan storage | `host` (string, **required**), `address` (string, **required**), `port` (integer, default: 3260), `confirm` (boolean, default: false — previews), `target` (string, optional) | Medium | Yes |
+| `rescan_storage` | Rescan all HBAs and VMFS volumes on a host | `host` (string, **required**), `confirm` (boolean, default: false — previews), `target` (string, optional) | Low | Yes |
 
 ## vSAN (3 tools)
 
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
-| `vsan_health` | Cluster health summary with disk group details per host | `cluster` (string, **required**), `target` (string, optional) | Low | No |
-| `vsan_capacity` | Total/used/free capacity in GB and usage percentage | `cluster` (string, **required**), `target` (string, optional) | Low | No |
-| `vsan_efficiency` | Dedup + compression status (vSAN Management SDK) | `cluster_name` (string, **required**), `target` (string, optional) | Low | No |
+| `get_vsan_health` | Cluster health summary with disk group details per host | `cluster` (string, **required**), `target` (string, optional) | Low | No |
+| `get_vsan_capacity` | Total/used/free capacity in GB and usage percentage | `cluster` (string, **required**), `target` (string, optional) | Low | No |
+| `get_vsan_efficiency` | Dedup + compression status (vSAN Management SDK) | `cluster_name` (string, **required**), `target` (string, optional) | Low | No |
 
 ## Fibre Channel / multipath (2 tools, read-only)
 
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
-| `fc_adapter_list` | FC and FCoE HBAs per host: vmhba, model, driver, status, port type, WWPN/WWNN, `speed_reported` | `cluster` or `host` (optional; neither = every host on the target), `limit` (1-200, default 50), `offset`, `target` | Low | No |
-| `storage_device_paths` | Per-device (NAA) SCSI multipath state across the hosts of one scope: `shared`, `seen_by`, `not_seen_on`, `path_count_differs`, `states_needing_attention`, per-host path counts by state, working paths, adapters, PSP/SATP, VMFS datastores | exactly one of `cluster` / `host` / `datastore` (**required**); `device`, `adapter`, `only_differences`, `limit`, `offset`, `target` | Low | No |
+| `list_fc_adapters` | FC and FCoE HBAs per host: vmhba, model, driver, status, port type, WWPN/WWNN, `speed_reported` | `cluster` or `host` (optional; neither = every host on the target), `limit` (1-200, default 50), `offset`, `target` | Low | No |
+| `list_storage_device_paths` | Per-device (NAA) SCSI multipath state across the hosts of one scope: `shared`, `seen_by`, `not_seen_on`, `path_count_differs`, `states_needing_attention`, per-host path counts by state, working paths, adapters, PSP/SATP, VMFS datastores | exactly one of `cluster` / `host` / `datastore` (**required**); `device`, `adapter`, `only_differences`, `limit`, `offset`, `target` | Low | No |
 
 Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) and `config.fileSystemVolume.mountInfo`, fetched in one PropertyCollector call per scope. No SSH, no array or switch credentials, no rescans. Requested in [VMware-Storage#18](https://github.com/vmware-skills/VMware-Storage/issues/18).
 
@@ -63,26 +63,26 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 - **`adapter`** matches by vmhba name; in a cluster scope `vmhba2` can be a different card on each host.
 - **`complete`** is false when any host was not read, or when a datastore's backing devices are unknown (no readable host reports the VMFS volume mounted).
 - **`speed_reported`** is the raw vSphere value. The API documents bits per second, but hosts commonly report Gbit/s (e.g. `16`), so it is not converted.
-- **Scope**: `storage_device_paths` requires one scope and refuses to read every host at once — multipath data is large on estates with hundreds of hosts. Per-path detail is returned only when `device` or `datastore` is given.
+- **Scope**: `list_storage_device_paths` requires one scope and refuses to read every host at once — multipath data is large on estates with hundreds of hosts. Per-path detail is returned only when `device` or `datastore` is given.
 - **Not covered**: NVMe-oF namespaces may not appear (they are not in `multipathInfo`); zoning, array masking and switch health are out of scope.
 - **Privileges**: reads host configuration only. Expected to work with the Read-Only role; not yet validated against a restricted account.
-- **Typical response**: `fc_adapter_list` ~80 tokens per adapter; `storage_device_paths` ~120 tokens per device per host in summary form, 2–3× that with per-path detail.
+- **Typical response**: `list_fc_adapters` ~80 tokens per adapter; `list_storage_device_paths` ~120 tokens per device per host in summary form, 2–3× that with per-path detail.
 
 ## Risk Level Definitions
 
 | Level | Meaning | Examples |
 |-------|---------|---------|
-| **Low** | Read-only query, no state change | `list_all_datastores`, `browse_datastore`, `vsan_health`, `storage_iscsi_status`, `storage_rescan` |
-| **Medium** | State change affecting storage configuration, but recoverable | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target` |
+| **Low** | Read-only query, no state change | `list_all_datastores`, `browse_datastore`, `get_vsan_health`, `get_iscsi_status`, `rescan_storage` |
+| **Medium** | State change affecting storage configuration, but recoverable | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target` |
 
 ## Tool Counts by Risk Level
 
 | Risk | Count | Tools |
 |------|:-----:|-------|
-| Low | 11 | All read-only tools + `storage_rescan` |
-| Medium | 3 | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target` |
+| Low | 11 | All read-only tools + `rescan_storage` |
+| Medium | 3 | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target` |
 
-> Note: `storage_rescan` triggers a host-level HBA rescan which is non-destructive (discovery only) and classified as Low risk. The iSCSI write tools (`enable`, `add_target`, `remove_target`) are Medium risk because they modify the host's iSCSI configuration, but changes are reversible.
+> Note: `rescan_storage` triggers a host-level HBA rescan which is non-destructive (discovery only) and classified as Low risk. The iSCSI write tools (`enable`, `add_target`, `remove_target`) are Medium risk because they modify the host's iSCSI configuration, but changes are reversible.
 
 ## Input Validation
 
@@ -106,8 +106,8 @@ All 14 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 | Type | Count | Tools |
 |------|:-----:|-------|
-| Read | 10 | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `storage_iscsi_status`, `vsan_health`, `vsan_capacity`, `vsan_efficiency`, `fc_adapter_list`, `storage_device_paths` |
-| Write | 4 | `storage_iscsi_enable`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` |
+| Read | 10 | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency`, `list_fc_adapters`, `list_storage_device_paths` |
+| Write | 4 | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` |
 
 > Write tools require explicit parameters (host name, IP address) and support `--dry-run` in CLI mode. Over MCP they preview by default: without `confirm: true` they return `blast_radius` and change nothing. All write operations are audit-logged with timestamp, user, target, operation, parameters, and result.
 

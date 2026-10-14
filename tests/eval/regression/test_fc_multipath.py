@@ -273,7 +273,7 @@ def test_wwn_is_colon_hex_and_survives_the_sign_bit():
     assert format_wwn(None) is None
 
 
-# ─── fc_adapter_list ─────────────────────────────────────────────────────────
+# ─── list_fc_adapters ─────────────────────────────────────────────────────────
 
 
 @pytest.mark.unit
@@ -317,7 +317,7 @@ def test_disconnected_host_without_faults_is_still_not_read(monkeypatch):
     assert "notResponding" in out["hosts_not_read"][0]["reason"]
 
 
-# ─── storage_device_paths ────────────────────────────────────────────────────
+# ─── list_storage_device_paths ────────────────────────────────────────────────────
 
 
 @pytest.mark.unit
@@ -457,9 +457,9 @@ def test_mcp_tool_passes_the_teaching_error_through(monkeypatch):
 
     si = _estate(monkeypatch)
     monkeypatch.setattr(server, "_get_connection", lambda target=None: si)
-    out = server.storage_device_paths()
+    out = server.list_storage_device_paths()
     assert "Scope required" in out["error"], out
-    ok = server.storage_device_paths(cluster="prod", only_differences=True)
+    ok = server.list_storage_device_paths(cluster="prod", only_differences=True)
     assert [d["device"] for d in ok["items"]] == ["naa.600b"]
 
 

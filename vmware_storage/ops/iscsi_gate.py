@@ -221,13 +221,13 @@ def _portals(text: str | None) -> set[Portal]:
 
 def _not_enabled(host_name: str) -> str:
     return (
-        f"software iSCSI is not enabled on host '{host_name}'. Run storage_iscsi_enable "
+        f"software iSCSI is not enabled on host '{host_name}'. Run enable_iscsi "
         "first, then preview again."
     )
 
 
 # ---------------------------------------------------------------------------
-# storage_iscsi_enable
+# enable_iscsi
 # ---------------------------------------------------------------------------
 
 
@@ -246,7 +246,7 @@ def measure_enable(si: ServiceInstance, host_name: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# storage_iscsi_add_target
+# add_iscsi_target
 # ---------------------------------------------------------------------------
 
 
@@ -290,7 +290,7 @@ def measure_add_target(
 
 
 # ---------------------------------------------------------------------------
-# storage_iscsi_remove_target
+# remove_iscsi_target
 # ---------------------------------------------------------------------------
 
 
@@ -415,7 +415,7 @@ def measure_remove_target(
     if not any(_portal(t.address, t.port) == wanted for t in hba.configuredSendTarget or []):
         radius["blockers"].append(
             f"send target {_endpoint(address, port)} is not configured. Run "
-            "storage_iscsi_status for the exact address:port pairs."
+            "get_iscsi_status for the exact address:port pairs."
         )
         return radius
     lost, parents_readable = _lost_static_targets(hba, address, port)
@@ -443,7 +443,7 @@ def measure_remove_target(
 
 
 # ---------------------------------------------------------------------------
-# storage_rescan
+# rescan_storage
 # ---------------------------------------------------------------------------
 
 

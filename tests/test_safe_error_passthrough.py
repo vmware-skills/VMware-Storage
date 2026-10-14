@@ -87,7 +87,7 @@ def test_missing_password_keeps_the_env_var_name():
     "exc_type", [ISCSIError, HostNotFoundError, VSANError, DatastoreBrowseError]
 )
 def test_domain_exceptions_keep_their_message(exc_type):
-    assert _safe_error(exc_type(TEACHING), "storage_iscsi_status") == TEACHING
+    assert _safe_error(exc_type(TEACHING), "get_iscsi_status") == TEACHING
 
 
 @pytest.mark.parametrize("exc_type", [ValueError, FileNotFoundError, KeyError, PermissionError])
@@ -282,7 +282,7 @@ def test_cluster_not_found_keeps_its_did_you_mean(name_len, monkeypatch):
     with pytest.raises(VSANError) as excinfo:
         vsan._require_cluster(object(), name)
 
-    out = _safe_error(excinfo.value, "vsan_health")
+    out = _safe_error(excinfo.value, "get_vsan_health")
     assert len(out) <= CAP
     assert "list_all_clusters" in out
     assert actual in out, "the suggested cluster name was truncated away"

@@ -48,8 +48,8 @@ def _validate_address(address: str) -> None:
         ipaddress.ip_address(address)
     except ValueError:
         raise ISCSIError(
-            f"Invalid IP address: '{address}'. storage_iscsi_add_target and "
-            "storage_iscsi_remove_target need an IPv4 or IPv6 literal (e.g. "
+            f"Invalid IP address: '{address}'. add_iscsi_target and "
+            "remove_iscsi_target need an IPv4 or IPv6 literal (e.g. "
             "10.0.0.5 or fd00::5), not a hostname — resolve the portal name to an "
             "address and pass that."
         ) from None
@@ -60,7 +60,7 @@ def _validate_port(port: int) -> None:
     if not (1 <= port <= 65535):
         raise ISCSIError(
             f"Port must be 1-65535, got {port}. Pass the iSCSI portal's TCP port to "
-            "storage_iscsi_add_target / storage_iscsi_remove_target, or omit the "
+            "add_iscsi_target / remove_iscsi_target, or omit the "
             "port argument to use the default 3260."
         )
 
@@ -235,7 +235,7 @@ def add_iscsi_target(
     if hba is None:
         raise ISCSIError(
             f"Software iSCSI is not enabled on host '{host_name}'. Run "
-            f"storage_iscsi_enable (CLI: vmware-storage iscsi enable {host_name}) "
+            f"enable_iscsi (CLI: vmware-storage iscsi enable {host_name}) "
             "first, then retry adding the target."
         )
 
@@ -272,7 +272,7 @@ def remove_iscsi_target(
     if hba is None:
         raise ISCSIError(
             f"Software iSCSI is not enabled on host '{host_name}', so it has no send "
-            "targets to remove. Run storage_iscsi_status to confirm the adapter "
+            "targets to remove. Run get_iscsi_status to confirm the adapter "
             "state; if you meant a different host, run vmware-monitor's "
             "list_esxi_hosts to get exact names."
         )
@@ -286,7 +286,7 @@ def remove_iscsi_target(
     if not found:
         raise ISCSIError(
             f"iSCSI target {address}:{port} not found on host '{host_name}'. Run "
-            "storage_iscsi_status to see the send targets actually configured and "
+            "get_iscsi_status to see the send targets actually configured and "
             "copy an exact address:port pair."
         )
 

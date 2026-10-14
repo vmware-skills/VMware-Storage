@@ -1,4 +1,4 @@
-"""``vsan_health`` must report the health vSAN reports, or say it did not ask.
+"""``get_vsan_health`` must report the health vSAN reports, or say it did not ask.
 
 Real-hardware finding, 2026-08-30 (VCF 9.1): the cluster's real ``overallHealth``
 was **red** and the tool returned ``overall_health: "unknown"``, with a note

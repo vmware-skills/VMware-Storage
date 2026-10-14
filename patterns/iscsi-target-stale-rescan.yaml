@@ -27,7 +27,7 @@ classification:
 # What triggers this pattern: a previous audit row matching these conditions
 trigger:
   skill: vmware-storage
-  tool: storage_iscsi_status
+  tool: get_iscsi_status
   result_predicate:
     # Stale device condition — at least one of:
     any_of:
@@ -40,7 +40,7 @@ trigger:
 # What action to perform when trigger fires
 action:
   skill: vmware-storage
-  tool: storage_rescan
+  tool: rescan_storage
   params_from_trigger:
     host: "$.params.host"
     target: "$.params.target"
@@ -52,7 +52,7 @@ validation:
   delay_seconds: 30
   re_check:
     skill: vmware-storage
-    tool: storage_iscsi_status
+    tool: get_iscsi_status
     params_from_trigger:
       host: "$.params.host"
       target: "$.params.target"

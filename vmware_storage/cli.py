@@ -279,7 +279,7 @@ app.add_typer(iscsi_app, name="iscsi")
 
 @iscsi_app.command("enable")
 @handle_cli_errors
-@guarded("storage_iscsi_enable", risk_level="medium")
+@guarded("enable_iscsi", risk_level="medium")
 def iscsi_enable(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
@@ -311,7 +311,7 @@ def iscsi_enable(
 
 @iscsi_app.command("status")
 @handle_cli_errors
-@audited("storage_iscsi_status")
+@audited("get_iscsi_status")
 def iscsi_status(
     host_name: str = typer.Argument(help="ESXi host name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -326,7 +326,7 @@ def iscsi_status(
 
 @iscsi_app.command("add-target")
 @handle_cli_errors
-@guarded("storage_iscsi_add_target", risk_level="medium")
+@guarded("add_iscsi_target", risk_level="medium")
 def iscsi_add_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -363,7 +363,7 @@ def iscsi_add_target(
 
 @iscsi_app.command("remove-target")
 @handle_cli_errors
-@guarded("storage_iscsi_remove_target", risk_level="high")
+@guarded("remove_iscsi_target", risk_level="high")
 def iscsi_remove_target(
     host_name: str = typer.Argument(help="ESXi host name"),
     address: str = typer.Argument(help="iSCSI target IP address"),
@@ -400,7 +400,7 @@ def iscsi_remove_target(
 
 @iscsi_app.command("rescan")
 @handle_cli_errors
-@guarded("storage_rescan", risk_level="medium")
+@guarded("rescan_storage", risk_level="medium")
 def iscsi_rescan(
     host_name: str = typer.Argument(help="ESXi host name"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without executing"),
@@ -435,7 +435,7 @@ app.add_typer(vsan_app, name="vsan")
 
 @vsan_app.command("health")
 @handle_cli_errors
-@audited("vsan_health")
+@audited("get_vsan_health")
 def vsan_health_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -450,7 +450,7 @@ def vsan_health_cmd(
 
 @vsan_app.command("capacity")
 @handle_cli_errors
-@audited("vsan_capacity")
+@audited("get_vsan_capacity")
 def vsan_capacity_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -465,7 +465,7 @@ def vsan_capacity_cmd(
 
 @vsan_app.command("efficiency")
 @handle_cli_errors
-@audited("vsan_efficiency")
+@audited("get_vsan_efficiency")
 def vsan_efficiency_cmd(
     cluster_name: str = typer.Argument(help="Cluster name"),
     target: str | None = typer.Option(None, help="Target name"),
@@ -488,7 +488,7 @@ app.add_typer(paths_app, name="paths")
 
 @paths_app.command("fc-adapters")
 @handle_cli_errors
-@audited("fc_adapter_list")
+@audited("list_fc_adapters")
 def paths_fc_adapters(
     cluster: str | None = typer.Option(None, help="Cluster name"),
     host: str | None = typer.Option(None, help="ESXi host name"),
@@ -506,7 +506,7 @@ def paths_fc_adapters(
 
 @paths_app.command("devices")
 @handle_cli_errors
-@audited("storage_device_paths")
+@audited("list_storage_device_paths")
 def paths_devices(
     cluster: str | None = typer.Option(None, help="Cluster name"),
     host: str | None = typer.Option(None, help="ESXi host name"),

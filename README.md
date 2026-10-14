@@ -81,9 +81,9 @@ vmware-storage doctor
 | Category | Tools | Type |
 |----------|-------|------|
 | Datastore | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
-| iSCSI | `storage_iscsi_enable`, `storage_iscsi_status`, `storage_iscsi_add_target`, `storage_iscsi_remove_target`, `storage_rescan` | Read/Write |
-| vSAN | `vsan_health`, `vsan_capacity`, `vsan_efficiency` | Read |
-| FC / multipath | `fc_adapter_list`, `storage_device_paths` | Read |
+| iSCSI | `enable_iscsi`, `get_iscsi_status`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` | Read/Write |
+| vSAN | `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency` | Read |
+| FC / multipath | `list_fc_adapters`, `list_storage_device_paths` | Read |
 
 ## Auto-Remediation Patterns (PoC)
 
@@ -239,7 +239,7 @@ vmware-storage-mcp
 |---------|-------------|
 | iSCSI enable fails with "already enabled" | Not an error — adapter is already active. Run `iscsi status` to see configured targets. |
 | "Datastore not found" when browsing | Datastore names are **case-sensitive**. Run `datastore list` to get the exact name. |
-| `vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
+| `get_vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
 | Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
 | "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
 | Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |

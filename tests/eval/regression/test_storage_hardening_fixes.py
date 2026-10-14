@@ -3,8 +3,8 @@
 Each test pins one confirmed bug so it can never silently return:
 
 1. browse_datastore query list excluded generic files → .ova/.ovf invisible
-2. storage_iscsi_remove_target under-classified (medium, must be high);
-   storage_iscsi_status over-classified (medium, must be low)
+2. remove_iscsi_target under-classified (medium, must be high);
+   get_iscsi_status over-classified (medium, must be low)
 3. MCP write tools lacked dry_run preview
 4. Audit log failure flipped a successful write into a reported failure
 5. SKILL.md claimed 6R/5W but the server exposes 7R/4W
@@ -76,18 +76,18 @@ def test_pyvmomi_has_no_filequery_alias():
 # ── Fix 2: risk levels + dry_run on MCP write tools ────────────────────────
 
 _WRITE_TOOLS = (
-    "storage_iscsi_enable",
-    "storage_iscsi_add_target",
-    "storage_iscsi_remove_target",
-    "storage_rescan",
+    "enable_iscsi",
+    "add_iscsi_target",
+    "remove_iscsi_target",
+    "rescan_storage",
 )
 
 
 def test_remove_target_risk_level_is_high():
     from vmware_storage.mcp_server import server
 
-    assert server.storage_iscsi_remove_target._risk_level == "high", (
-        "storage_iscsi_remove_target is destructive (LUNs become inaccessible) "
+    assert server.remove_iscsi_target._risk_level == "high", (
+        "remove_iscsi_target is destructive (LUNs become inaccessible) "
         "and must be risk_level='high' to hit the policy confirmation gate."
     )
 
@@ -95,8 +95,8 @@ def test_remove_target_risk_level_is_high():
 def test_iscsi_status_risk_level_is_low():
     from vmware_storage.mcp_server import server
 
-    assert server.storage_iscsi_status._risk_level == "low", (
-        "storage_iscsi_status is read-only and must be risk_level='low'."
+    assert server.get_iscsi_status._risk_level == "low", (
+        "get_iscsi_status is read-only and must be risk_level='low'."
     )
 
 
@@ -120,10 +120,10 @@ def test_write_tools_take_confirm_and_keep_dry_run_as_alias(tool_name):
 @pytest.mark.parametrize(
     ("tool_name", "kwargs"),
     [
-        ("storage_iscsi_enable", {"host_name": "esxi-01"}),
-        ("storage_iscsi_add_target", {"host_name": "esxi-01", "address": "10.0.0.1"}),
-        ("storage_iscsi_remove_target", {"host_name": "esxi-01", "address": "10.0.0.1"}),
-        ("storage_rescan", {"host_name": "esxi-01"}),
+        ("enable_iscsi", {"host_name": "esxi-01"}),
+        ("add_iscsi_target", {"host_name": "esxi-01", "address": "10.0.0.1"}),
+        ("remove_iscsi_target", {"host_name": "esxi-01", "address": "10.0.0.1"}),
+        ("rescan_storage", {"host_name": "esxi-01"}),
     ],
 )
 def test_dry_run_previews_without_writing(tool_name, kwargs, monkeypatch):
@@ -146,8 +146,10 @@ def test_dry_run_previews_without_writing(tool_name, kwargs, monkeypatch):
     for measure in ("measure_enable", "measure_add_target", "measure_remove_target",
                     "measure_rescan"):
         monkeypatch.setattr(server._gate, measure, lambda *a, **k: dict(radius))
-    for executor in ("enable_software_iscsi", "add_iscsi_target", "remove_iscsi_target",
-                     "rescan_storage"):
+    # 2.0: the tools now carry the ops functions' names, so the executors are
+    # imported under an _ops_ alias — patch those, not the tools themselves.
+    for executor in ("enable_software_iscsi", "_ops_add_iscsi_target",
+                     "_ops_remove_iscsi_target", "_ops_rescan_storage"):
         monkeypatch.setattr(server, executor, explode)
     fn = inspect.unwrap(getattr(server, tool_name))
     result = fn(dry_run=True, **kwargs)
@@ -178,7 +180,7 @@ def test_audit_oserror_does_not_flip_tool_success(monkeypatch):
         server._gate, "measure_enable",
         lambda si, host: {"already_enabled": False, "blockers": [], "unmeasured": []},
     )
-    fn = inspect.unwrap(server.storage_iscsi_enable)
+    fn = inspect.unwrap(server.enable_iscsi)
     result = fn(host_name="esxi-01", confirm=True)
     assert result["result"] == "Software iSCSI enabled on host 'esxi-01'."
     assert "error" not in result

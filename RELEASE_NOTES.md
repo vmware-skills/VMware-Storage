@@ -1,3 +1,36 @@
+## v2.0.0 — MCP tools renamed verb-first
+
+**Breaking for MCP clients:** the server exposes only the new tool names. The family now follows one naming
+convention — verb first (`list_`, `get_`, `add_`, `remove_`, `enable_`, `rescan_`), with a domain word
+(`iscsi`, `vsan`, `storage`) wherever a bare noun would collide with another skill's tool.
+
+| Old name | New name |
+|---|---|
+| `fc_adapter_list` | `list_fc_adapters` |
+| `storage_device_paths` | `list_storage_device_paths` |
+| `storage_iscsi_add_target` | `add_iscsi_target` |
+| `storage_iscsi_enable` | `enable_iscsi` |
+| `storage_iscsi_remove_target` | `remove_iscsi_target` |
+| `storage_iscsi_status` | `get_iscsi_status` |
+| `storage_rescan` | `rescan_storage` |
+| `vsan_capacity` | `get_vsan_capacity` |
+| `vsan_efficiency` | `get_vsan_efficiency` |
+| `vsan_health` | `get_vsan_health` |
+
+Unchanged: `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`.
+
+Parameter changes, so the tools shared by name with other skills share one schema:
+
+* `browse_datastore` and `scan_datastore_images`: `ds_name` is now **`datastore_name`** (as in vmware-aiops'
+  `browse_datastore`).
+* `list_all_datastores` gains **`limit`** (optional; omitted = every datastore, as in vmware-monitor's
+  `list_all_datastores`). `total` is always the real count, and `truncated` is true only when `limit` cut rows off.
+
+**CLI commands are unchanged.** The CLI now records each command under its MCP twin's new name in the audit log.
+
+Deny rules in `~/.vmware/rules.yaml` written with the old names keep working with vmware-policy ≥ 1.18.0 (it
+matches both names); `vmware-audit policy` lists any rule that now matches more.
+
 ## v1.12.1 — the setup guide no longer turns TLS verification off
 
 Docs only; no code change.

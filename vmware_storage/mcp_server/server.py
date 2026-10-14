@@ -7,11 +7,11 @@ stdio transport.
 Tool categories
 ---------------
 * **Read-only**: list_all_datastores, browse_datastore, scan_datastore_images,
-  list_cached_images, storage_iscsi_status, vsan_health, vsan_capacity,
-  vsan_efficiency, fc_adapter_list, storage_device_paths
+  list_cached_images, get_iscsi_status, get_vsan_health, get_vsan_capacity,
+  get_vsan_efficiency, list_fc_adapters, list_storage_device_paths
 * **Write, gated** (``confirm=False`` previews the blast radius and changes
-  nothing): storage_iscsi_enable, storage_iscsi_add_target,
-  storage_iscsi_remove_target, storage_rescan — see ``ops.iscsi_gate``
+  nothing): enable_iscsi, add_iscsi_target,
+  remove_iscsi_target, rescan_storage — see ``ops.iscsi_gate``
 
 Security considerations
 -----------------------
@@ -44,19 +44,28 @@ from vmware_storage.ops import iscsi_config as _iscsi_config
 from vmware_storage.ops import iscsi_gate as _gate
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.inventory import list_datastores
+
+# The 2.0 tool names reuse several ops function names (get_iscsi_status,
+# rescan_storage, get_vsan_health, ...). Importing the ops functions under an
+# _ops_ alias keeps each tool from shadowing — and then calling — itself.
 from vmware_storage.ops.iscsi_config import (
     HostNotFoundError,
     ISCSIError,
-    add_iscsi_target,
     enable_software_iscsi,
-    get_iscsi_status,
-    remove_iscsi_target,
-    rescan_storage,
 )
+from vmware_storage.ops.iscsi_config import add_iscsi_target as _ops_add_iscsi_target
+from vmware_storage.ops.iscsi_config import get_iscsi_status as _ops_get_iscsi_status
+from vmware_storage.ops.iscsi_config import remove_iscsi_target as _ops_remove_iscsi_target
+from vmware_storage.ops.iscsi_config import rescan_storage as _ops_rescan_storage
 from vmware_storage.ops.multipath import device_paths
-from vmware_storage.ops.storage_paths import StoragePathError, list_fc_adapters
-from vmware_storage.ops.vsan import VSANError, get_vsan_capacity, get_vsan_health
-from vmware_storage.ops.vsan_efficiency import get_vsan_efficiency
+from vmware_storage.ops.storage_paths import StoragePathError
+from vmware_storage.ops.storage_paths import list_fc_adapters as _ops_list_fc_adapters
+from vmware_storage.ops.vsan import VSANError
+from vmware_storage.ops.vsan import get_vsan_capacity as _ops_get_vsan_capacity
+from vmware_storage.ops.vsan import get_vsan_health as _ops_get_vsan_health
+from vmware_storage.ops.vsan_efficiency import (
+    get_vsan_efficiency as _ops_get_vsan_efficiency,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vmware-storage.mcp")
@@ -199,7 +208,7 @@ _TARGET_RULE = (
     "querying. A result does not name the target it came from, so say in the answer "
     "which `target` you passed. Note this skill uses the word twice: the `target` "
     "parameter is a configured vCenter or ESXi host, while the `target` field inside "
-    "a path row from storage_device_paths is the storage array's port (a WWPN or an "
+    "a path row from list_storage_device_paths is the storage array's port (a WWPN or an "
     "iSCSI IQN) — reporting one as the other names the wrong thing entirely."
 )
 
@@ -312,22 +321,27 @@ def _get_connection(target: Optional[str] = None):
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def list_all_datastores(target: Optional[str] = None) -> dict:
+def list_all_datastores(
+    target: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> dict:
     """[READ] List all datastores with capacity, usage percentage, and accessibility.
 
-    Use this first for the ds_name that browse_datastore and
+    Use this first for the datastore_name that browse_datastore and
     scan_datastore_images require.
 
     Returns the list envelope: 'items' holds one row per datastore, and
     'returned'/'total'/'truncated' state whether the listing is complete.
-    Enumerated in one pass, so truncated is always false.
+    Every datastore is enumerated before limit is applied, so total is the
+    real count and truncated is true only when limit cut rows off.
 
     Args:
         target: Optional vCenter/ESXi target name from config.
+        limit: Max datastores to return (None = all).
     """
     try:
         si = _get_connection(target)
-        return list_datastores(si)
+        return list_datastores(si, limit=limit)
     except Exception as e:
         logger.error("list_all_datastores failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
@@ -336,7 +350,7 @@ def list_all_datastores(target: Optional[str] = None) -> dict:
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def browse_datastore(
-    ds_name: str,
+    datastore_name: str,
     path: str = "",
     pattern: str = "*",
     target: Optional[str] = None,
@@ -344,21 +358,21 @@ def browse_datastore(
     """[READ] Browse files in a datastore directory.
 
     Use this for arbitrary files or a glob; prefer scan_datastore_images for
-    deployable images. ds_name comes from list_all_datastores.
+    deployable images. datastore_name comes from list_all_datastores.
 
     Returns the list envelope: 'items' holds one row per file, and
     'returned'/'total'/'truncated' state whether the listing is complete.
     All matches are returned, so truncated is always false.
 
     Args:
-        ds_name: Datastore name.
+        datastore_name: Datastore name.
         path: Subdirectory path (empty for root).
         pattern: Glob pattern to filter files (e.g. "*.ova", "*.iso").
         target: Optional vCenter/ESXi target name from config.
     """
     try:
         si = _get_connection(target)
-        return datastore_browser.browse_datastore(si, ds_name, path=path, pattern=pattern)
+        return datastore_browser.browse_datastore(si, datastore_name, path=path, pattern=pattern)
     except Exception as e:
         logger.error("browse_datastore failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
@@ -367,27 +381,27 @@ def browse_datastore(
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
 def scan_datastore_images(
-    ds_name: str,
+    datastore_name: str,
     path: str = "",
     target: Optional[str] = None,
 ) -> dict:
     """[READ] Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
 
     Use this for a live scan of one datastore; prefer list_cached_images for
-    a cached answer. ds_name comes from list_all_datastores.
+    a cached answer. datastore_name comes from list_all_datastores.
 
     Returns the list envelope: 'items' holds one row per image, and
     'returned'/'total'/'truncated' state whether the listing is complete.
     All patterns are browsed, so truncated is always false.
 
     Args:
-        ds_name: Datastore name.
+        datastore_name: Datastore name.
         path: Subdirectory path (empty for root).
         target: Optional vCenter/ESXi target name from config.
     """
     try:
         si = _get_connection(target)
-        return datastore_browser.scan_images(si, ds_name, path=path)
+        return datastore_browser.scan_images(si, datastore_name, path=path)
     except Exception as e:
         logger.error("scan_datastore_images failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
@@ -429,7 +443,7 @@ def list_cached_images(
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
-def storage_iscsi_enable(
+def enable_iscsi(
     host_name: str,
     confirm: bool = False,
     dry_run: Optional[bool] = None,
@@ -437,7 +451,7 @@ def storage_iscsi_enable(
 ) -> dict:
     """[WRITE] Enable the software iSCSI adapter (vmhba) on an ESXi host.
 
-    Required prerequisite before storage_iscsi_add_target. Without
+    Required prerequisite before add_iscsi_target. Without
     confirm=True this only previews: it returns blast_radius (the host, its
     current adapters, whether the software adapter already exists) and changes
     nothing. Show it to the user. Do not set confirm=True on your own because
@@ -445,7 +459,7 @@ def storage_iscsi_enable(
     enabled returns action "noop" with the HBA device and IQN. Non-disruptive
     (no reboot, no impact on existing datastores). Refused when the host's
     storage view cannot be read. Returns a dict; check state first with
-    storage_iscsi_status.
+    get_iscsi_status.
 
     Args:
         host_name: ESXi host name exactly as shown in vCenter inventory
@@ -469,19 +483,19 @@ def storage_iscsi_enable(
             }, decision)
         if not decision.act:
             return _preview(radius, decision)
-        _gate.refuse_if_blocked("storage_iscsi_enable", host_name, radius)
+        _gate.refuse_if_blocked("enable_iscsi", host_name, radius)
         result = enable_software_iscsi(si, host_name)
         _safe_audit(target=target or "default", operation="iscsi_enable",
                     resource=host_name, parameters={"host_name": host_name}, result=result)
         return _with_note({"action": "enabled", "result": result, "blast_radius": radius}, decision)
     except Exception as e:
-        logger.error("storage_iscsi_enable failed: %s", e)
+        logger.error("enable_iscsi failed: %s", e)
         return _error_reply(e, "storage", decision)
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def storage_iscsi_status(
+def get_iscsi_status(
     host_name: str,
     target: Optional[str] = None,
 ) -> dict:
@@ -489,8 +503,8 @@ def storage_iscsi_status(
 
     Returns {host, enabled, hba_device, iqn, send_targets: [{address, port}]};
     when the adapter is disabled, enabled=false with null device/IQN and an
-    empty target list. Use this before storage_iscsi_enable /
-    storage_iscsi_add_target / storage_iscsi_remove_target to check
+    empty target list. Use this before enable_iscsi /
+    add_iscsi_target / remove_iscsi_target to check
     prerequisites, and afterwards to verify the change took effect.
 
     Args:
@@ -501,9 +515,9 @@ def storage_iscsi_status(
     """
     try:
         si = _get_connection(target)
-        return get_iscsi_status(si, host_name)
+        return _ops_get_iscsi_status(si, host_name)
     except Exception as e:
-        logger.error("storage_iscsi_status failed: %s", e)
+        logger.error("get_iscsi_status failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
@@ -511,11 +525,11 @@ def storage_iscsi_status(
 @vmware_tool(
     risk_level="medium",
     undo=_acted_undo(
-        "target_added", "storage_iscsi_remove_target",
-        "Inverse of storage_iscsi_add_target: remove the iSCSI send target that was added.",
+        "target_added", "remove_iscsi_target",
+        "Inverse of add_iscsi_target: remove the iSCSI send target that was added.",
     ),
 )
-def storage_iscsi_add_target(
+def add_iscsi_target(
     host_name: str,
     address: str,
     port: int = 3260,
@@ -530,8 +544,8 @@ def storage_iscsi_add_target(
     touches) and changes nothing. Show it to the user. Do not set confirm=True
     on your own because the user asked earlier — they have not seen the
     preview yet. Refused when software iSCSI is not enabled (run
-    storage_iscsi_enable first) or the host's storage view cannot be read. A
-    duplicate address:port returns action "noop". No separate storage_rescan
+    enable_iscsi first) or the host's storage view cannot be read. A
+    duplicate address:port returns action "noop". No separate rescan_storage
     call is needed afterwards. Returns a dict.
 
     Args:
@@ -556,8 +570,8 @@ def storage_iscsi_add_target(
             }, decision)
         if not decision.act:
             return _preview(radius, decision)
-        _gate.refuse_if_blocked("storage_iscsi_add_target", host_name, radius)
-        result = add_iscsi_target(si, host_name, address, port)
+        _gate.refuse_if_blocked("add_iscsi_target", host_name, radius)
+        result = _ops_add_iscsi_target(si, host_name, address, port)
         if _iscsi_config.ALREADY_CONFIGURED in result:
             # Added by someone else after the gate read: this call changed
             # nothing, so it must not record an undo that would remove it.
@@ -572,7 +586,7 @@ def storage_iscsi_add_target(
             {"action": "target_added", "result": result, "blast_radius": radius}, decision
         )
     except Exception as e:
-        logger.error("storage_iscsi_add_target failed: %s", e)
+        logger.error("add_iscsi_target failed: %s", e)
         return _error_reply(e, "storage", decision)
 
 
@@ -580,11 +594,11 @@ def storage_iscsi_add_target(
 @vmware_tool(
     risk_level="high",
     undo=_acted_undo(
-        "target_removed", "storage_iscsi_add_target",
-        "Inverse of storage_iscsi_remove_target: re-add the iSCSI send target that was removed.",
+        "target_removed", "add_iscsi_target",
+        "Inverse of remove_iscsi_target: re-add the iSCSI send target that was removed.",
     ),
 )
-def storage_iscsi_remove_target(
+def remove_iscsi_target(
     host_name: str,
     address: str,
     port: int = 3260,
@@ -603,7 +617,7 @@ def storage_iscsi_remove_target(
     have not seen what it cuts off yet. Refused when a datastore would lose
     every path (unmount it first), when the address:port is not configured or
     software iSCSI is disabled, and when any path or static target cannot be
-    attributed. Reversible only by re-adding via storage_iscsi_add_target.
+    attributed. Reversible only by re-adding via add_iscsi_target.
     Returns a dict.
 
     Args:
@@ -622,8 +636,8 @@ def storage_iscsi_remove_target(
         radius = _gate.measure_remove_target(si, host_name, address, port)
         if not decision.act:
             return _preview(radius, decision)
-        _gate.refuse_if_blocked("storage_iscsi_remove_target", host_name, radius)
-        result = remove_iscsi_target(si, host_name, address, port)
+        _gate.refuse_if_blocked("remove_iscsi_target", host_name, radius)
+        result = _ops_remove_iscsi_target(si, host_name, address, port)
         _safe_audit(target=target or "default", operation="iscsi_remove_target",
                     resource=host_name,
                     parameters={"host_name": host_name, "address": address, "port": port},
@@ -632,13 +646,13 @@ def storage_iscsi_remove_target(
             {"action": "target_removed", "result": result, "blast_radius": radius}, decision
         )
     except Exception as e:
-        logger.error("storage_iscsi_remove_target failed: %s", e)
+        logger.error("remove_iscsi_target failed: %s", e)
         return _error_reply(e, "storage", decision)
 
 
 @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
 @vmware_tool(risk_level="medium")
-def storage_rescan(
+def rescan_storage(
     host_name: str,
     confirm: bool = False,
     dry_run: Optional[bool] = None,
@@ -647,8 +661,8 @@ def storage_rescan(
     """[WRITE] Rescan all HBAs and VMFS volumes on an ESXi host to discover newly presented LUNs and datastores.
 
     Use this when a storage array presents new LUNs, or after out-of-band SAN
-    changes. Not needed after storage_iscsi_add_target /
-    storage_iscsi_remove_target — those rescan automatically. Without
+    changes. Not needed after add_iscsi_target /
+    remove_iscsi_target — those rescan automatically. Without
     confirm=True this only previews: it returns blast_radius (the host, every
     adapter the rescan touches, the mounted VMFS volumes) and changes nothing.
     Show it to the user. Do not set confirm=True on your own because the user
@@ -670,15 +684,15 @@ def storage_rescan(
         radius = _gate.measure_rescan(si, host_name)
         if not decision.act:
             return _preview(radius, decision)
-        _gate.refuse_if_blocked("storage_rescan", host_name, radius)
-        result = rescan_storage(si, host_name)
+        _gate.refuse_if_blocked("rescan_storage", host_name, radius)
+        result = _ops_rescan_storage(si, host_name)
         _safe_audit(target=target or "default", operation="storage_rescan",
                     resource=host_name, parameters={"host_name": host_name}, result=result)
         return _with_note(
             {"action": "rescanned", "result": result, "blast_radius": radius}, decision
         )
     except Exception as e:
-        logger.error("storage_rescan failed: %s", e)
+        logger.error("rescan_storage failed: %s", e)
         return _error_reply(e, "storage", decision)
 
 
@@ -689,7 +703,7 @@ def storage_rescan(
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def vsan_health(
+def get_vsan_health(
     cluster_name: str,
     target: Optional[str] = None,
 ) -> dict:
@@ -712,7 +726,7 @@ def vsan_health(
     empty disk_groups on such a cluster does NOT mean it has none — the unread
     hosts are named in hosts_not_read and in the message.
     If vSAN is not enabled, returns vsan_enabled=false with a message
-    rather than an error. Use vsan_capacity for space usage instead. No side
+    rather than an error. Use get_vsan_capacity for space usage instead. No side
     effects.
 
     Args:
@@ -722,15 +736,15 @@ def vsan_health(
     """
     try:
         si = _get_connection(target)
-        return get_vsan_health(si, cluster_name)
+        return _ops_get_vsan_health(si, cluster_name)
     except Exception as e:
-        logger.error("vsan_health failed: %s", e)
+        logger.error("get_vsan_health failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def vsan_capacity(
+def get_vsan_capacity(
     cluster_name: str,
     target: Optional[str] = None,
 ) -> dict:
@@ -742,8 +756,8 @@ def vsan_capacity(
     answers 0 for a datastore it cannot reach, and 0 GB used reads as a healthy
     empty datastore. accessible=null means the summary did not say. If vSAN is
     not enabled on the cluster, returns vsan_enabled=false with an explanatory
-    message rather than an error; errors only if the cluster name is not found. Use vsan_health for
-    disk-group layout and host details; use list_all_datastores for non-vSAN
+    message rather than an error; errors only if the cluster name is not found.
+    Use get_vsan_health for disk-group layout and host details; use list_all_datastores for non-vSAN
     (VMFS/NFS) datastore usage. No side effects.
 
     Args:
@@ -753,15 +767,15 @@ def vsan_capacity(
     """
     try:
         si = _get_connection(target)
-        return get_vsan_capacity(si, cluster_name)
+        return _ops_get_vsan_capacity(si, cluster_name)
     except Exception as e:
-        logger.error("vsan_capacity failed: %s", e)
+        logger.error("get_vsan_capacity failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def vsan_efficiency(
+def get_vsan_efficiency(
     cluster_name: str,
     target: Optional[str] = None,
 ) -> dict:
@@ -772,8 +786,8 @@ def vsan_efficiency(
     pyVmomi. When vSAN reports no data-efficiency config (space efficiency off,
     or an OSA cluster without it), dedup_enabled/compression_enabled come back
     null with a message rather than a fabricated false. Errors only if the
-    cluster name is not found. Use vsan_capacity for space usage and
-    vsan_health for disk-group layout. No side effects.
+    cluster name is not found. Use get_vsan_capacity for space usage and
+    get_vsan_health for disk-group layout. No side effects.
 
     Note: vSAN Global Deduplication and vSAN-to-vSAN replication are NOT
     exposed here — neither has a verified SDK object (global dedup has no
@@ -788,9 +802,9 @@ def vsan_efficiency(
     """
     try:
         si = _get_connection(target)
-        return get_vsan_efficiency(si, cluster_name)
+        return _ops_get_vsan_efficiency(si, cluster_name)
     except Exception as e:
-        logger.error("vsan_efficiency failed: %s", e)
+        logger.error("get_vsan_efficiency failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
@@ -801,7 +815,7 @@ def vsan_efficiency(
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def fc_adapter_list(
+def list_fc_adapters(
     cluster: Optional[str] = None,
     host: Optional[str] = None,
     limit: int = 50,
@@ -811,7 +825,7 @@ def fc_adapter_list(
     """[READ] List Fibre Channel HBAs (FC and FCoE) per ESXi host: vmhba, model, driver, status, port type, WWPN/WWNN and reported link speed.
 
     Use this for "which FC adapters does each host have" or to find a
-    host's WWPNs; use storage_device_paths for devices and paths behind them.
+    host's WWPNs; use list_storage_device_paths for devices and paths behind them.
     Scope with cluster OR host; with neither, every host on the target is
     read (only the adapter list is fetched, so this stays cheap).
 
@@ -831,15 +845,15 @@ def fc_adapter_list(
     """
     try:
         si = _get_connection(target)
-        return list_fc_adapters(si, cluster=cluster, host=host, limit=limit, offset=offset)
+        return _ops_list_fc_adapters(si, cluster=cluster, host=host, limit=limit, offset=offset)
     except Exception as e:
-        logger.error("fc_adapter_list failed: %s", e)
+        logger.error("list_fc_adapters failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 
 @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
 @vmware_tool(risk_level="low")
-def storage_device_paths(
+def list_storage_device_paths(
     cluster: Optional[str] = None,
     host: Optional[str] = None,
     datastore: Optional[str] = None,
@@ -898,7 +912,7 @@ def storage_device_paths(
             adapter=adapter, only_differences=only_differences, limit=limit, offset=offset,
         )
     except Exception as e:
-        logger.error("storage_device_paths failed: %s", e)
+        logger.error("list_storage_device_paths failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": "Run 'vmware-storage doctor' to verify connectivity."}
 
 

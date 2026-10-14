@@ -121,7 +121,7 @@ def test_a_successful_write_still_audits_as_ok(audit, monkeypatch):
     )
     monkeypatch.setattr(server._audit, "log", lambda **kw: None)
 
-    result = _call("storage_iscsi_enable", confirm=True)
+    result = _call("enable_iscsi", confirm=True)
 
     assert result["action"] == "enabled"
     assert result["result"] == "Software iSCSI enabled."
@@ -131,7 +131,7 @@ def test_a_successful_write_still_audits_as_ok(audit, monkeypatch):
 def test_a_failed_add_target_records_no_undo_token(audit, monkeypatch):
     """An undo token asserts a change happened and can be reversed.
 
-    ``storage_iscsi_add_target`` declares an ``undo`` inverse, so a failed call
+    ``add_iscsi_target`` declares an ``undo`` inverse, so a failed call
     that audits as ``ok`` also hands vmware-pilot an offer to remove a send
     target that was never added.
     """
@@ -149,7 +149,7 @@ def test_a_failed_add_target_records_no_undo_token(audit, monkeypatch):
 
     monkeypatch.setattr(server, "_get_connection", _boom)
 
-    result = _call("storage_iscsi_add_target", confirm=True)
+    result = _call("add_iscsi_target", confirm=True)
 
     assert result["error"]
     assert not recorded, "recorded an undo token for a target that was never added"
