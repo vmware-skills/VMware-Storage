@@ -16,8 +16,10 @@ VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre 
 ## Upgrading to 2.0
 
 2.0 renames 10 MCP tools so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
-[RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first). Nothing else changes: same tools, parameters,
-safety gates and CLI commands. If an agent prompt, script or `~/.vmware/rules.yaml` names a tool, update it — though deny
+[RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first). Three tools also change a parameter: `browse_datastore` and `scan_datastore_images` take
+`datastore_name` (was `ds_name`, now the same as vmware-aiops' `browse_datastore`), and `list_all_datastores` gains an
+optional `limit` (same as vmware-monitor's). Everything else stays: same tools, safety gates and CLI commands (the CLI
+still takes the datastore name as before). If an agent prompt, script or `~/.vmware/rules.yaml` names a tool, update it — though deny
 rules written with the old names keep working with vmware-policy ≥ 1.18 (`vmware-audit policy` lists any rule the
 renames widened), and vmware-pilot ≥ 1.13 translates old names in saved workflows.
 
