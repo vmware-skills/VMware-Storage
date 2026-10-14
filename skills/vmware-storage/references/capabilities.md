@@ -82,7 +82,7 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 | Low | 11 | All read-only tools + `rescan_storage` |
 | Medium | 3 | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target` |
 
-> Note: `rescan_storage` triggers a host-level HBA rescan which is non-destructive (discovery only) and classified as Low risk. The iSCSI write tools (`enable`, `add_target`, `remove_target`) are Medium risk because they modify the host's iSCSI configuration, but changes are reversible.
+> Note: `rescan_storage` triggers a host-level HBA rescan which is non-destructive (discovery only) and classified as Low risk. The iSCSI write tools (`enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`) are Medium risk because they modify the host's iSCSI configuration, but changes are reversible.
 
 ## Input Validation
 
