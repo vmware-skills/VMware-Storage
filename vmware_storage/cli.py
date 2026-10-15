@@ -417,7 +417,7 @@ def iscsi_rescan(
     result = rescan_storage(si, host_name)
     _audit.log(
         target=target or "default",
-        operation="storage_rescan",
+        operation="rescan_storage",
         resource=host_name,
         parameters={"host_name": host_name},
         result=result,

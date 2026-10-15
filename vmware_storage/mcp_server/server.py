@@ -686,7 +686,7 @@ def rescan_storage(
             return _preview(radius, decision)
         _gate.refuse_if_blocked("rescan_storage", host_name, radius)
         result = _ops_rescan_storage(si, host_name)
-        _safe_audit(target=target or "default", operation="storage_rescan",
+        _safe_audit(target=target or "default", operation="rescan_storage",
                     resource=host_name, parameters={"host_name": host_name}, result=result)
         return _with_note(
             {"action": "rescanned", "result": result, "blast_radius": radius}, decision
