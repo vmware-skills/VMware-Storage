@@ -234,6 +234,10 @@ After adding iSCSI targets, the storage subsystem may need 10-30 seconds to enum
 
 The password environment variable is missing. Variable names follow the pattern `VMWARE_<TARGET_NAME_UPPER>_PASSWORD` where hyphens become underscores. Example: target `my-vcenter` needs `VMWARE_MY_VCENTER_PASSWORD`. Check your `~/.vmware-storage/.env` file.
 
+### "Session is not authenticated" or "no vSphere role" right after login
+
+The password is right; the account has no vSphere role, so vCenter shows no session for it and every call fails. `doctor` now reports this on the auth row. Assign the account a role (Read-Only or higher) on the vCenter root folder under Administration > Access Control > Global Permissions. Seen mid-run, the same fault can also be an expired session: run the command again.
+
 ### Doctor reports ".env permissions too open"
 
 The `.env` file contains passwords and must have owner-only permissions:

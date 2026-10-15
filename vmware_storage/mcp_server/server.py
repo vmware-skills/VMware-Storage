@@ -41,7 +41,11 @@ from vmware_policy.access import unknown_tool_message, vsphere_access_info
 from vmware_storage import __version__
 from vmware_storage.access_requirements import REQUIREMENTS
 from vmware_storage.config import AppConfig, ConfigError, load_config
-from vmware_storage.connection import ConnectionManager
+from vmware_storage.connection import (
+    NOT_AUTHENTICATED_HINT,
+    ConnectionManager,
+    NoVsphereRoleError,
+)
 from vmware_storage.notify.audit import AuditLogger
 from vmware_storage.ops import datastore_browser
 from vmware_storage.ops import iscsi_config as _iscsi_config
@@ -116,6 +120,14 @@ def _safe_error(exc: Exception, tool: str) -> str:
     # reads the remedy for them from the CLI, which catches ssl.SSLError itself.
     if isinstance(exc, ssl.SSLError):
         return f"{type(exc).__name__}: operation failed."
+    # Both authored here, so nothing from the server travels. The role error is
+    # longer than the 300-character cap, and its remedy is at the end (AIops#47).
+    if isinstance(exc, NoVsphereRoleError):
+        return sanitize(str(exc), 500)
+    from pyVmomi import vim
+
+    if isinstance(exc, vim.fault.NotAuthenticated):
+        return NOT_AUTHENTICATED_HINT
     _passthrough = (
         ValueError,
         FileNotFoundError,

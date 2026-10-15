@@ -290,6 +290,7 @@ vmware-storage-mcp
 | `get_vsan_health` 返回 `overall_health: null` | `null` 表示**没有查询**（原因见 `health_not_queried_reason`），不是测量结果；只要是字符串就一定是 vSAN 自己给的答案，包括它自己的 `"unknown"`。常见原因：连的是独立 ESXi，而健康服务跑在 **vCenter** 上。 |
 | 重扫后未发现新 LUN | 添加目标后等待 15-30 秒再重扫。确认 ESXi 能访问目标 IP。 |
 | "Password not found" 错误 | 变量名规则：`VMWARE_<目标名大写>_PASSWORD`（连字符→下划线）。检查 `~/.vmware-storage/.env`。 |
+| `doctor` 报 "no vSphere role"，或每个命令都报 "session is not authenticated" | 能登录，但账号没有 vSphere 角色。在 vCenter 根文件夹上给它分配一个角色（Read-Only 或更高）：Administration > Access Control > Global Permissions。运行中出现同一错误也可能是会话过期：重跑命令即可。 |
 | 连接 vCenter 超时 | 使用 `vmware-storage doctor --skip-auth` 跳过高延迟网络的认证检查。 |
 
 <!-- usage: remote-and-exposure -->

@@ -15,6 +15,7 @@ from pyVmomi import vim
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
+from vmware_policy.access import login_has_no_session, no_role_message
 from vmware_policy.pool import SessionPool
 
 from vmware_storage.config import CONFIG_FILE, AppConfig, ConfigError, TargetConfig, load_config
@@ -83,6 +84,23 @@ class ConnectError(ConfigError):
     def __init__(self, message: str, cause_name: str = "") -> None:
         super().__init__(message)
         self.cause_name = cause_name
+
+
+class NoVsphereRoleError(ConnectError):
+    """The login was accepted but the account has no vSphere role (AIops#47).
+
+    A dedicated class so every surface can tell it from a transport failure:
+    the message is authored (the target name from config.yaml, nothing from
+    the server) and names the missing role, not the password.
+    """
+
+
+NOT_AUTHENTICATED_HINT = (
+    "vCenter answered 'the session is not authenticated'. Either the session "
+    "expired (run the command again; a new session is opened) or the account "
+    "has no vSphere role (assign Read-Only or higher on the vCenter root folder, "
+    "then run 'vmware-storage doctor'). Changing the password will not help."
+)
 
 
 def _connect_failed(target: TargetConfig, exc: BaseException) -> ConnectError:
@@ -243,6 +261,17 @@ class ConnectionManager:
 
         _SI_ATEXIT[id(si)] = _cleanup
         atexit.register(_cleanup)
+
+        # An account with no vSphere role logs in fine and then reads nothing:
+        # vCenter shows no session for it and every call fails with
+        # NotAuthenticated (AIops#47). Just after login an expired session is
+        # not the explanation, so refuse here, where doctor sees it too, and
+        # close the session the way the pool would so nothing caches it.
+        if login_has_no_session(si):
+            _close_si(si)
+            raise NoVsphereRoleError(
+                no_role_message(target.name, "vmware-storage"), cause_name="NoVsphereRole"
+            )
         return si
 
 

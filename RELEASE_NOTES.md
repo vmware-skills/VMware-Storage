@@ -1,3 +1,13 @@
+## Unreleased — a login with no vSphere role is named as such (AIops#47)
+
+* An account that logs in but has no vSphere role (vCenter shows no session for it) is now refused at connect time
+  with a message naming the missing role (assign Read-Only or higher), on the `doctor` auth row, the CLI and every
+  MCP tool. The session is logged out and never cached. Before, `doctor` passed and every call then failed with
+  "the session is not authenticated".
+* `NotAuthenticated` raised later (session expired, or a role removed while running) now says both causes, on the
+  CLI (it was a raw traceback) and over MCP (it was `NotAuthenticated: operation failed.`).
+* Requires vmware-policy 1.23.0.
+
 ## v2.3.0 — calls run side by side on one target; `get_access_info`
 
 **Concurrent calls (HLD §16 D-13(2), issue #18).** On a shared HTTPS server, calls no longer wait for each other:

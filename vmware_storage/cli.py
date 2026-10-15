@@ -16,7 +16,7 @@ from rich.text import Text
 from vmware_policy import PolicyDenied, audited, cli_local, guarded
 
 from vmware_storage.config import load_config
-from vmware_storage.connection import ConnectionManager
+from vmware_storage.connection import NOT_AUTHENTICATED_HINT, ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
 from vmware_storage.ops.iscsi_config import HostNotFoundError, ISCSIError
@@ -84,7 +84,7 @@ def _expected_error_types() -> tuple[type[BaseException], ...]:
     """Expected error types, including the lazily-imported SOAP auth fault."""
     from pyVmomi import vim
 
-    return (*_EXPECTED_ERRORS, vim.fault.InvalidLogin)
+    return (*_EXPECTED_ERRORS, vim.fault.InvalidLogin, vim.fault.NotAuthenticated)
 
 
 def handle_cli_errors(fn):
@@ -124,6 +124,10 @@ def handle_cli_errors(fn):
                     "VMWARE_<TARGET>_PASSWORD) and the username in "
                     "~/.vmware-storage/config.yaml. Re-run 'vmware-storage init' to reset both."
                 )
+            elif isinstance(e, vim.fault.NotAuthenticated):
+                # Not a credentials problem: the session expired, or the
+                # account has no vSphere role (AIops#47). Say both.
+                msg = NOT_AUTHENTICATED_HINT
             elif isinstance(e, ssl.SSLError):
                 # Self-signed lab certs are the usual cause; teach the toggle.
                 msg = (

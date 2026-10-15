@@ -255,6 +255,7 @@ vmware-storage-mcp
 | `get_vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
 | Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
 | "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
+| `doctor` fails with "no vSphere role", or every command fails with "session is not authenticated" | The login works but the account has no vSphere role. Assign one (Read-Only or higher) on the vCenter root folder (Administration > Access Control > Global Permissions). Mid-run, the same fault can be an expired session: run the command again. |
 | Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |
 | "Datastore browse did not finish within Ns" | The datastore is very large or busy. Narrow the search with a sub-path and a specific pattern (e.g. `datastore browse ds01 --path templates --pattern "*.ova"`) instead of browsing the root — do not just retry the same broad browse. |
 
