@@ -1,6 +1,6 @@
 # VMware Storage Capabilities
 
-All 11 MCP tools exposed by `vmware-storage-mcp`, organized by category.
+All 15 MCP tools exposed by `vmware-storage-mcp`, organized by category.
 
 ## Automation Level Reference
 

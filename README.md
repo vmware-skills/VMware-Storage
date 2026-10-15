@@ -210,7 +210,7 @@ vmware-storage-mcp
 
 ## Why a Separate Skill?
 
-`vmware-aiops` has 60 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
+`vmware-aiops` has 61 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
 
 - **15 tools** — fits comfortably in small model context windows
 - **Domain-focused** — storage admins get only what they need
