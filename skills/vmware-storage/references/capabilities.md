@@ -76,7 +76,7 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 
 - Asks vCenter/ESXi about the current session with `AuthorizationManager.HasPrivilegeOnEntities`, which needs only System.View, so any account can ask about itself.
 - **Root folder only.** `not_granted_at_root` is not "no access": the privilege may be granted on a specific cluster, host or datastore, where the tool then works. `undetermined` means the platform did not answer; it is never read as granted.
-- The per-tool privilege list is `vmware_storage/access_requirements.py`, derived from pyVmomi's metadata for the calls each tool makes (Host.Config.Storage for the four iSCSI writes; System.View + System.Read for reads). Browsing a datastore is also checked by vSphere against Datastore.Browse on the datastore, which pyVmomi's metadata does not attach to the call, so it is not listed yet.
+- The per-tool privilege list is `vmware_storage/access_requirements.py`, derived from pyVmomi's metadata for the calls each tool makes (Host.Config.Storage for the four iSCSI writes; System.View + System.Read for reads). Browsing a datastore also needs Datastore.Browse, which vSphere checks on the datastore but pyVmomi's metadata does not attach to the call; it is listed (not yet verified against a live vCenter's privilege list).
 - CLI: `vmware-storage access-info [--tool NAME] [--target T]`.
 - **Typical response**: ~150 tokens for one tool; ~400 tokens for the whole-server summary.
 

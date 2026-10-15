@@ -26,9 +26,9 @@ REQUIREMENTS: dict[str, list[str]] = {
     "list_all_datastores": _READ,
     # HostDatastoreBrowser.SearchDatastoreSubFolders_Task has no privId in
     # pyVmomi's metadata; vSphere checks Datastore.Browse on the datastore
-    # itself, which the family gate does not list yet (reported, not added).
-    "browse_datastore": _READ,
-    "scan_datastore_images": _READ,
+    # itself (a reviewed extra in the family gate; verify on a live vCenter).
+    "browse_datastore": [*_READ, "Datastore.Browse"],
+    "scan_datastore_images": [*_READ, "Datastore.Browse"],
     "list_cached_images": [],  # reads ~/.vmware-storage/image_registry.json only
     "enable_iscsi": _HOST_STORAGE_CHANGE,
     "get_iscsi_status": _READ,
