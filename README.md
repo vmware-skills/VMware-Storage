@@ -257,6 +257,64 @@ vmware-storage-mcp
 | Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |
 | "Datastore browse did not finish within Ns" | The datastore is very large or busy. Narrow the search with a sub-path and a specific pattern (e.g. `datastore browse ds01 --path templates --pattern "*.ova"`) instead of browsing the root — do not just retry the same broad browse. |
 
+<!-- usage: remote-and-exposure -->
+## Remote access (HTTPS) and limiting tools
+
+By default `vmware-storage mcp` speaks stdio to one local client and offers every tool. Two options change that
+(vmware-policy ≥ 1.21.0).
+
+**Serve over HTTPS** so clients on other machines can connect. Every caller needs a bearer token:
+
+```bash
+vmware-audit token create alice          # prints the token once; give it to alice
+vmware-audit token list                  # names only
+vmware-audit token revoke alice          # refused from its next request, no restart
+vmware-storage mcp --transport https --host 0.0.0.0 --port 8443 \
+    --cert /etc/vmware-mcp/server.pem --key /etc/vmware-mcp/server-key.pem \
+    --public-name mcp.example.com
+```
+
+Connect a client (Claude Code shown; any MCP client that supports streamable HTTP and custom headers works):
+
+```bash
+claude mcp add --transport http vmware-storage https://mcp.example.com:8443/mcp \
+    --header "Authorization: Bearer $VMWARE_MCP_TOKEN"
+```
+
+```json
+{
+  "mcpServers": {
+    "vmware-storage": {
+      "type": "http",
+      "url": "https://mcp.example.com:8443/mcp",
+      "headers": { "Authorization": "Bearer ${VMWARE_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+- The server will not start without a token, refuses Host/Origin values outside `--public-name`, and checks
+  before it binds that unauthenticated requests get 401. Use a certificate your clients trust for those names.
+- Behind a TLS-terminating reverse proxy on the same machine use `--transport http --host 127.0.0.1
+  --public-name mcp.example.com` and pass the `Authorization` header through.
+- The audit log records each caller as `token:<name>`. Calls naming different targets run in parallel; calls that
+  name no target run one at a time, so name the target when several people share a server.
+- **Everyone who can reach the endpoint acts with this server's account.** Tokens identify callers; they grant
+  nothing on the platform. Run one endpoint per privilege level.
+
+**Offer only read tools, plus the writes you choose:**
+
+```bash
+vmware-storage mcp --expose read --allow-write enable_iscsi
+# or: VMWARE_STORAGE_MCP_EXPOSE=read VMWARE_STORAGE_MCP_ALLOW_WRITE=enable_iscsi vmware-storage mcp
+```
+
+Tools not offered do not appear in the client's tool list. A bad value or an unknown write tool stops the server
+(exit 2). This limits what clients are offered; it is not authorization, so the account itself should be
+least-privilege.
+
+Details: `skills/vmware-storage/references/setup-guide.md` ("Serving MCP over HTTPS", "Limiting which tools are offered").
+
 ## License
 
 [MIT](LICENSE)
