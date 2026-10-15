@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 14 MCP tools, domain-focused and lightweight.
+VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 15 MCP tools, domain-focused and lightweight.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 
@@ -15,7 +15,7 @@ VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre 
 
 ## Upgrading to 2.0
 
-2.0 renames 10 of its 14 MCP tools so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
+2.0 renames 10 of its MCP tools (all but the four that already started with a verb) so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
 [RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first). Three tools also change a parameter: `browse_datastore` and `scan_datastore_images` take
 `datastore_name` (was `ds_name`, now the same as vmware-aiops' `browse_datastore`), and `list_all_datastores` gains an
 optional `limit` (same as vmware-monitor's). Everything else stays: same tools, safety gates and CLI commands (the CLI
@@ -88,7 +88,7 @@ chmod 600 ~/.vmware-storage/.env
 vmware-storage doctor
 ```
 
-## MCP Tools (14)
+## MCP Tools (15)
 
 | Category | Tools | Type |
 |----------|-------|------|
@@ -96,6 +96,7 @@ vmware-storage doctor
 | iSCSI | `enable_iscsi`, `get_iscsi_status`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` | Read/Write |
 | vSAN | `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency` | Read |
 | FC / multipath | `list_fc_adapters`, `list_storage_device_paths` | Read |
+| Access | `get_access_info` — which account the server uses and whether it holds each tool's vSphere privileges (root folder) | Read |
 
 ## Auto-Remediation Patterns (PoC)
 
@@ -211,7 +212,7 @@ vmware-storage-mcp
 
 `vmware-aiops` has 60 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
 
-- **14 tools** — fits comfortably in small model context windows
+- **15 tools** — fits comfortably in small model context windows
 - **Domain-focused** — storage admins get only what they need
 - **Least privilege** — can run under a vCenter service account with storage read-only permissions
 - **Composable** — use alongside vmware-monitor or vmware-aiops as needed
@@ -238,7 +239,7 @@ vmware-storage-mcp
 
 | Feature | Description |
 |---------|-------------|
-| Read-heavy | 10/14 tools are read-only |
+| Read-heavy | 11/15 tools are read-only |
 | Preview by default (MCP) | The 4 write tools take `confirm` (default `false`): a call without it changes nothing and returns `blast_radius` (host, adapters, and for target removal the paths, devices and datastores behind the target). `confirm=true` is refused when a datastore would lose every path or part of the blast radius could not be read. `dry_run` is a deprecated alias |
 | Input validation | IP addresses and ports validated before iSCSI operations |
 | Audit logging | All operations logged to `~/.vmware-storage/audit.log` |
@@ -297,10 +298,9 @@ claude mcp add --transport http vmware-storage https://mcp.example.com:8443/mcp 
   before it binds that unauthenticated requests get 401. Use a certificate your clients trust for those names.
 - Behind a TLS-terminating reverse proxy on the same machine use `--transport http --host 127.0.0.1
   --public-name mcp.example.com` and pass the `Authorization` header through.
-- The audit log records each caller as `token:<name>`. Calls naming different targets run in parallel; calls that
-  name no target run one at a time, so name the target when several people share a server.
+- The audit log records each caller as `token:<name>`. Calls run side by side, also on the same target: the server keeps up to `VMWARE_MCP_POOL_SIZE` (default 2) sessions per target, each one a login on that target, and a call waits at most 300 s for a free session (vmware-policy ≥ 1.22.0).
 - **Everyone who can reach the endpoint acts with this server's account.** Tokens identify callers; they grant
-  nothing on the platform. Run one endpoint per privilege level.
+  nothing on the platform. Run one endpoint per privilege level. `vmware-storage access-info` shows which account that is and what it may do.
 
 **Offer only read tools, plus the writes you choose:**
 

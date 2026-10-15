@@ -15,6 +15,8 @@ from pyVmomi import vim
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
+from vmware_policy.pool import SessionPool
+
 from vmware_storage.config import CONFIG_FILE, AppConfig, ConfigError, TargetConfig, load_config
 
 # ServiceInstance is a pyVmomi ManagedObject — its __setattr__ rejects any
@@ -107,63 +109,81 @@ def _connect_failed(target: TargetConfig, exc: BaseException) -> ConnectError:
     )
 
 
+def _session_alive(si: ServiceInstance) -> bool:
+    """Probe a cached session; any failure, or a None currentSession, is dead.
+
+    An expired token can surface as ``currentSession is None`` instead of
+    raising (踩坑 #40), so both shapes count as dead.
+    """
+    try:
+        return si.content.sessionManager.currentSession is not None
+    except Exception:
+        return False
+
+
+def _close_si(si: ServiceInstance) -> None:
+    """Everything dropping a session must do; never raises.
+
+    The id(si) side store is evicted first: once ``si`` is collected, a new
+    session for a different target can reuse the same id() and would read a
+    stale verify_ssl. Then the atexit handler goes (it pins ``si`` until exit),
+    then the logout, which may fail on a session that is already dead.
+    """
+    from pyVim.connect import Disconnect
+
+    _SI_VERIFY_SSL.pop(id(si), None)
+    _release_si(si)
+    try:
+        Disconnect(si)
+    except Exception:
+        pass
+
+
 class ConnectionManager:
-    """Manages connections to multiple vCenter/ESXi targets."""
+    """Manages connections to multiple vCenter/ESXi targets.
+
+    Sessions live in a :class:`vmware_policy.pool.SessionPool` keyed by target
+    name (HLD §16 D-13(2)): inside an MCP call each call holds its own session
+    for the whole call, so two calls never interleave SOAP on one connection;
+    the CLI and stdio (no call scope) get one cached session per target.
+    """
 
     def __init__(self, config: AppConfig) -> None:
         self._config = config
-        self._connections: dict[str, ServiceInstance] = {}
+        self._pool: SessionPool[ServiceInstance] = SessionPool(
+            "vmware-storage",
+            # Looked up on self at call time so a test can patch
+            # _create_connection on one manager.
+            create=lambda name: self._create_connection(self._config.get_target(name)),
+            is_alive=_session_alive,
+            close=_close_si,
+        )
 
     @classmethod
     def from_config(cls, config: AppConfig | None = None) -> ConnectionManager:
         cfg = config or load_config()
         return cls(cfg)
 
-    def connect(self, target_name: str | None = None) -> ServiceInstance:
-        """Connect to a target by name, or the default target."""
+    def resolve_target_name(self, target_name: str | None = None) -> str:
+        """The configured name ``connect(target_name)`` would use (the default if None)."""
         target = (
             self._config.get_target(target_name)
             if target_name
             else self._config.default_target
         )
+        return target.name
 
-        if target.name in self._connections:
-            si = self._connections[target.name]
-            try:
-                # Probe liveness; expired tokens can surface as a None
-                # currentSession instead of raising.
-                alive = si.content.sessionManager.currentSession is not None
-            except Exception:
-                # Any failure (NotAuthenticated, socket error, …) means the
-                # cached session is unusable — drop it and reconnect below.
-                alive = False
-            if alive:
-                return si
-            # Evict the id(si)-keyed side store NOW rather than waiting for
-            # atexit: once the old si is GC'd, a new si for a DIFFERENT target
-            # can reuse the same id() value and read stale verify_ssl
-            # (id-reuse hazard).
-            _SI_VERIFY_SSL.pop(id(si), None)
-            _release_si(si)
-            del self._connections[target.name]
-
-        si = self._create_connection(target)
-        self._connections[target.name] = si
-        return si
+    def connect(self, target_name: str | None = None) -> ServiceInstance:
+        """Connect to a target by name, or the default target."""
+        return self._pool.get(self.resolve_target_name(target_name))
 
     def disconnect(self, target_name: str) -> None:
-        """Disconnect from a specific target."""
-        if target_name in self._connections:
-            from pyVim.connect import Disconnect
-
-            _release_si(self._connections[target_name])
-            Disconnect(self._connections[target_name])
-            del self._connections[target_name]
+        """Disconnect from a specific target (busy sessions close when their call ends)."""
+        self._pool.discard(target_name)
 
     def disconnect_all(self) -> None:
         """Disconnect from all targets."""
-        for name in list(self._connections):
-            self.disconnect(name)
+        self._pool.close_all()
 
     def list_targets(self) -> list[str]:
         """List all configured target names."""
@@ -171,7 +191,7 @@ class ConnectionManager:
 
     def list_connected(self) -> list[str]:
         """List currently connected target names."""
-        return list(self._connections.keys())
+        return self._pool.keys()
 
     @staticmethod
     def _create_connection(target: TargetConfig) -> ServiceInstance:

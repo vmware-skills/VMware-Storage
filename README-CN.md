@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光纤通道（FC）/ 多路径诊断 — 14 个 MCP 工具，领域专注、轻量级。
+VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光纤通道（FC）/ 多路径诊断 — 15 个 MCP 工具，领域专注、轻量级。
 
 > 从 vmware-aiops 拆分，更轻量的上下文，兼容本地小模型。
 
@@ -15,7 +15,7 @@ VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光�
 
 ## 升级到 2.0
 
-2.0 把 14 个 MCP 工具中的 10 个改成动词在前（例如 `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`），完整的新旧名对照表见
+2.0 把 MCP 工具名改成动词在前（已以动词开头的 4 个除外，共改名 10 处）（例如 `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`），完整的新旧名对照表见
 [RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first)。另有三个工具改了参数：`browse_datastore` 和 `scan_datastore_images` 的参数 `ds_name` 改名为 `datastore_name`（与 vmware-aiops 的 `browse_datastore` 一致），`list_all_datastores` 新增可选参数 `limit`（与 vmware-monitor 一致）。其余不变：工具、安全确认门和 CLI 命令都一样（CLI 仍按原来的方式接收数据存储名）。
 如果 agent 提示词、脚本或 `~/.vmware/rules.yaml` 里写了工具名，请改成新名——不过用旧名写的 deny 规则在
 vmware-policy ≥ 1.18 下仍然生效（`vmware-audit policy` 会列出因改名而多匹配的规则），vmware-pilot ≥ 1.13 也会自动转换已保存工作流里的旧名。
@@ -99,7 +99,7 @@ targets:
     password_env: VMWARE_ESXIPROD_PASSWORD
 ```
 
-## MCP 工具（14 个）
+## MCP 工具（15 个）
 
 | 类别 | 工具 | 类型 |
 |------|------|------|
@@ -107,6 +107,7 @@ targets:
 | iSCSI | `enable_iscsi`、`get_iscsi_status`、`add_iscsi_target`、`remove_iscsi_target`、`rescan_storage` | 读/写 |
 | vSAN | `get_vsan_health`、`get_vsan_capacity`、`get_vsan_efficiency` | 只读 |
 | FC / 多路径 | `list_fc_adapters`、`list_storage_device_paths` | 只读 |
+| 访问权限 | `get_access_info` — server 使用哪个账号，以及它在根文件夹上是否拥有各工具所需的 vSphere 权限 | 只读 |
 
 ### 工具说明
 
@@ -250,7 +251,7 @@ vmware-storage-mcp
 
 `vmware-aiops` 有 60 个 MCP 工具——对本地小模型（7B-14B）来说上下文占用太重。独立拆分后：
 
-- **14 个工具** — 完全适合小模型上下文窗口
+- **15 个工具** — 完全适合小模型上下文窗口
 - **领域专注** — 存储管理员只看到需要的工具
 - **最小权限** — 可以配置只有存储只读权限的 vCenter 服务账号
 - **可组合** — 可与 vmware-monitor 或 vmware-aiops 同时运行
@@ -269,7 +270,7 @@ vmware-storage-mcp
 
 | 功能 | 说明 |
 |------|------|
-| 只读为主 | 14 个工具中 10 个只读 |
+| 只读为主 | 15 个工具中 11 个只读 |
 | 默认只预览（MCP） | 4 个写工具接受 `confirm`（默认 `false`）：不带它的调用不做任何变更，只返回 `blast_radius`（主机、适配器；移除目标时还有该目标背后的路径、设备和数据存储）。某个数据存储会失去全部路径、或影响范围有任何部分读不到时，`confirm=true` 会被拒绝。`dry_run` 为已弃用的别名 |
 | 输入验证 | iSCSI 操作前验证 IP 地址和端口 |
 | 审计日志 | 所有操作记录到 `~/.vmware-storage/audit.log`（JSON Lines） |
@@ -331,10 +332,9 @@ claude mcp add --transport http vmware-storage https://mcp.example.com:8443/mcp 
   证书要用客户端信任、且覆盖这些名字的证书。
 - 在同一台机器上由反向代理终结 TLS 时，用 `--transport http --host 127.0.0.1 --public-name mcp.example.com`，
   并让代理透传 `Authorization` 头。
-- 审计日志把每个调用者记为 `token:<名字>`。指定不同 target 的调用并行执行；不指定 target 的调用逐个执行，
-  所以多人共用一个 server 时请写明 target。
+- 审计日志把每个调用者记为 `token:<名字>`。调用并行执行，同一 target 上也一样：server 为每个 target 最多保持 `VMWARE_MCP_POOL_SIZE`（默认 2）个会话，每个会话都是在该 target 上的一次登录；一个调用最多等 300 秒拿到空闲会话（vmware-policy ≥ 1.22.0）。
 - **能连到这个端点的人，都以该 server 配置的账号操作。** token 只用来识别调用者，不在平台上授予任何权限。
-  每个权限级别单独起一个端点。
+  每个权限级别单独起一个端点。`vmware-storage access-info` 可查看是哪个账号、它能做什么。
 
 **只提供读工具，加上你选定的写工具：**
 

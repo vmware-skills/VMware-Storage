@@ -533,6 +533,34 @@ def paths_devices(
 
 
 # ---------------------------------------------------------------------------
+# Access self-diagnosis
+# ---------------------------------------------------------------------------
+
+
+@app.command("access-info")
+@handle_cli_errors
+@audited("get_access_info")
+def access_info(
+    tool: str | None = typer.Option(None, "--tool", help="One MCP tool name; omit for every tool"),
+    target: str | None = typer.Option(None, help="Target name"),
+    config: str | None = typer.Option(None, "--config", help="Config file path"),
+) -> None:
+    """Show which account is used on a target and whether it holds each tool's privileges.
+
+    Checked on the root folder: not_granted_at_root may still be granted on a
+    specific cluster, host or datastore.
+    """
+    from vmware_policy.access import vsphere_access_info
+
+    from vmware_storage.access_requirements import REQUIREMENTS
+
+    mgr = ConnectionManager(load_config(Path(config) if config else None))
+    name = mgr.resolve_target_name(target)
+    si = mgr.connect(name)
+    _print_json(vsphere_access_info(si, target=name, requirements=REQUIREMENTS, tool=tool))
+
+
+# ---------------------------------------------------------------------------
 # Onboarding
 # ---------------------------------------------------------------------------
 

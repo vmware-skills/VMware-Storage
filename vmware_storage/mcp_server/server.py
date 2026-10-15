@@ -8,7 +8,8 @@ Tool categories
 ---------------
 * **Read-only**: list_all_datastores, browse_datastore, scan_datastore_images,
   list_cached_images, get_iscsi_status, get_vsan_health, get_vsan_capacity,
-  get_vsan_efficiency, list_fc_adapters, list_storage_device_paths
+  get_vsan_efficiency, list_fc_adapters, list_storage_device_paths,
+  get_access_info
 * **Write, gated** (``confirm=False`` previews the blast radius and changes
   nothing): enable_iscsi, add_iscsi_target,
   remove_iscsi_target, rescan_storage — see ``ops.iscsi_gate``
@@ -26,6 +27,7 @@ License: MIT
 
 import logging
 import ssl
+import threading
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -34,8 +36,10 @@ from vmware_policy import (
     sanitize,
     vmware_tool,
 )
+from vmware_policy.access import vsphere_access_info
 
 from vmware_storage import __version__
+from vmware_storage.access_requirements import REQUIREMENTS
 from vmware_storage.config import AppConfig, ConfigError, load_config
 from vmware_storage.connection import ConnectionManager
 from vmware_storage.notify.audit import AuditLogger
@@ -296,18 +300,23 @@ def _safe_audit(**kwargs: Any) -> None:
 # ---------------------------------------------------------------------------
 
 _conn_mgr: Optional[ConnectionManager] = None
+# Calls run on worker threads side by side (HLD §16 D-13(2)); two first calls
+# racing here would each build a manager, and one manager's sessions would be
+# orphaned — open logins nobody pools or closes.
+_conn_mgr_lock = threading.Lock()
 
 
 def _get_conn_mgr() -> ConnectionManager:
     global _conn_mgr
-    if _conn_mgr is None:
-        # No env-var read here: load_config resolves the path (explicit arg,
-        # then the environment, then the default). This copy was the reason the
-        # server and the CLI opened different files — load_config did not look
-        # at the variable at all, so only this path honoured it (形态 #6).
-        config = load_config()
-        _conn_mgr = ConnectionManager(config)
-    return _conn_mgr
+    with _conn_mgr_lock:
+        if _conn_mgr is None:
+            # No env-var read here: load_config resolves the path (explicit arg,
+            # then the environment, then the default). This copy was the reason the
+            # server and the CLI opened different files — load_config did not look
+            # at the variable at all, so only this path honoured it (形态 #6).
+            config = load_config()
+            _conn_mgr = ConnectionManager(config)
+        return _conn_mgr
 
 
 def _get_connection(target: Optional[str] = None):
@@ -917,6 +926,46 @@ def list_storage_device_paths(
 
 
 # ---------------------------------------------------------------------------
+# Access self-diagnosis (HLD §17 D-17)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+def get_access_info(
+    tool: Optional[str] = None,
+    target: Optional[str] = None,
+) -> dict:
+    """[READ] Which account this server uses, and whether it holds each tool's vSphere privileges.
+
+    Use this when a tool fails with NoPermission, or before a write, to check
+    what the configured account may do. Asks vCenter/ESXi about the current
+    session (needs only System.View, so any account can ask about itself).
+    Returns target, account, the privilege states, and for one tool its
+    requires/verdict/meaning; without tool, every tool grouped by verdict.
+    Gotchas: privileges are checked on the root folder only. A verdict of
+    not_granted_at_root is NOT "no access" — the privilege may be granted on
+    a specific cluster, host or datastore, where the tool then works.
+    undetermined means vCenter did not answer; never read it as granted.
+
+    Args:
+        tool: One tool name on this server, e.g. "add_iscsi_target". Omit to summarize every tool.
+        target: Optional vCenter/ESXi target name from config.
+    """
+    try:
+        mgr = _get_conn_mgr()
+        name = mgr.resolve_target_name(target)
+        si = mgr.connect(name)
+        return vsphere_access_info(si, target=name, requirements=REQUIREMENTS, tool=tool)
+    except Exception as e:
+        logger.error("get_access_info failed: %s", e)
+        return {
+            "error": _safe_error(e, "storage"),
+            "hint": "Run 'vmware-storage doctor' to verify connectivity.",
+        }
+
+
+# ---------------------------------------------------------------------------
 # Environment declaration
 # ---------------------------------------------------------------------------
 
@@ -1011,6 +1060,7 @@ def main(
     run_server(
         mcp,
         skill="storage",
+        pooled=True,
         expose=expose, allow_write=allow_write, transport=transport, host=host, port=port,
         cert=cert, key=key, public_name=public_name, token_file=token_file,
     )

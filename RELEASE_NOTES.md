@@ -1,3 +1,23 @@
+## Unreleased — calls run side by side on one target; `get_access_info`
+
+**Concurrent calls (HLD §16 D-13(2), issue #18).** On a shared HTTPS server, calls no longer wait for each other:
+
+* Each call holds its own vCenter/ESXi session for as long as it runs, so two calls never share one connection.
+  Calls on the same target, or naming no target, now run side by side.
+* The server keeps up to `VMWARE_MCP_POOL_SIZE` (default 2) sessions per target. Each session is a login on the
+  target, so raising it raises the logins the account holds. A call waits at most 300 s for a free session, then
+  fails with a message naming the setting.
+* A dead session (expired token) is logged out and replaced on its next use, as before.
+* The CLI and stdio are unchanged: one session per target.
+
+**Check what the account may do (HLD §17 D-17).** New read tool `get_access_info` (CLI: `vmware-storage
+access-info [--tool NAME] [--target T]`) reports which account the server uses on a target and, per tool, whether
+that account holds the vSphere privileges the tool needs on the root folder. `not_granted_at_root` is not "no
+access" (the privilege may be granted on a cluster, host or datastore); `undetermined` is never read as granted.
+15 MCP tools (11 read, 4 write).
+
+Requires `vmware-policy>=1.22.0`.
+
 ## v2.2.0 — serve MCP over HTTPS
 
 `vmware-storage mcp` can now serve the network as well as stdio (HLD §16, via vmware-policy 1.21.0):

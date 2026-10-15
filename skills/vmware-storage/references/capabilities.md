@@ -68,6 +68,18 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 - **Privileges**: reads host configuration only. Expected to work with the Read-Only role; not yet validated against a restricted account.
 - **Typical response**: `list_fc_adapters` ~80 tokens per adapter; `list_storage_device_paths` ~120 tokens per device per host in summary form, 2–3× that with per-path detail.
 
+## Access self-check (1 tool, read-only)
+
+| Tool | Description | Parameters | Risk | Confirm |
+|------|-------------|------------|:----:|:-------:|
+| `get_access_info` | Which account this server uses on a target, and whether it holds the vSphere privileges each tool needs | `tool` (optional; omit for every tool), `target` | Low | No |
+
+- Asks vCenter/ESXi about the current session with `AuthorizationManager.HasPrivilegeOnEntities`, which needs only System.View, so any account can ask about itself.
+- **Root folder only.** `not_granted_at_root` is not "no access": the privilege may be granted on a specific cluster, host or datastore, where the tool then works. `undetermined` means the platform did not answer; it is never read as granted.
+- The per-tool privilege list is `vmware_storage/access_requirements.py`, derived from pyVmomi's metadata for the calls each tool makes (Host.Config.Storage for the four iSCSI writes; System.View + System.Read for reads). Browsing a datastore is also checked by vSphere against Datastore.Browse on the datastore, which pyVmomi's metadata does not attach to the call, so it is not listed yet.
+- CLI: `vmware-storage access-info [--tool NAME] [--target T]`.
+- **Typical response**: ~150 tokens for one tool; ~400 tokens for the whole-server summary.
+
 ## Risk Level Definitions
 
 | Level | Meaning | Examples |
@@ -79,7 +91,7 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 
 | Risk | Count | Tools |
 |------|:-----:|-------|
-| Low | 11 | All read-only tools + `rescan_storage` |
+| Low | 12 | All read-only tools + `rescan_storage` |
 | Medium | 3 | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target` |
 
 > Note: `rescan_storage` triggers a host-level HBA rescan which is non-destructive (discovery only) and classified as Low risk. The iSCSI write tools (`enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`) are Medium risk because they modify the host's iSCSI configuration, but changes are reversible.
@@ -96,7 +108,7 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 
 ## Audit Coverage
 
-All 14 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
+All 15 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 - **Pre-execution**: Policy rule check against `~/.vmware/rules.yaml` (deny rules, maintenance windows)
 - **Post-execution**: Audit log entry written to `~/.vmware/audit.db` (SQLite WAL mode)

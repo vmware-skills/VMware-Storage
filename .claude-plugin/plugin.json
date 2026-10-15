@@ -3,7 +3,7 @@
   "name": "vmware-storage",
   "displayName": "VMware Storage",
   "version": "2.2.0",
-  "description": "VMware vSphere storage with 14 MCP tools: datastores, iSCSI, vSAN, FC multipath.",
+  "description": "VMware vSphere storage with 15 MCP tools: datastores, iSCSI, vSAN, FC multipath.",
   "author": {
     "name": "Wei Zhou",
     "email": "zhouwei008@gmail.com",

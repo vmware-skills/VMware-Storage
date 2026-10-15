@@ -246,6 +246,23 @@ Checks performed:
 5. vSphere authentication (actual login via pyVmomi)
 6. MCP server module loads successfully
 
+### `access-info`
+
+Show which account this skill uses on a target and whether it holds the vSphere privileges each MCP tool needs (same answer as the `get_access_info` MCP tool).
+
+```bash
+vmware-storage access-info
+vmware-storage access-info --tool add_iscsi_target --target vcenter-prod
+```
+
+| Option | Description |
+|--------|-------------|
+| `--tool` | One MCP tool name; omit to summarize every tool |
+| `--target` | Target name (default: the first target in config) |
+| `--config` | Config file path |
+
+Privileges are checked on the root folder: `not_granted_at_root` may still be granted on a specific cluster, host or datastore. `undetermined` is never read as granted.
+
 ## Exit Codes
 
 | Code | Meaning |
