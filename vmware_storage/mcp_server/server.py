@@ -36,7 +36,7 @@ from vmware_policy import (
     sanitize,
     vmware_tool,
 )
-from vmware_policy.access import vsphere_access_info
+from vmware_policy.access import unknown_tool_message, vsphere_access_info
 
 from vmware_storage import __version__
 from vmware_storage.access_requirements import REQUIREMENTS
@@ -952,6 +952,9 @@ def get_access_info(
         tool: One tool name on this server, e.g. "add_iscsi_target". Omit to summarize every tool.
         target: Optional vCenter/ESXi target name from config.
     """
+    unknown = unknown_tool_message(tool, REQUIREMENTS)  # no login for a misspelled name
+    if unknown:
+        return {"error": unknown}
     try:
         mgr = _get_conn_mgr()
         name = mgr.resolve_target_name(target)

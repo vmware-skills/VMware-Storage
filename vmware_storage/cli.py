@@ -550,10 +550,14 @@ def access_info(
     Checked on the root folder: not_granted_at_root may still be granted on a
     specific cluster, host or datastore.
     """
-    from vmware_policy.access import vsphere_access_info
+    from vmware_policy.access import unknown_tool_message, vsphere_access_info
 
     from vmware_storage.access_requirements import REQUIREMENTS
 
+    unknown = unknown_tool_message(tool, REQUIREMENTS)  # before connecting: no login for a typo
+    if unknown:
+        typer.echo(unknown, err=True)
+        raise typer.Exit(2)
     mgr = ConnectionManager(load_config(Path(config) if config else None))
     name = mgr.resolve_target_name(target)
     si = mgr.connect(name)

@@ -83,9 +83,11 @@ def test_whole_server_summary_groups_tools(manager: ConnectionManager) -> None:
 
 
 def test_unknown_tool_is_a_teaching_error(manager: ConnectionManager) -> None:
-    with patch.object(manager, "connect", return_value=_fake_si({})):
+    # A misspelled name is refused before any login, with no connectivity hint.
+    with patch.object(manager, "connect", side_effect=AssertionError("connected")) as connect:
         out = server.get_access_info(tool="add_iscsi_targt")
-    assert "error" in out
+    connect.assert_not_called()
+    assert "error" in out and "doctor" not in str(out)
     assert "add_iscsi_target" in out["error"]  # "Did you mean ..."
 
 
