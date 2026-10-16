@@ -4,6 +4,11 @@
   with a message naming the missing role (assign Read-Only or higher), on the `doctor` auth row, the CLI and every
   MCP tool. The session is logged out and never cached. Before, `doctor` passed and every call then failed with
   "the session is not authenticated".
+* Refused only when two signals agree: no session, **and** vCenter refuses a view of the root folder
+  (`NotAuthenticated` / `NoPermission`). An account scoped to one folder can also show no session, and still
+  connects; anything the check cannot read lets the login through.
+* The MCP hint beside these two errors (tool errors and `get_access_info`) points at `doctor`'s role check
+  instead of "verify connectivity".
 * `NotAuthenticated` raised later (session expired, or a role removed while running) now says both causes, on the
   CLI (it was a raw traceback) and over MCP (it was `NotAuthenticated: operation failed.`).
 * Requires vmware-policy 1.23.0.

@@ -263,8 +263,8 @@ class ConnectionManager:
         atexit.register(_cleanup)
 
         # An account with no vSphere role logs in fine and then reads nothing:
-        # vCenter shows no session for it and every call fails with
-        # NotAuthenticated (AIops#47). Just after login an expired session is
+        # vCenter shows no session for it, a root-folder view is refused, and
+        # every call fails with NotAuthenticated (AIops#47). Just after login an expired session is
         # not the explanation, so refuse here, where doctor sees it too, and
         # close the session the way the pool would so nothing caches it.
         if login_has_no_session(si):
