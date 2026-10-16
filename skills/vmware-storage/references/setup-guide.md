@@ -13,19 +13,19 @@ Complete setup and security guide for `vmware-storage`.
 ### Via uv (recommended)
 
 ```bash
-uv tool install vmware-storage==2.3.1
+uv tool install vmware-storage==2.4.0
 ```
 
 ### Via pip
 
 ```bash
-pip install vmware-storage==2.3.1
+pip install vmware-storage==2.4.0
 ```
 
 ### From source
 
 ```bash
-git clone --branch v2.3.1 https://github.com/vmware-skills/VMware-Storage.git
+git clone --branch v2.4.0 https://github.com/vmware-skills/VMware-Storage.git
 cd VMware-Storage
 pip install -e .
 ```
@@ -250,6 +250,7 @@ vmware-storage mcp --transport https --host 0.0.0.0 --port 8443 \
 - **Everyone who can reach the endpoint acts with this server's account.** Tokens identify callers; they grant
   nothing on the platform. Run one endpoint per privilege level (for example a read-only account behind
   `--expose read`, and a separate endpoint for operators).
+- **Several people or roles on one endpoint:** give each token a role (`vmware-audit token create NAME --role reader`, or a role in `roles.yaml` naming tools and targets; vmware-policy ≥ 1.24.0). A role limits what the token may call on this endpoint; it cannot grant more than the account has. See vmware-policy's README, "Roles for network callers".
 
 ## Security Details
 
