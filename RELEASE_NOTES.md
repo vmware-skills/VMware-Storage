@@ -1,4 +1,4 @@
-## Unreleased — a login with no vSphere role is named as such (AIops#47)
+## v2.3.1 — a login with no vSphere role is named as such (AIops#47)
 
 * An account that logs in but has no vSphere role (vCenter shows no session for it) is now refused at connect time
   with a message naming the missing role (assign Read-Only or higher), on the `doctor` auth row, the CLI and every
