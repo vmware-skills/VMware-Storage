@@ -171,3 +171,14 @@ def test_the_registry_is_replaced_atomically(registry, monkeypatch) -> None:
     dsb.scan_images(object(), "ds2")
 
     assert registry.read_text(encoding="utf-8") == before
+
+
+@pytest.mark.unit
+def test_a_row_from_before_targets_is_replaced_not_duplicated(registry, monkeypatch) -> None:
+    registry.write_text('{"images": [{"datastore": "ds1", "name": "x.iso", '
+                        '"ds_path": "[ds1] x.iso"}], "last_scan": null}', encoding="utf-8")
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds1", "x.iso")]})
+    dsb.scan_images(object(), "ds1", target="vc")
+    dsb.scan_images(object(), "ds1", target="vc")
+
+    assert dsb.list_images(datastore="ds1")["total"] == 1

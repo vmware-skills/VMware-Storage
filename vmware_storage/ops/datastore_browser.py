@@ -250,7 +250,11 @@ def _record_scan(
     prefix = f"[{ds_name}] {rel}/" if rel else f"[{ds_name}] "
 
     def _covered(entry: dict) -> bool:
-        same = entry.get("datastore") == ds_name and entry.get("target") == target
+        # A row written before targets were recorded has no "target" key; it is
+        # replaced by the next scan of its datastore rather than lingering as a
+        # duplicate forever (narrow review 2026-10-17).
+        same_target = "target" not in entry or entry["target"] == target
+        same = entry.get("datastore") == ds_name and same_target
         return same and str(entry.get("ds_path", "")).startswith(prefix)
 
     fresh = [
@@ -273,24 +277,6 @@ def _record_scan(
             "images": kept + fresh,
             "last_scan": datetime.now(timezone.utc).isoformat(),
         })
-
-
-def scan_all_datastores(si: ServiceInstance) -> dict[str, list[dict]]:
-    """Scan all accessible datastores for deployable images."""
-    datastores = list_datastores(si)["items"]
-    result: dict[str, list[dict]] = {}
-    for ds in datastores:
-        if not ds["accessible"]:
-            _log.info("Skipping inaccessible datastore: %s", ds["name"])
-            continue
-        try:
-            images = scan_images(si, ds["name"])["items"]
-            if images:
-                result[ds["name"]] = images
-        except Exception as e:
-            _log.warning("Failed to scan datastore %s: %s", ds["name"], e)
-
-    return result
 
 
 # ─── Image Registry (local cache) ────────────────────────────────────────────
@@ -342,32 +328,6 @@ def _save_registry(registry: dict) -> None:
         except OSError:
             pass
         raise
-
-
-def update_registry(si: ServiceInstance) -> dict:
-    """Scan all datastores and update the local image registry."""
-    scan_result = scan_all_datastores(si)
-    images: list[dict] = []
-    for ds_name, ds_images in scan_result.items():
-        for img in ds_images:
-            images.append({
-                "datastore": ds_name,
-                "name": img["name"],
-                "ds_path": img["ds_path"],
-                "size_mb": img["size_mb"],
-                "type": img["type"],
-                "modified": img["modified"],
-            })
-
-    registry = {
-        "images": images,
-        "last_scan": datetime.now(timezone.utc).isoformat(),
-    }
-    with _REGISTRY_LOCK:
-        _save_registry(registry)
-    _log.info("Image registry updated: %d images across %d datastores",
-              len(images), len(scan_result))
-    return registry
 
 
 def get_registry() -> dict:
