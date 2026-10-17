@@ -13,6 +13,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import posixpath
+import tempfile
+import threading
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -206,6 +209,7 @@ def scan_images(
     si: ServiceInstance,
     ds_name: str,
     path: str = "",
+    target: str | None = None,
 ) -> dict:
     """Scan a datastore for deployable images (OVA, ISO, OVF, VMDK).
 
@@ -213,10 +217,11 @@ def scan_images(
     so ``total`` is the real count and nothing is truncated.
 
     The result also refreshes the local image registry that list_cached_images
-    reads: entries for this datastore under the scanned folder are replaced.
-    Before 2026-10-17 nothing wrote the registry at all, so list_cached_images
-    was always empty. A cache that cannot be written does not fail the scan;
-    the envelope says so in ``cache_note``.
+    reads: entries for this target's datastore under the scanned folder are
+    replaced (``target`` keeps two hosts' "datastore1" apart). Before 2026-10-17
+    nothing wrote the registry at all, so list_cached_images was always empty. A
+    cache that cannot be read or written does not fail the scan; the envelope
+    says so in ``cache_note``.
     """
     all_images: list[dict] = []
     for pattern in IMAGE_PATTERNS:
@@ -226,29 +231,31 @@ def scan_images(
     rows = sorted(all_images, key=lambda x: x["name"])
     result = paginated(rows, total=len(rows))
     try:
-        _record_scan(ds_name, path, rows)
-    except OSError as exc:
+        _record_scan(ds_name, path, rows, target)
+    except (OSError, DatastoreBrowseError) as exc:
         _log.warning("Image registry not updated after scanning %s: %s", ds_name, exc)
         result["cache_note"] = (
-            f"The scan succeeded but the local image cache could not be written "
+            f"The scan succeeded but the local image cache could not be updated "
             f"({type(exc).__name__}), so list_cached_images will not show these images."
         )
     return result
 
 
-def _record_scan(ds_name: str, path: str, images: list[dict]) -> None:
-    """Replace this datastore's cached entries under ``path`` with ``images``."""
-    rel = _normalize_ds_path(path).rstrip("/")
+def _record_scan(
+    ds_name: str, path: str, images: list[dict], target: str | None = None,
+) -> None:
+    """Replace this target's cached entries for ``ds_name`` under ``path``."""
+    rel = posixpath.normpath(_normalize_ds_path(path)) if path else ""
+    rel = "" if rel == "." else rel.rstrip("/")
     prefix = f"[{ds_name}] {rel}/" if rel else f"[{ds_name}] "
 
     def _covered(entry: dict) -> bool:
-        in_ds = entry.get("datastore") == ds_name
-        return in_ds and str(entry.get("ds_path", "")).startswith(prefix)
+        same = entry.get("datastore") == ds_name and entry.get("target") == target
+        return same and str(entry.get("ds_path", "")).startswith(prefix)
 
-    registry = _load_registry()
-    kept = [e for e in registry.get("images", []) if not _covered(e)]
     fresh = [
         {
+            "target": target,
             "datastore": ds_name,
             "name": img["name"],
             "ds_path": img["ds_path"],
@@ -258,10 +265,14 @@ def _record_scan(ds_name: str, path: str, images: list[dict]) -> None:
         }
         for img in images
     ]
-    _save_registry({
-        "images": kept + fresh,
-        "last_scan": datetime.now(timezone.utc).isoformat(),
-    })
+    # Read-modify-write under one lock: HTTPS callers scan side by side.
+    with _REGISTRY_LOCK:
+        registry = _load_registry()
+        kept = [e for e in registry["images"] if not _covered(e)]
+        _save_registry({
+            "images": kept + fresh,
+            "last_scan": datetime.now(timezone.utc).isoformat(),
+        })
 
 
 def scan_all_datastores(si: ServiceInstance) -> dict[str, list[dict]]:
@@ -285,29 +296,52 @@ def scan_all_datastores(si: ServiceInstance) -> dict[str, list[dict]]:
 # ─── Image Registry (local cache) ────────────────────────────────────────────
 
 
+#: Serialises read-modify-write of the registry within this process.
+_REGISTRY_LOCK = threading.Lock()
+
+
 def _load_registry() -> dict:
-    """Load the local image registry from disk."""
+    """Load the local image registry, or refuse it with the way out."""
     if not IMAGE_REGISTRY_FILE.exists():
         return {"images": [], "last_scan": None}
-    with open(IMAGE_REGISTRY_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(IMAGE_REGISTRY_FILE, encoding="utf-8") as f:
+            registry = json.load(f)
+    except ValueError as exc:  # JSONDecodeError, UnicodeDecodeError
+        registry = exc
+    if not isinstance(registry, dict) or not isinstance(registry.get("images"), list):
+        raise DatastoreBrowseError(
+            f"The local image cache {IMAGE_REGISTRY_FILE} is unreadable. Delete it "
+            "and run scan_datastore_images again to rebuild it."
+        )
+    return registry
 
 
 def _save_registry(registry: dict) -> None:
-    """Save the image registry to disk (owner-only — infra topology metadata)."""
+    """Replace the registry atomically (owner-only — infra topology metadata).
+
+    Written to a temporary file in the same directory and moved into place, so
+    a reader never sees half a file and a failed write leaves the old one.
+    """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
         os.chmod(CONFIG_DIR, 0o700)
     except OSError:
         pass
-    existed = IMAGE_REGISTRY_FILE.exists()
-    with open(IMAGE_REGISTRY_FILE, "w", encoding="utf-8") as f:
-        json.dump(registry, f, indent=2, ensure_ascii=False)
-    if not existed:
+    text = json.dumps(registry, indent=2, ensure_ascii=False)
+    fd, tmp = tempfile.mkstemp(dir=CONFIG_DIR, prefix=".image_registry.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:  # mkstemp creates it 0600
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, IMAGE_REGISTRY_FILE)
+    except BaseException:
         try:
-            os.chmod(IMAGE_REGISTRY_FILE, 0o600)
+            os.unlink(tmp)
         except OSError:
             pass
+        raise
 
 
 def update_registry(si: ServiceInstance) -> dict:
@@ -329,7 +363,8 @@ def update_registry(si: ServiceInstance) -> dict:
         "images": images,
         "last_scan": datetime.now(timezone.utc).isoformat(),
     }
-    _save_registry(registry)
+    with _REGISTRY_LOCK:
+        _save_registry(registry)
     _log.info("Image registry updated: %d images across %d datastores",
               len(images), len(scan_result))
     return registry

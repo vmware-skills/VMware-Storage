@@ -25,6 +25,7 @@ License: MIT
 """
 
 
+import json
 import logging
 import ssl
 import threading
@@ -40,7 +41,7 @@ from vmware_policy.access import unknown_tool_message, vsphere_access_info
 
 from vmware_storage import __version__
 from vmware_storage.access_requirements import REQUIREMENTS
-from vmware_storage.config import AppConfig, ConfigError, load_config
+from vmware_storage.config import AppConfig, ConfigError, UnknownTargetError, load_config
 from vmware_storage.connection import (
     NOT_AUTHENTICATED_HINT,
     ConnectionManager,
@@ -161,7 +162,16 @@ _FIX_IN_MESSAGE_HINT = "The error message says what to change; connectivity is n
 
 #: Authored errors whose cause is the request, not the connection. ssl.SSLError
 #: subclasses ValueError and is excluded explicitly below.
-_REQUEST_ERRORS = (ValueError, KeyError, HostNotFoundError, DatastoreBrowseError)
+_REQUEST_ERRORS = (ValueError, UnknownTargetError, HostNotFoundError, DatastoreBrowseError)
+
+#: ValueErrors whose text was not authored as a remedy: a body that was not
+#: JSON (a reverse proxy answering HTML, AIops#47) or not UTF-8. Review
+#: 2026-10-17: these got "connectivity is not the problem", the opposite of true.
+_UNAUTHORED_VALUE_ERRORS = (ssl.SSLError, json.JSONDecodeError, UnicodeError)
+
+
+def _is_request_error(exc: Exception) -> bool:
+    return isinstance(exc, _REQUEST_ERRORS) and not isinstance(exc, _UNAUTHORED_VALUE_ERRORS)
 
 
 def _hint_for(exc: Exception) -> str:
@@ -169,7 +179,7 @@ def _hint_for(exc: Exception) -> str:
 
     if isinstance(exc, (NoVsphereRoleError, vim.fault.NotAuthenticated)):
         return _ROLE_HINT
-    if isinstance(exc, _REQUEST_ERRORS) and not isinstance(exc, ssl.SSLError):
+    if _is_request_error(exc):
         return _FIX_IN_MESSAGE_HINT
     return _DOCTOR_HINT
 
@@ -453,8 +463,10 @@ def scan_datastore_images(
         target: Optional vCenter/ESXi target name from config.
     """
     try:
-        si = _get_connection(target)
-        return datastore_browser.scan_images(si, datastore_name, path=path)
+        mgr = _get_conn_mgr()
+        name = mgr.resolve_target_name(target)
+        si = mgr.connect(name)
+        return datastore_browser.scan_images(si, datastore_name, path=path, target=name)
     except Exception as e:
         logger.error("scan_datastore_images failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": _hint_for(e)}
@@ -471,7 +483,7 @@ def list_cached_images(
     Reads ~/.vmware-storage/image_registry.json, which scan_datastore_images
     fills; results may be stale, and are empty until a scan has run. For a live
     listing use scan_datastore_images instead.
-    Returns the list envelope: 'items' holds {datastore, name, ds_path,
+    Returns the list envelope: 'items' holds {target, datastore, name, ds_path,
     size_mb, type, modified} and is empty if nothing matches, while
     'returned'/'total'/'truncated' state whether the listing is complete. The
     whole registry is filtered in memory, so truncated is always false.

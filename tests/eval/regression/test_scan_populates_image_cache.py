@@ -90,3 +90,84 @@ def test_an_unwritable_cache_does_not_fail_the_scan(registry, monkeypatch) -> No
 
     assert result["total"] == 1
     assert "cache_note" in result
+
+
+# ── independent review, 2026-10-17 ───────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_a_corrupt_cache_does_not_fail_the_scan(registry, monkeypatch) -> None:
+    registry.write_text("{not json", encoding="utf-8")
+    _scan_returns(monkeypatch, {"*.ova": [_img("ds1", "x.ova")]})
+
+    result = dsb.scan_images(object(), "ds1")
+
+    assert result["total"] == 1 and "cache_note" in result
+
+
+@pytest.mark.unit
+def test_a_corrupt_cache_tells_the_reader_how_to_recover(registry) -> None:
+    registry.write_text("[1, 2]", encoding="utf-8")
+    with pytest.raises(dsb.DatastoreBrowseError, match="scan_datastore_images"):
+        dsb.list_images()
+
+
+@pytest.mark.unit
+def test_the_same_datastore_name_on_two_targets_is_kept_apart(registry, monkeypatch) -> None:
+    """'datastore1' exists on every ESXi host; one target's scan must not erase another's."""
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds1", "a.iso")]})
+    dsb.scan_images(object(), "ds1", target="vc-a")
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds1", "b.iso")]})
+    dsb.scan_images(object(), "ds1", target="esx-b")
+
+    items = dsb.list_images()["items"]
+    assert sorted((i["target"], i["ds_path"]) for i in items) == [
+        ("esx-b", "[ds1] b.iso"), ("vc-a", "[ds1] a.iso")]
+
+
+@pytest.mark.unit
+def test_a_dot_slash_path_replaces_that_folder(registry, monkeypatch) -> None:
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds1", "a/old.iso")]})
+    dsb.scan_images(object(), "ds1")
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds1", "a/new.iso")]})
+    dsb.scan_images(object(), "ds1", path="./a")
+
+    assert [i["ds_path"] for i in dsb.list_images()["items"]] == ["[ds1] a/new.iso"]
+
+
+@pytest.mark.unit
+def test_concurrent_scans_lose_no_entries(registry, monkeypatch) -> None:
+    """With the HTTPS session pool, scans run side by side."""
+    import threading
+
+    def fake_browse(si, ds_name, path="", pattern="*"):
+        rows = [_img(ds_name, "x.iso")] if pattern == "*.iso" else []
+        return {"items": rows, "total": len(rows)}
+
+    monkeypatch.setattr(dsb, "browse_datastore", fake_browse)
+    threads = [threading.Thread(target=dsb.scan_images, args=(object(), f"ds{i}"))
+               for i in range(20)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert dsb.list_images()["total"] == 20
+
+
+@pytest.mark.unit
+def test_the_registry_is_replaced_atomically(registry, monkeypatch) -> None:
+    """A write that dies half-way must leave the previous file, not a truncated one."""
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds1", "keep.iso")]})
+    dsb.scan_images(object(), "ds1")
+    before = registry.read_text(encoding="utf-8")
+
+    def boom(*_a, **_k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(dsb.json, "dump", boom)
+    monkeypatch.setattr(dsb.json, "dumps", boom)
+    _scan_returns(monkeypatch, {"*.iso": [_img("ds2", "y.iso")]})
+    dsb.scan_images(object(), "ds2")
+
+    assert registry.read_text(encoding="utf-8") == before

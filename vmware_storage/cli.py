@@ -268,8 +268,10 @@ def ds_scan_images(
     """Scan a datastore for deployable images (OVA/ISO/OVF/VMDK)."""
     from vmware_storage.ops.datastore_browser import scan_images
 
-    si = _get_connection(target, config)
-    result = scan_images(si, ds_name)["items"]
+    conn_mgr = ConnectionManager(load_config(Path(config) if config else None))
+    name = conn_mgr.resolve_target_name(target)
+    si = conn_mgr.connect(name)
+    result = scan_images(si, ds_name, target=name)["items"]
     _audit.log_query(target=target or "default", resource=ds_name, query_type="scan_images")
     _print_json(result)
 
