@@ -1,3 +1,15 @@
+## v2.4.1 — fixes from real-hardware testing (2026-10-17)
+
+* **`list_cached_images` returns what was scanned.** Nothing ever wrote the cache it reads, so it was always empty.
+  `scan_datastore_images` now replaces that target's entries for the scanned datastore folder; entries carry
+  `target`, so `datastore1` on two hosts stays apart. The cache file is written atomically under a lock; a cache that
+  cannot be read or written is reported in `cache_note` and does not fail the scan.
+* **`browse_datastore` / `scan_datastore_images` return well-formed `ds_path`s** for both ESXi and vCenter folder
+  paths (an ESXi browse produced `[datastore1] backupX.iso`). A leading `/` is still refused; the error now names the
+  corrected path, and vmware-aiops follows the same rule.
+* Error hints: `doctor` is suggested for connection and credential problems, not for an invalid path or an unknown
+  target; the unknown-target error names `target=` with the CLI flag in brackets.
+
 ## v2.4.0 — roles for network callers (HLD §18)
 
 * Declares the role metadata vmware-policy ≥ 1.24.0 needs to apply **roles** to this server over HTTPS
