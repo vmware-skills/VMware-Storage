@@ -115,7 +115,7 @@ targets:
 - `list_all_datastores` — 列出所有数据存储，含容量、使用率、可达性
 - `browse_datastore` — 浏览数据存储目录下的文件（支持 glob 过滤）
 - `scan_datastore_images` — 扫描可部署镜像（OVA、ISO、OVF、VMDK）
-- `list_cached_images` — 查询本地镜像注册表（支持按类型/数据存储过滤）
+- `list_cached_images` — 查询本地镜像注册表（支持按类型/数据存储/target 过滤）
 
 **iSCSI**
 - `enable_iscsi` — 在 ESXi 主机上启用软件 iSCSI 适配器

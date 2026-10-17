@@ -103,7 +103,7 @@ vmware-storage doctor
 4. `datastore browse <ds> --pattern "*.iso"` for ad-hoc searches; pattern is glob, not regex
 5. **If datastore not found**: name is case-sensitive. `datastore list --target <vc>` to verify exact spelling.
 
-For filtered queries against the cache: use `list_cached_images` MCP tool with `image_type` and `datastore` parameters — avoids re-scanning.
+For filtered queries against the cache: use `list_cached_images` MCP tool with `image_type`, `datastore` and `target` parameters — avoids re-scanning.
 
 ### vSAN Health Assessment
 
@@ -158,7 +158,7 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | Datastore | `list_all_datastores` | Read | List datastores with capacity, usage %, VM count |
 | | `browse_datastore` | Read | Browse files with optional path and glob pattern |
 | | `scan_datastore_images` | Read | Find OVA/ISO/OVF/VMDK in a datastore |
-| | `list_cached_images` | Read | Query local image registry with type/datastore filters |
+| | `list_cached_images` | Read | Query local image registry with type/datastore/target filters |
 | iSCSI | `get_iscsi_status` | Read | Show adapter status, HBA device, IQN, send targets |
 | | `enable_iscsi` | Write | Enable software iSCSI adapter on a host |
 | | `add_iscsi_target` | Write | Add iSCSI send target (IP + port) and rescan |

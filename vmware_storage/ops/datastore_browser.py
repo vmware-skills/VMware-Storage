@@ -17,12 +17,15 @@ import posixpath
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 from vmware_policy import paginated, sanitize
 
+from vmware_storage._filelock import FileLockTimeoutError, locked
 from vmware_storage.config import CONFIG_DIR
 from vmware_storage.ops.inventory import (
     find_datastore_by_name,
@@ -234,9 +237,12 @@ def scan_images(
         _record_scan(ds_name, path, rows, target)
     except (OSError, DatastoreBrowseError) as exc:
         _log.warning("Image registry not updated after scanning %s: %s", ds_name, exc)
+        # A DatastoreBrowseError message is authored (it names the file and the
+        # fix); an OSError's text is not ours, so only its type is passed on.
+        why = str(exc) if isinstance(exc, DatastoreBrowseError) else type(exc).__name__
         result["cache_note"] = (
             f"The scan succeeded but the local image cache could not be updated "
-            f"({type(exc).__name__}), so list_cached_images will not show these images."
+            f"({why}), so list_cached_images will not show these images."
         )
     return result
 
@@ -269,8 +275,9 @@ def _record_scan(
         }
         for img in images
     ]
-    # Read-modify-write under one lock: HTTPS callers scan side by side.
-    with _REGISTRY_LOCK:
+    # Read-modify-write under both locks: HTTPS callers scan side by side in
+    # threads, and a CLI scan is another process writing the same file.
+    with _REGISTRY_LOCK, _registry_file_lock():
         registry = _load_registry()
         kept = [e for e in registry["images"] if not _covered(e)]
         _save_registry({
@@ -284,6 +291,21 @@ def _record_scan(
 
 #: Serialises read-modify-write of the registry within this process.
 _REGISTRY_LOCK = threading.Lock()
+
+#: How long a writer waits for another process's registry write to finish.
+#: A write is one small JSON file, so this only expires if something is stuck.
+REGISTRY_LOCK_TIMEOUT_S = 10.0
+
+
+@contextmanager
+def _registry_file_lock() -> Iterator[None]:
+    """Serialise registry writes across processes (a sibling ``.lock`` file)."""
+    lock_path = IMAGE_REGISTRY_FILE.with_name(IMAGE_REGISTRY_FILE.name + ".lock")
+    try:
+        with locked(lock_path, timeout=REGISTRY_LOCK_TIMEOUT_S):
+            yield
+    except FileLockTimeoutError as exc:
+        raise DatastoreBrowseError(str(exc)) from exc
 
 
 def _load_registry() -> dict:
@@ -338,8 +360,12 @@ def get_registry() -> dict:
 def list_images(
     image_type: str | None = None,
     datastore: str | None = None,
+    target: str | None = None,
 ) -> dict:
     """List images from the local registry, with optional filters.
+
+    ``target`` keeps only rows that target's scans wrote; rows cached before
+    rows carried a target cannot be attributed and appear only unfiltered.
 
     Returns the family list envelope. The whole registry is read from disk and
     filtered in memory, so ``total`` is the real count of matching images and
@@ -353,5 +379,7 @@ def list_images(
         images = [i for i in images if i["name"].lower().endswith(ext)]
     if datastore:
         images = [i for i in images if i["datastore"] == datastore]
+    if target is not None:
+        images = [i for i in images if i.get("target") == target]
 
     return paginated(images, total=len(images))

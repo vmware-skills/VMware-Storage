@@ -477,6 +477,7 @@ def scan_datastore_images(
 def list_cached_images(
     image_type: Optional[str] = None,
     datastore: Optional[str] = None,
+    target: Optional[str] = None,
 ) -> dict:
     """[READ] List deployable images (OVA/OVF/ISO/VMDK) from the local cache registry — instant, no vCenter connection or datastore I/O.
 
@@ -492,9 +493,21 @@ def list_cached_images(
         image_type: Filter by file extension without the dot, e.g. "ova",
             "iso", "ovf", "vmdk" (case-insensitive). Omit for all types.
         datastore: Filter by exact datastore name. Omit for all datastores.
+        target: Only rows scanned from this vCenter/ESXi target (a name from
+            config, as scan_datastore_images takes; an unknown name is refused
+            with the configured ones). Rows cached before rows recorded their
+            target appear only when this is omitted. Omit for every target.
     """
     try:
-        return datastore_browser.list_images(image_type=image_type, datastore=datastore)
+        # Resolved the way scan_datastore_images records it; this reads
+        # config.yaml only, it does not connect.
+        name = _get_conn_mgr().resolve_target_name(target) if target else None
+    except Exception as e:
+        logger.error("list_cached_images failed: %s", e)
+        return {"error": _safe_error(e, "storage"), "hint": _hint_for(e)}
+    try:
+        return datastore_browser.list_images(
+            image_type=image_type, datastore=datastore, target=name)
     except Exception as e:
         logger.error("list_cached_images failed: %s", e)
         return {"error": _safe_error(e, "storage"),

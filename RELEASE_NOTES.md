@@ -1,3 +1,9 @@
+## Unreleased — follow-ups to the 2.4.1 review
+
+* **`list_cached_images(target=...)`** returns one target's cached images; without it, nothing changes.
+* The cache write takes a lock across processes, so a CLI and an MCP scan at the same time keep both sides' rows; a
+  lock held for more than 10 s is reported in `cache_note` with the lock file's path.
+
 ## v2.4.1 — fixes from real-hardware testing (2026-10-17)
 
 * **`list_cached_images` returns what was scanned.** Nothing ever wrote the cache it reads, so it was always empty.
