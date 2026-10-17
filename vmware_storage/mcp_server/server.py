@@ -155,11 +155,22 @@ _ROLE_HINT = (
 )
 
 
+#: For an error this skill authored that is not about reaching the endpoint:
+#: the message already names the fix, and doctor would report green (2026-10-17).
+_FIX_IN_MESSAGE_HINT = "The error message says what to change; connectivity is not the problem."
+
+#: Authored errors whose cause is the request, not the connection. ssl.SSLError
+#: subclasses ValueError and is excluded explicitly below.
+_REQUEST_ERRORS = (ValueError, KeyError, HostNotFoundError, DatastoreBrowseError)
+
+
 def _hint_for(exc: Exception) -> str:
     from pyVmomi import vim
 
     if isinstance(exc, (NoVsphereRoleError, vim.fault.NotAuthenticated)):
         return _ROLE_HINT
+    if isinstance(exc, _REQUEST_ERRORS) and not isinstance(exc, ssl.SSLError):
+        return _FIX_IN_MESSAGE_HINT
     return _DOCTOR_HINT
 
 
@@ -392,7 +403,7 @@ def browse_datastore(
     pattern: str = "*",
     target: Optional[str] = None,
 ) -> dict:
-    """[READ] Browse files in a datastore directory.
+    """[READ] Search a datastore folder and all its subfolders for files.
 
     Use this for arbitrary files or a glob; prefer scan_datastore_images for
     deployable images. datastore_name comes from list_all_datastores.
@@ -403,7 +414,10 @@ def browse_datastore(
 
     Args:
         datastore_name: Datastore name.
-        path: Subdirectory path (empty for root).
+        path: Datastore-relative folder to start from (empty for root); a
+            leading '/' or '..' is refused. The search is recursive,
+            so the root returns matches from every folder; each row's
+            ds_path is "[ds] dir/file".
         pattern: Glob pattern to filter files (e.g. "*.ova", "*.iso").
         target: Optional vCenter/ESXi target name from config.
     """
@@ -433,7 +447,9 @@ def scan_datastore_images(
 
     Args:
         datastore_name: Datastore name.
-        path: Subdirectory path (empty for root).
+        path: Datastore-relative subdirectory (empty for root); a leading '/'
+            or '..' is refused. The images found replace this datastore's
+            cached entries under that folder, for list_cached_images.
         target: Optional vCenter/ESXi target name from config.
     """
     try:
@@ -452,8 +468,8 @@ def list_cached_images(
 ) -> dict:
     """[READ] List deployable images (OVA/OVF/ISO/VMDK) from the local cache registry — instant, no vCenter connection or datastore I/O.
 
-    Reads ~/.vmware-storage/image_registry.json, populated by prior datastore
-    scans; results may be stale or empty if no scan has run. For a live
+    Reads ~/.vmware-storage/image_registry.json, which scan_datastore_images
+    fills; results may be stale, and are empty until a scan has run. For a live
     listing use scan_datastore_images instead.
     Returns the list envelope: 'items' holds {datastore, name, ds_path,
     size_mb, type, modified} and is empty if nothing matches, while

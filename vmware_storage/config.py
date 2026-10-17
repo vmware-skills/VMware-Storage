@@ -225,8 +225,8 @@ class AppConfig:
                 return t
         available = ", ".join(t.name for t in self.targets) or "(none configured)"
         raise KeyError(
-            f"Target '{name}' not found in config.yaml. Pass --target with one of "
-            f"the names below, or add a targets: entry to config.yaml (see "
+            f"Target '{name}' not found in config.yaml. Pass target=<one of the "
+            f"names below> (CLI: --target), or add a targets: entry to config.yaml (see "
             f"config.example.yaml) and re-run 'vmware-storage doctor'. "
             f"Available: {available}"
         )
