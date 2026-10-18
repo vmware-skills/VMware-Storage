@@ -15,6 +15,7 @@ from pyVmomi import vim
 if TYPE_CHECKING:
     from pyVmomi.vim import ServiceInstance
 
+from vmware_policy import sanitize
 from vmware_policy.access import login_has_no_session, no_role_message
 from vmware_policy.pool import SessionPool
 
@@ -93,6 +94,34 @@ class NoVsphereRoleError(ConnectError):
     the message is authored (the target name from config.yaml, nothing from
     the server) and names the missing role, not the password.
     """
+
+
+def login_refused_message(
+    target: str, cli: str, *, privilege: str | None = None, esxi: bool = False
+) -> str:
+    """The teaching error when the login itself is refused with NoPermission.
+
+    vCenter 8.0.3 refuses the login, with NoPermission for System.View on the
+    root folder, for an SSO account holding no vSphere permission anywhere (lab,
+    2026-10-18); an account with a permission lower down still logs in. Only
+    that case gets the "no vSphere role" remedy. An ESXi host (lockdown mode,
+    host permissions) or another privilege gets a neutral text naming the
+    privilege vCenter returned (sanitized, capped at 48). About 300 characters.
+    """
+    if not esxi and privilege == "System.View":
+        return (
+            f"'{target}' refused the login: the password is right but the account has "
+            "no vSphere role (no System.View on the root). Assign Read-Only or higher "
+            f"(vCenter: Global Permissions), then run '{cli} doctor'. A new password "
+            "will not help."
+        )
+    # vCenter's own string: sanitized and bounded so the text stays short.
+    need = f" ({sanitize(privilege, 48)})" if privilege else ""
+    return (
+        f"'{target}' refused the login with NoPermission{need}: the password is right "
+        "but this account may not log in there. On ESXi check the host's Permissions "
+        f"and lockdown mode; on vCenter assign a role. Then run '{cli} doctor'."
+    )
 
 
 NOT_AUTHENTICATED_HINT = (
@@ -242,6 +271,16 @@ class ConnectionManager:
             # faults are vmodl types, not OSError, so they pass through
             # untouched to the handlers that already explain them.
             raise _connect_failed(target, exc) from exc
+        except vim.fault.NoPermission as exc:
+            # A wrong password is InvalidLogin, not this; it passes through.
+            raise NoVsphereRoleError(
+                login_refused_message(
+                    target.name,
+                    "vmware-storage",
+                    privilege=getattr(exc, "privilegeId", None),
+                    esxi=target.type == "esxi",
+                )
+            ) from exc
 
         # Stash verify_ssl in the id(si)-keyed side store so downstream SDK
         # callers (e.g. the vSAN Management SDK via GetVsanVcMos) can rebuild a

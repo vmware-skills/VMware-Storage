@@ -213,3 +213,68 @@ def test_doctor_row_is_not_a_class_name(fake_login, monkeypatch):
     with connect, disconnect:
         _, row = doctor._check_auth()
     assert "NoVsphereRoleError" not in row
+
+
+# 2026-10-18, lab vCenter 8.0.3, SSO account with no permission anywhere:
+# vCenter refuses the *login itself* with NoPermission (System.View on the root
+# folder). Before the fix that raw fault reached doctor and every tool.
+def _login_refused(exc: Exception, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("VMWARE_LAB_PASSWORD", "pw")
+    mgr = ConnectionManager(_config())
+    with patch("pyVim.connect.SmartConnect", side_effect=exc):
+        try:
+            mgr.connect("lab")
+        except Exception as e:  # noqa: BLE001 — the test inspects whatever is raised
+            return e
+    raise AssertionError("connect did not raise")
+
+
+def test_login_refused_with_no_permission_names_the_missing_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fault = vim.fault.NoPermission(
+        privilegeId="System.View", msg="Permission to perform this operation was denied."
+    )
+    err = _login_refused(fault, monkeypatch)
+    assert isinstance(err, NoVsphereRoleError)
+    msg = str(err)
+    assert "no vSphere role" in msg and "Read-Only" in msg and "'lab'" in msg
+    assert "dynamicType" not in msg and "operation failed" not in msg
+    assert len(msg) <= 300
+    assert err.__cause__ is fault
+
+
+def test_wrong_password_is_not_reported_as_a_missing_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    err = _login_refused(vim.fault.InvalidLogin(), monkeypatch)
+    assert not isinstance(err, NoVsphereRoleError)
+    assert isinstance(err, vim.fault.InvalidLogin)
+
+
+@pytest.mark.parametrize(
+    ("privilege", "esxi"),
+    [("System.View", True), ("Sessions.ValidateSession", False), (None, False)],
+)
+def test_other_login_refusals_get_a_neutral_remedy(
+    privilege, esxi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Review 2026-10-18 (M3): an ESXi host (lockdown mode, host permissions) or
+    # another privilege must not be sent to vCenter Global Permissions.
+    from dataclasses import replace
+
+    fault = vim.fault.NoPermission(privilegeId=privilege)
+    mgr = ConnectionManager(_config())
+    if esxi:
+        esxi_targets = tuple(replace(t, type="esxi") for t in mgr._config.targets)
+        mgr._config = replace(mgr._config, targets=esxi_targets)
+    monkeypatch.setenv("VMWARE_LAB_PASSWORD", "pw")
+    monkeypatch.setenv("VMWARE_PRIVATEAI_LAB_PASSWORD", "pw")
+    with patch("pyVim.connect.SmartConnect", side_effect=fault):
+        with pytest.raises(Exception) as info:
+            mgr.connect("lab")
+    msg = str(info.value)
+    assert "Global Permissions" not in msg and "lockdown mode" in msg
+    if privilege:
+        assert f"({privilege})" in msg
+    assert info.value.__cause__ is fault and len(msg) <= 300
