@@ -82,7 +82,7 @@ def locked(lock_path: Path, timeout: float, poll: float = 0.05) -> Iterator[None
             if time.monotonic() >= deadline:
                 raise FileLockTimeoutError(
                     f"Another vmware process held the lock file {lock_path} for "
-                    f"{timeout:g}s. Wait for the other scan to finish and retry; the "
+                    f"{timeout:g}s. Wait for its write to finish and retry; the "
                     "lock is released as soon as that process ends."
                 )
             time.sleep(poll)
