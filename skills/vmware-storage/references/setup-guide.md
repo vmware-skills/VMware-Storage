@@ -13,19 +13,19 @@ Complete setup and security guide for `vmware-storage`.
 ### Via uv (recommended)
 
 ```bash
-uv tool install vmware-storage==2.4.1
+uv tool install vmware-storage==2.4.2
 ```
 
 ### Via pip
 
 ```bash
-pip install vmware-storage==2.4.1
+pip install vmware-storage==2.4.2
 ```
 
 ### From source
 
 ```bash
-git clone --branch v2.4.1 https://github.com/vmware-skills/VMware-Storage.git
+git clone --branch v2.4.2 https://github.com/vmware-skills/VMware-Storage.git
 cd VMware-Storage
 pip install -e .
 ```
