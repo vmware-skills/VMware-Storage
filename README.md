@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 15 MCP tools, domain-focused and lightweight.
+VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 16 MCP tools, domain-focused and lightweight.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 
@@ -88,11 +88,11 @@ chmod 600 ~/.vmware-storage/.env
 vmware-storage doctor
 ```
 
-## MCP Tools (15)
+## MCP Tools (16)
 
 | Category | Tools | Type |
 |----------|-------|------|
-| Datastore | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
+| Datastore | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
 | iSCSI | `enable_iscsi`, `get_iscsi_status`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` | Read/Write |
 | vSAN | `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency` | Read |
 | FC / multipath | `list_fc_adapters`, `list_storage_device_paths` | Read |
@@ -212,7 +212,7 @@ vmware-storage-mcp
 
 `vmware-aiops` has 61 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
 
-- **15 tools** — fits comfortably in small model context windows
+- **16 tools** — fits comfortably in small model context windows
 - **Domain-focused** — storage admins get only what they need
 - **Least privilege** — can run under a vCenter service account with storage read-only permissions
 - **Composable** — use alongside vmware-monitor or vmware-aiops as needed
@@ -239,7 +239,7 @@ vmware-storage-mcp
 
 | Feature | Description |
 |---------|-------------|
-| Read-heavy | 11/15 tools are read-only |
+| Read-heavy | 12/16 tools are read-only |
 | Preview by default (MCP) | The 4 write tools take `confirm` (default `false`): a call without it changes nothing and returns `blast_radius` (host, adapters, and for target removal the paths, devices and datastores behind the target). `confirm=true` is refused when a datastore would lose every path or part of the blast radius could not be read. the old `dry_run` alias was removed in 2.4.3 and is refused as an unknown argument |
 | Input validation | IP addresses and ports validated before iSCSI operations |
 | Audit logging | All operations logged to `~/.vmware-storage/audit.log` |

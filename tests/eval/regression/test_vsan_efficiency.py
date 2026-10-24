@@ -178,6 +178,23 @@ def test_efficiency_absent_fields_do_not_crash(patched, monkeypatch):
     assert result["compression_enabled"] is None
 
 
+def test_vsan_off_reports_both_flags_as_not_applicable(patched, monkeypatch):
+    # 2026-10-24, 8.0.3 lab, vSAN off: the SDK answered dedupEnabled=False with
+    # compressionEnabled absent, so the tool said dedup "off" and compression
+    # "unknown" about a feature that does not apply.
+    config = SimpleNamespace(
+        enabled=False,
+        dataEfficiencyConfig=SimpleNamespace(dedupEnabled=False),
+    )
+    monkeypatch.setattr(ops, "_config_system", lambda si: _config_system_returning(config))
+
+    result = ops.get_vsan_efficiency(object(), "prod-cluster")
+
+    assert result["vsan_enabled"] is False
+    assert result["dedup_enabled"] is None and result["compression_enabled"] is None
+    assert result["message"] == "vSAN is not enabled on cluster 'prod-cluster'"
+
+
 def test_config_system_teaches_when_stub_absent(monkeypatch):
     # A session with no _stub gets a teaching VSANError, not an AttributeError.
     # VSANError is imported from its home now that vsan_efficiency no longer

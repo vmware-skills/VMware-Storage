@@ -24,6 +24,7 @@ _HOST_STORAGE_CHANGE = ["System.View", "System.Read", "Host.Config.Storage"]
 
 REQUIREMENTS: dict[str, list[str]] = {
     "list_all_datastores": _READ,
+    "get_datastore_vm_usage": _READ,
     # HostDatastoreBrowser.SearchDatastoreSubFolders_Task has no privId in
     # pyVmomi's metadata; vSphere checks Datastore.Browse on the datastore
     # itself (a reviewed extra in the family gate; verify on a live vCenter).

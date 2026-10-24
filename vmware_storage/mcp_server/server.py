@@ -48,7 +48,7 @@ from vmware_storage.connection import (
     NoVsphereRoleError,
 )
 from vmware_storage.notify.audit import AuditLogger
-from vmware_storage.ops import datastore_browser
+from vmware_storage.ops import datastore_browser, datastore_usage
 from vmware_storage.ops import iscsi_config as _iscsi_config
 from vmware_storage.ops import iscsi_gate as _gate
 from vmware_storage.ops.datastore_browser import DatastoreBrowseError
@@ -69,7 +69,7 @@ from vmware_storage.ops.iscsi_config import rescan_storage as _ops_rescan_storag
 from vmware_storage.ops.multipath import device_paths
 from vmware_storage.ops.storage_paths import StoragePathError
 from vmware_storage.ops.storage_paths import list_fc_adapters as _ops_list_fc_adapters
-from vmware_storage.ops.vsan import VSANError
+from vmware_storage.ops.vsan import ClusterNotFoundError, VSANError
 from vmware_storage.ops.vsan import get_vsan_capacity as _ops_get_vsan_capacity
 from vmware_storage.ops.vsan import get_vsan_health as _ops_get_vsan_health
 from vmware_storage.ops.vsan_efficiency import (
@@ -162,7 +162,12 @@ _FIX_IN_MESSAGE_HINT = "The error message says what to change; connectivity is n
 
 #: Authored errors whose cause is the request, not the connection. ssl.SSLError
 #: subclasses ValueError and is excluded explicitly below.
-_REQUEST_ERRORS = (ValueError, UnknownTargetError, HostNotFoundError, DatastoreBrowseError)
+#: ClusterNotFoundError and StoragePathError joined 2026-10-24: a wrong cluster
+#: name got "verify connectivity" while the host twin of the same message did not.
+_REQUEST_ERRORS = (
+    ValueError, UnknownTargetError, HostNotFoundError, DatastoreBrowseError,
+    ClusterNotFoundError, StoragePathError,
+)
 
 #: ValueErrors whose text was not authored as a remedy: a body that was not
 #: JSON (a reverse proxy answering HTML, AIops#47) or not UTF-8. Review
@@ -395,6 +400,42 @@ def list_all_datastores(
         return list_datastores(si, limit=limit)
     except Exception as e:
         logger.error("list_all_datastores failed: %s", e)
+        return {"error": _safe_error(e, "storage"), "hint": _hint_for(e)}
+
+
+@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+@vmware_tool(risk_level="low")
+def get_datastore_vm_usage(
+    datastore_name: str,
+    top_n: int = 10,
+    target: Optional[str] = None,
+) -> dict:
+    """[READ] Which VMs take the space on one datastore, largest first.
+
+    Use this for "is this datastore filling up, and who is using it?".
+    datastore_name comes from list_all_datastores. Reads vCenter's own per-VM
+    accounting (storage.perDatastoreUsage), so it is space on disk, not the
+    provisioned VMDK sizes browse_datastore shows.
+
+    Returns {datastore: {name, type, total_gb, used_gb, free_gb, usage_pct},
+    items, returned, total, truncated, attributed_gb, unattributed_gb,
+    unmeasured_vms, note}. Each item: name, vm_id, template, committed_gb (on
+    disk), uncommitted_gb (thin headroom it may still grow into), unshared_gb,
+    measured_at. unattributed_gb is used space no VM accounts for: unregistered
+    VMs, orphaned disks, ISOs; find those files with browse_datastore.
+    unmeasured_vms list the datastore but have no usage row, so their space is
+    unknown, not zero.
+
+    Args:
+        datastore_name: Datastore name exactly as shown in vCenter.
+        top_n: How many VMs to return, largest committed first (default 10).
+        target: Optional vCenter/ESXi target name from config.
+    """
+    try:
+        si = _get_connection(target)
+        return datastore_usage.datastore_vm_usage(si, datastore_name, top_n=top_n)
+    except Exception as e:
+        logger.error("get_datastore_vm_usage failed: %s", e)
         return {"error": _safe_error(e, "storage"), "hint": _hint_for(e)}
 
 

@@ -25,8 +25,12 @@ class VSANError(Exception):
     """Raised on vSAN operation failures."""
 
 
+class ClusterNotFoundError(VSANError):
+    """The cluster name matched nothing: the request is wrong, not the connection."""
+
+
 def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterComputeResource:
-    """Find a cluster or raise VSANError with a teaching hint."""
+    """Find a cluster or raise ClusterNotFoundError with a teaching hint."""
     cluster = find_cluster_by_name(si, cluster_name)
     if cluster is None:
         names = [
@@ -38,7 +42,7 @@ def _require_cluster(si: ServiceInstance, cluster_name: str) -> vim.ClusterCompu
         # message past the MCP layer's 300-char sanitize cap as soon as
         # not_found_hint appended its "Did you mean 'x'?" — cutting off the one
         # part of the message that names the correct cluster.
-        raise VSANError(
+        raise ClusterNotFoundError(
             f"Cluster '{cluster_name}' not found on this target. vmware-storage has "
             f"no cluster-listing tool — run vmware-monitor's list_all_clusters to get "
             f"exact cluster names (case-sensitive) and copy one."

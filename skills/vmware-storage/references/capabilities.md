@@ -1,6 +1,6 @@
 # VMware Storage Capabilities
 
-All 15 MCP tools exposed by `vmware-storage-mcp`, organized by category.
+All 16 MCP tools exposed by `vmware-storage-mcp`, organized by category.
 
 ## Automation Level Reference
 
@@ -8,7 +8,7 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 
 | Level | Meaning | Agent autonomy | Examples in this skill |
 |:-:|---|---|---|
-| **L1** | Read-only, raw data | Always auto-run | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, vSAN status queries |
+| **L1** | Read-only, raw data | Always auto-run | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, vSAN status queries |
 | **L2** | Read + analysis / recommendation | Always auto-run | datastore capacity analysis, image registry queries, iSCSI target health correlation |
 | **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm + `--dry-run` (see Confirm column) | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`, vSAN cluster ops |
 | **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | *(roadmap — multi-host iSCSI rollout, vSAN expansion plans)* |
@@ -24,6 +24,7 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 | Tool | Description | Parameters | Risk | Confirm |
 |------|-------------|------------|:----:|:-------:|
 | `list_all_datastores` | List datastores with capacity, usage %, VM count | `target` (string, optional), `limit` (int, optional; omit for all) | Low | No |
+| `get_datastore_vm_usage` | Per-VM space on one datastore: committed / uncommitted / unshared GB, largest first, plus `unattributed_gb` (used space no VM accounts for) and `unmeasured_vms` | `datastore_name` (string, **required**), `top_n` (int, optional, default 10), `target` (string, optional) | Low | No |
 | `browse_datastore` | Browse files with optional path and glob pattern | `datastore_name` (string, **required**), `path` (string, optional), `pattern` (string, optional), `target` (string, optional) | Low | No |
 | `scan_datastore_images` | Find OVA/ISO/OVF/VMDK deployable images in a datastore | `datastore_name` (string, **required**), `target` (string, optional) | Low | No |
 | `list_cached_images` | Query local image registry with type/datastore/target filters | `image_type` (string, optional), `datastore` (string, optional), `target` (string, optional) | Low | No |
@@ -108,7 +109,7 @@ Source: each host's `config.storageDevice` (HBAs, SCSI LUNs, `multipathInfo`) an
 
 ## Audit Coverage
 
-All 15 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
+All 16 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 - **Pre-execution**: Policy rule check against `~/.vmware/rules.yaml` (deny rules, maintenance windows)
 - **Post-execution**: Audit log entry written to `~/.vmware/audit.db` (SQLite WAL mode)
@@ -118,7 +119,7 @@ All 15 tools are wrapped with `@vmware_tool` from vmware-policy, which provides:
 
 | Type | Count | Tools |
 |------|:-----:|-------|
-| Read | 10 | `list_all_datastores`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency`, `list_fc_adapters`, `list_storage_device_paths` |
+| Read | 11 | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency`, `list_fc_adapters`, `list_storage_device_paths` |
 | Write | 4 | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` |
 
 > Write tools require explicit parameters (host name, IP address) and support `--dry-run` in CLI mode. Over MCP they preview by default: without `confirm: true` they return `blast_radius` and change nothing. All write operations are audit-logged with timestamp, user, target, operation, parameters, and result.
