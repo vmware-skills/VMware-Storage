@@ -240,7 +240,7 @@ vmware-storage-mcp
 | Feature | Description |
 |---------|-------------|
 | Read-heavy | 11/15 tools are read-only |
-| Preview by default (MCP) | The 4 write tools take `confirm` (default `false`): a call without it changes nothing and returns `blast_radius` (host, adapters, and for target removal the paths, devices and datastores behind the target). `confirm=true` is refused when a datastore would lose every path or part of the blast radius could not be read. `dry_run` is a deprecated alias |
+| Preview by default (MCP) | The 4 write tools take `confirm` (default `false`): a call without it changes nothing and returns `blast_radius` (host, adapters, and for target removal the paths, devices and datastores behind the target). `confirm=true` is refused when a datastore would lose every path or part of the blast radius could not be read. the old `dry_run` alias was removed in 2.5.0 and is refused as an unknown argument |
 | Input validation | IP addresses and ports validated before iSCSI operations |
 | Audit logging | All operations logged to `~/.vmware-storage/audit.log` |
 | No VM operations | Cannot create, delete, or modify VMs |
