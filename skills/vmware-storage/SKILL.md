@@ -21,7 +21,7 @@ compatibility: >
 
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/vmware-skills/VMware-Storage](https://github.com/vmware-skills/VMware-Storage) under the MIT license.
 
-VMware vSphere storage management — 15 MCP tools for datastores, iSCSI, vSAN, Fibre Channel / multipath diagnostics, and an access self-check.
+VMware vSphere storage management — 16 MCP tools for datastores, iSCSI, vSAN, Fibre Channel / multipath diagnostics, and an access self-check.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 > **Companion skills**: [vmware-aiops](https://github.com/vmware-skills/VMware-AIops) (VM lifecycle), [vmware-monitor](https://github.com/vmware-skills/VMware-Monitor) (read-only monitoring), [vmware-vks](https://github.com/vmware-skills/VMware-VKS) (Tanzu Kubernetes), [vmware-nsx](https://github.com/vmware-skills/VMware-NSX) (NSX networking), [vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security) (DFW/firewall), [vmware-aria](https://github.com/vmware-skills/VMware-Aria) (metrics/alerts/capacity), [vmware-avi](https://github.com/vmware-skills/VMware-AVI) (AVI/ALB/AKO), [vmware-harden](https://github.com/vmware-skills/VMware-Harden) (compliance baselines).
@@ -147,7 +147,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 | Cloud models (Claude, GPT-4o) | Either | MCP gives structured JSON I/O |
 | Automated pipelines | **MCP** | Type-safe parameters, structured output |
 
-## MCP Tools (15 — 11 read, 4 write)
+## MCP Tools (16 — 12 read, 4 write)
 
 All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools take `confirm` (default false): without it they change nothing and return `blast_radius` — the host and adapters touched, and for `remove_iscsi_target` the paths, devices and datastores behind the target. Show it to the user; pass `confirm: true` only after they decide. the old `dry_run` alias was removed in 2.4.3 and is refused as an unknown argument.
 
@@ -156,6 +156,7 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | Category | Tool | Type | Description |
 |----------|------|:----:|-------------|
 | Datastore | `list_all_datastores` | Read | List datastores with capacity, usage %, VM count |
+| | `get_datastore_vm_usage` | Read | Which VMs take the space on one datastore (committed GB, largest first) and how much no VM accounts for |
 | | `browse_datastore` | Read | Browse files with optional path and glob pattern |
 | | `scan_datastore_images` | Read | Find OVA/ISO/OVF/VMDK in a datastore |
 | | `list_cached_images` | Read | Query local image registry with type/datastore/target filters |
@@ -171,7 +172,7 @@ The four Datastore read tools return the family list envelope — `{items, retur
 | | `list_storage_device_paths` | Read | Per-device path state across a cluster/host/datastore; visibility and path-count differences |
 | Access | `get_access_info` | Read | Account in use and, per tool, whether its privileges are granted on the root folder |
 
-**Read/write split**: 11 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), preview unless `confirm: true`, refuse when a datastore would lose every path or the host's storage view cannot be read, and are audit-logged. `remove_iscsi_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
+**Read/write split**: 12 tools are read-only, 4 modify state. Write tools require explicit parameters (host name, IP address), preview unless `confirm: true`, refuse when a datastore would lose every path or the host's storage view cannot be read, and are audit-logged. `remove_iscsi_target` is classified `risk:high` (destructive — LUNs can become inaccessible) and goes through the policy confirmation gate.
 
 Running with local or small models? See [`references/agent-guardrails.md`](references/agent-guardrails.md).
 
@@ -257,7 +258,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Safety
 
 - **No VM operations**: This skill cannot power on/off, create, delete, or modify VMs — that scope belongs to `vmware-aiops`
-- **Read-heavy**: 11 of 15 tools are read-only (list, browse, scan, cached images, status, health, capacity, efficiency, FC adapters, device paths, access info)
+- **Read-heavy**: 12 of 16 tools are read-only (list, per-VM usage, browse, scan, cached images, status, health, capacity, efficiency, FC adapters, device paths, access info)
 - **Audit logging**: All operations (including reads) are logged to `~/.vmware/audit.db` (SQLite WAL, via vmware-policy) with timestamp, user, target, operation, parameters, and result
 - **Double confirmation**: CLI write commands (iSCSI enable, add/remove target) require two separate "Are you sure?" prompts before executing
 - **Dry-run mode**: All write commands support `--dry-run` to preview API calls without executing

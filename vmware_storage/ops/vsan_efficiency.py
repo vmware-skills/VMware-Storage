@@ -77,6 +77,19 @@ def get_vsan_efficiency(si: ServiceInstance, cluster_name: str) -> dict:
     enabled = getattr(config, "enabled", None)
     dec = getattr(config, "dataEfficiencyConfig", None)
 
+    # vSAN off: there is nothing to be deduplicated, and the SDK still answered
+    # dedupEnabled=False with compressionEnabled absent on the 8.0.3 lab
+    # (2026-10-24), so the two flags disagreed about a feature that does not
+    # apply. Say so in the words get_vsan_health / get_vsan_capacity use.
+    if enabled is False:
+        return {
+            "cluster_name": sanitize(cluster_name),
+            "vsan_enabled": False,
+            "dedup_enabled": None,
+            "compression_enabled": None,
+            "message": f"vSAN is not enabled on cluster '{sanitize(cluster_name)}'",
+        }
+
     if dec is None:
         return {
             "cluster_name": sanitize(cluster_name),

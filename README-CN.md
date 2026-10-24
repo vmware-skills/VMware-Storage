@@ -7,7 +7,7 @@
 
 [English](README.md) | [中文](README-CN.md)
 
-VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光纤通道（FC）/ 多路径诊断 — 15 个 MCP 工具，领域专注、轻量级。
+VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光纤通道（FC）/ 多路径诊断 — 16 个 MCP 工具，领域专注、轻量级。
 
 > 从 vmware-aiops 拆分，更轻量的上下文，兼容本地小模型。
 
@@ -99,11 +99,11 @@ targets:
     password_env: VMWARE_ESXIPROD_PASSWORD
 ```
 
-## MCP 工具（15 个）
+## MCP 工具（16 个）
 
 | 类别 | 工具 | 类型 |
 |------|------|------|
-| 数据存储 | `list_all_datastores`、`browse_datastore`、`scan_datastore_images`、`list_cached_images` | 只读 |
+| 数据存储 | `list_all_datastores`、`get_datastore_vm_usage`、`browse_datastore`、`scan_datastore_images`、`list_cached_images` | 只读 |
 | iSCSI | `enable_iscsi`、`get_iscsi_status`、`add_iscsi_target`、`remove_iscsi_target`、`rescan_storage` | 读/写 |
 | vSAN | `get_vsan_health`、`get_vsan_capacity`、`get_vsan_efficiency` | 只读 |
 | FC / 多路径 | `list_fc_adapters`、`list_storage_device_paths` | 只读 |
@@ -113,6 +113,7 @@ targets:
 
 **数据存储**
 - `list_all_datastores` — 列出所有数据存储，含容量、使用率、可达性
+- `get_datastore_vm_usage` — 一个数据存储上哪些虚拟机占得最多（实际占用 GB，从大到小），以及不属于任何虚拟机的空间
 - `browse_datastore` — 浏览数据存储目录下的文件（支持 glob 过滤）
 - `scan_datastore_images` — 扫描可部署镜像（OVA、ISO、OVF、VMDK）
 - `list_cached_images` — 查询本地镜像注册表（支持按类型/数据存储/target 过滤）
@@ -251,7 +252,7 @@ vmware-storage-mcp
 
 `vmware-aiops` 有 61 个 MCP 工具——对本地小模型（7B-14B）来说上下文占用太重。独立拆分后：
 
-- **15 个工具** — 完全适合小模型上下文窗口
+- **16 个工具** — 完全适合小模型上下文窗口
 - **领域专注** — 存储管理员只看到需要的工具
 - **最小权限** — 可以配置只有存储只读权限的 vCenter 服务账号
 - **可组合** — 可与 vmware-monitor 或 vmware-aiops 同时运行
@@ -270,7 +271,7 @@ vmware-storage-mcp
 
 | 功能 | 说明 |
 |------|------|
-| 只读为主 | 15 个工具中 11 个只读 |
+| 只读为主 | 16 个工具中 12 个只读 |
 | 默认只预览（MCP） | 4 个写工具接受 `confirm`（默认 `false`）：不带它的调用不做任何变更，只返回 `blast_radius`（主机、适配器；移除目标时还有该目标背后的路径、设备和数据存储）。某个数据存储会失去全部路径、或影响范围有任何部分读不到时，`confirm=true` 会被拒绝。旧的 `dry_run` 别名已在 2.4.3 移除，仍传它会被当作未知参数拒绝 |
 | 输入验证 | iSCSI 操作前验证 IP 地址和端口 |
 | 审计日志 | 所有操作记录到 `~/.vmware-storage/audit.log`（JSON Lines） |

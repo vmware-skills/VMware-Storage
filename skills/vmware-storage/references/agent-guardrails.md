@@ -14,7 +14,7 @@ vmware-monitor and vmware-aria against a production vSphere estate with Llama
 cross-skill rules are identical across this family; the parts below marked
 vmware-storage are specific to this skill.
 
-vmware-storage exposes 15 MCP tools, 4 of which change state. The write
+vmware-storage exposes 16 MCP tools, 4 of which change state. The write
 surface is small but sharp: removing an iSCSI send target can make LUNs — and
 every VM living on them — inaccessible.
 
