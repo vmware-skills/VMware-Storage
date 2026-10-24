@@ -3,8 +3,8 @@
 The executors in ``iscsi_config`` stay what the CLI calls. This module is what
 the four MCP tools put in front of them:
 
-* ``decide`` turns ``confirm`` plus the deprecated ``dry_run`` into one
-  decision — the conservative reading wins (L2);
+* ``decide`` turns ``confirm`` into the decision: only ``True`` acts (L2). The
+  deprecated ``dry_run`` alias was removed in 2.4.3;
 * ``measure_*`` reads what the call would change from the host's own storage
   view (``config.storageDevice`` and ``config.fileSystemVolume``, the same
   data the multipath tools read) and lists every part it could not read in
@@ -49,24 +49,19 @@ class GateRefusedError(ISCSIError):
 
 @dataclass(frozen=True)
 class Decision:
-    """Whether the call acts, and the deprecation note if the alias was used."""
+    """Whether the call acts."""
 
     act: bool
-    deprecated: str | None
 
 
-def decide(confirm: bool, dry_run: bool | None) -> Decision:
-    """Act iff ``confirm`` or an explicit ``dry_run=False``, unless ``dry_run=True``.
+def decide(confirm: bool) -> Decision:
+    """Act only on ``confirm=True``.
 
     The old contract acted on ``dry_run=False`` — and, because that was the
-    default, on a bare call. A bare call now previews.
+    default, on a bare call. A bare call previews; a call still passing
+    ``dry_run`` is refused by the tool's argument model.
     """
-    if dry_run is None:
-        return Decision(act=confirm is True, deprecated=None)
-    return Decision(
-        act=dry_run is False,
-        deprecated="dry_run is deprecated; use confirm. Removed in the next minor release.",
-    )
+    return Decision(act=confirm is True)
 
 
 def refuse_if_blocked(tool: str, host_name: str, radius: dict[str, Any]) -> None:

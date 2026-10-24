@@ -3,7 +3,8 @@
 Before this change the four tools acted on a bare call (``dry_run`` defaulted to
 False). Now ``confirm: bool = False`` previews, the preview and the acting
 response carry ``blast_radius``, and ``confirm=True`` is refused on a blocker or
-an unmeasured field. ``dry_run`` survives one minor cycle as a deprecated alias.
+an unmeasured field. The deprecated ``dry_run`` alias was removed in 2.4.3: a
+call that still passes it is refused as an unknown argument and writes nothing.
 
 The host is built from real pyVmomi data objects (HBA, send/static targets,
 multipath paths, SCSI LUNs, VMFS mounts) so the gate reads the same shapes it
@@ -173,15 +174,14 @@ GATED = ("enable_iscsi", "add_iscsi_target",
 
 
 @pytest.mark.parametrize("tool", GATED)
-def test_schema_confirm_defaults_to_false_and_dry_run_to_none(tool):
+def test_schema_confirm_defaults_to_false_and_has_no_dry_run(tool):
     tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
     props = tools[tool].inputSchema["properties"]
     assert props["confirm"]["default"] is False
     assert props["confirm"]["description"].startswith(
         "False (default) returns the blast radius and changes nothing. True applies it."
     )
-    assert props["dry_run"].get("default", "missing") is None
-    assert props["dry_run"]["description"].startswith("Deprecated alias for confirm")
+    assert "dry_run" not in props
     assert "Do not set confirm=True on your own" in " ".join(tools[tool].description.split())
 
 
@@ -440,30 +440,38 @@ CALLS = {
     "rescan_storage": (lambda **kw: server.rescan_storage(host_name=HOST, **kw),
                        "RescanAllHba", "rescanned"),
 }
-ALIASES = [
+CONFIRM = [
     ({}, False),                                  # was: acted. Now the default previews.
-    ({"dry_run": False}, True),
-    ({"dry_run": True}, False),
-    ({"confirm": True, "dry_run": True}, False),  # disagree -> preview
-    ({"confirm": True, "dry_run": False}, True),
     ({"confirm": True}, True),
 ]
 
 
 @pytest.mark.parametrize("tool", GATED)
-@pytest.mark.parametrize("kwargs,acts", ALIASES)
-def test_dry_run_alias(fake, tool, kwargs, acts):
+@pytest.mark.parametrize("kwargs,acts", CONFIRM)
+def test_only_confirm_acts_and_no_deprecation_note(fake, tool, kwargs, acts):
     fake.enabled = tool != "enable_iscsi"
     call, write, action = CALLS[tool]
     result = call(**kwargs)
     assert result["action"] == (action if acts else "preview")
     assert fake.writes()[write] == (1 if acts else 0)
-    if "dry_run" in kwargs:
-        assert result["deprecated"] == (
-            "dry_run is deprecated; use confirm. Removed in the next minor release."
-        )
-    else:
-        assert "deprecated" not in result
+    assert "deprecated" not in result
+
+
+REQUIRED = {
+    "enable_iscsi": {"host_name": HOST},
+    "add_iscsi_target": {"host_name": HOST, "address": "10.0.0.1"},
+    "remove_iscsi_target": {"host_name": HOST, "address": "10.0.0.1"},
+    "rescan_storage": {"host_name": HOST},
+}
+
+
+@pytest.mark.parametrize("tool", GATED)
+def test_the_removed_dry_run_alias_is_refused_and_writes_nothing(fake, tool):
+    fake.enabled = tool != "enable_iscsi"
+    _call, write, _action = CALLS[tool]
+    with pytest.raises(Exception, match="dry_run"):
+        asyncio.run(server.mcp.call_tool(tool, {**REQUIRED[tool], "dry_run": False}))
+    assert fake.writes()[write] == 0
 
 
 def test_refusal_is_audited_as_failure(fake, monkeypatch):

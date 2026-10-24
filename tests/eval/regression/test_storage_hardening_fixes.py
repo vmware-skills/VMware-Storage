@@ -101,11 +101,11 @@ def test_iscsi_status_risk_level_is_low():
 
 
 @pytest.mark.parametrize("tool_name", _WRITE_TOOLS)
-def test_write_tools_take_confirm_and_keep_dry_run_as_alias(tool_name):
-    """HLD §7: ``confirm`` defaults to False; ``dry_run`` is a deprecated alias.
+def test_write_tools_take_confirm_and_no_dry_run(tool_name):
+    """HLD §7: ``confirm`` defaults to False; the ``dry_run`` alias is gone (2.4.3).
 
     Until the confirmation gate, ``dry_run`` defaulted to False, so a bare call
-    acted. The alias now defaults to None so the schema shows it was not passed.
+    acted. It was a deprecated alias for one minor cycle and is now removed.
     """
     import inspect
 
@@ -114,7 +114,7 @@ def test_write_tools_take_confirm_and_keep_dry_run_as_alias(tool_name):
     fn = getattr(server, tool_name)
     sig = inspect.signature(inspect.unwrap(fn))
     assert sig.parameters["confirm"].default is False
-    assert sig.parameters["dry_run"].default is None
+    assert "dry_run" not in sig.parameters
 
 
 @pytest.mark.parametrize(
@@ -126,8 +126,8 @@ def test_write_tools_take_confirm_and_keep_dry_run_as_alias(tool_name):
         ("rescan_storage", {"host_name": "esxi-01"}),
     ],
 )
-def test_dry_run_previews_without_writing(tool_name, kwargs, monkeypatch):
-    """dry_run=True must return a preview and never reach an executor.
+def test_a_bare_call_previews_without_writing(tool_name, kwargs, monkeypatch):
+    """A call without confirm must return a preview and never reach an executor.
 
     It used to return a canned string without connecting. The preview now
     measures the blast radius (HLD §7), which needs the connection, so the
@@ -138,7 +138,7 @@ def test_dry_run_previews_without_writing(tool_name, kwargs, monkeypatch):
     from vmware_storage.mcp_server import server
 
     def explode(*a, **k):  # pragma: no cover - failure path
-        raise AssertionError("a dry_run preview must not reach an executor")
+        raise AssertionError("a preview must not reach an executor")
 
     radius = {"already_enabled": False, "already_configured": False,
               "blockers": [], "unmeasured": []}
@@ -152,9 +152,9 @@ def test_dry_run_previews_without_writing(tool_name, kwargs, monkeypatch):
                      "_ops_remove_iscsi_target", "_ops_rescan_storage"):
         monkeypatch.setattr(server, executor, explode)
     fn = inspect.unwrap(getattr(server, tool_name))
-    result = fn(dry_run=True, **kwargs)
+    result = fn(**kwargs)
     assert result["action"] == "preview"
-    assert "dry_run is deprecated" in result["deprecated"]
+    assert "deprecated" not in result
 
 
 # ── Fix 3: audit failure must not flip a successful write ──────────────────

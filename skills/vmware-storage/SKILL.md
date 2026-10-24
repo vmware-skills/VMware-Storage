@@ -149,7 +149,7 @@ vmware-storage iscsi status esxi-lab --target lab-esxi
 
 ## MCP Tools (15 — 11 read, 4 write)
 
-All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools take `confirm` (default false): without it they change nothing and return `blast_radius` — the host and adapters touched, and for `remove_iscsi_target` the paths, devices and datastores behind the target. Show it to the user; pass `confirm: true` only after they decide. `dry_run` is a deprecated alias.
+All MCP tools accept an optional `target` parameter to select which vCenter/ESXi to connect to. The 4 write tools take `confirm` (default false): without it they change nothing and return `blast_radius` — the host and adapters touched, and for `remove_iscsi_target` the paths, devices and datastores behind the target. Show it to the user; pass `confirm: true` only after they decide. the old `dry_run` alias was removed in 2.4.3 and is refused as an unknown argument.
 
 The four Datastore read tools return the family list envelope — `{items, returned, limit, total, truncated, hint}` — rather than a bare array. Read the rows from `items`; `truncated` says whether the listing is complete, so it never has to be guessed from the row count. All four enumerate their collection in full, so `total` is the real count and `truncated` is always `false`.
 
