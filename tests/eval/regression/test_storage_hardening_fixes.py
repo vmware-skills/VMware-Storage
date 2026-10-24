@@ -102,7 +102,7 @@ def test_iscsi_status_risk_level_is_low():
 
 @pytest.mark.parametrize("tool_name", _WRITE_TOOLS)
 def test_write_tools_take_confirm_and_no_dry_run(tool_name):
-    """HLD §7: ``confirm`` defaults to False; the ``dry_run`` alias is gone (2.5.0).
+    """HLD §7: ``confirm`` defaults to False; the ``dry_run`` alias is gone (2.4.3).
 
     Until the confirmation gate, ``dry_run`` defaulted to False, so a bare call
     acted. It was a deprecated alias for one minor cycle and is now removed.

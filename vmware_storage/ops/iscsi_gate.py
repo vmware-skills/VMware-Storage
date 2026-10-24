@@ -4,7 +4,7 @@ The executors in ``iscsi_config`` stay what the CLI calls. This module is what
 the four MCP tools put in front of them:
 
 * ``decide`` turns ``confirm`` into the decision: only ``True`` acts (L2). The
-  deprecated ``dry_run`` alias was removed in 2.5.0;
+  deprecated ``dry_run`` alias was removed in 2.4.3;
 * ``measure_*`` reads what the call would change from the host's own storage
   view (``config.storageDevice`` and ``config.fileSystemVolume``, the same
   data the multipath tools read) and lists every part it could not read in

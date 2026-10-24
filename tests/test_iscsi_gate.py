@@ -3,7 +3,7 @@
 Before this change the four tools acted on a bare call (``dry_run`` defaulted to
 False). Now ``confirm: bool = False`` previews, the preview and the acting
 response carry ``blast_radius``, and ``confirm=True`` is refused on a blocker or
-an unmeasured field. The deprecated ``dry_run`` alias was removed in 2.5.0: a
+an unmeasured field. The deprecated ``dry_run`` alias was removed in 2.4.3: a
 call that still passes it is refused as an unknown argument and writes nothing.
 
 The host is built from real pyVmomi data objects (HBA, send/static targets,
