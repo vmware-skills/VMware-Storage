@@ -88,7 +88,9 @@ def test_a_datastore_over_the_threshold_is_still_styled_red() -> None:
     assert cool.style != "red"
 
     # ...and the style survives to the terminal, not just the object.
-    console = Console(force_terminal=True, width=40)
+    # Request ANSI explicitly: CI and sandboxes may set TERM=dumb or NO_COLOR,
+    # while this assertion is specifically about the styled terminal path.
+    console = Console(force_terminal=True, color_system="standard", no_color=False, width=40)
     with console.capture() as cap:
         console.print(hot)
     assert "\x1b[31m" in cap.get()
