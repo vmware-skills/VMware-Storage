@@ -19,6 +19,8 @@ compatibility: >
 
 # VMware Storage
 
+> Self-test: [guide](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md).
+
 > **Disclaimer**: This is a community-maintained open-source project and is **not affiliated with, endorsed by, or sponsored by VMware, Inc. or Broadcom Inc.** "VMware" and "vSphere" are trademarks of Broadcom. Source code is publicly auditable at [github.com/vmware-skills/VMware-Storage](https://github.com/vmware-skills/VMware-Storage) under the MIT license.
 
 VMware vSphere storage management — 16 MCP tools for datastores, iSCSI, vSAN, Fibre Channel / multipath diagnostics, and an access self-check.
