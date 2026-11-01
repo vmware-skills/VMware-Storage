@@ -1,4 +1,4 @@
-## v2.5.0 — per-VM datastore usage and clearer storage refusals (pending release)
+## v2.5.0 — per-VM datastore usage and clearer storage refusals (2026-11-01)
 
 * New read-only `get_datastore_vm_usage(datastore_name, top_n=10)` reports per-VM committed, uncommitted and unshared space on one datastore, plus attributed/unattributed used space and VMs whose usage could not be measured. It uses one PropertyCollector pass, sorts largest committed usage first, and does not turn unknown into zero. The MCP surface now has 16 tools. Verified against a lab vCenter before this release branch.
 * An unknown cluster or invalid storage path now returns the specific corrective hint instead of a generic connection hint. On a cluster without vSAN, `get_vsan_efficiency` reports both feature flags as unknown and says vSAN is disabled.
