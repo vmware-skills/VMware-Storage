@@ -1,3 +1,9 @@
+## v2.5.0 — per-VM datastore usage and clearer storage refusals (pending release)
+
+* New read-only `get_datastore_vm_usage(datastore_name, top_n=10)` reports per-VM committed, uncommitted and unshared space on one datastore, plus attributed/unattributed used space and VMs whose usage could not be measured. It uses one PropertyCollector pass, sorts largest committed usage first, and does not turn unknown into zero. The MCP surface now has 16 tools. Verified against a lab vCenter before this release branch.
+* An unknown cluster or invalid storage path now returns the specific corrective hint instead of a generic connection hint. On a cluster without vSAN, `get_vsan_efficiency` reports both feature flags as unknown and says vSAN is disabled.
+* Removed the deprecated MCP `dry_run` alias from the destructive tools. Use `confirm=False` for a no-write preview and `confirm=True` after reviewing its blast radius; clients still passing `dry_run` must update.
+
 ## v2.4.2 — a login refused for lack of a vSphere role says so (2026-10-19)
 
 * **A login vCenter refuses with `NoPermission` gets the role error, not the raw fault.** Found on a vCenter 8.0.3
@@ -7,8 +13,6 @@
   Permissions" remedy only for a vCenter target and `System.View`; an ESXi target or another privilege gets a
   neutral text naming the (sanitized) privilege. A wrong password (`InvalidLogin`) is unchanged. Same text as
   vmware-monitor.
-
-## Unreleased — follow-ups to the 2.4.1 review
 
 * **`list_cached_images(target=...)`** returns one target's cached images; without it, nothing changes.
 * The cache write takes a lock across processes, so a CLI and an MCP scan at the same time keep both sides' rows; a
@@ -1512,4 +1516,4 @@ Domain-focused VMware storage skill, split from vmware-aiops for lighter context
 
 ### Datastore Management / 数据存储管理
 
-- `list_all_datastores` — List all datastores with capacity, usage 
+- `list_all_datastores` — List all datastores with capacity, usage
