@@ -1,3 +1,3 @@
 """VMware Storage — vSphere datastore, iSCSI, and vSAN management."""
 
-__version__ = "2.5.0"
+__version__ = "2.6.0"
