@@ -276,3 +276,16 @@ Privileges are checked on the root folder: `not_granted_at_root` may still be gr
 |----------|-------------|
 | `VMWARE_STORAGE_CONFIG` | Override config file path (used by MCP server) |
 | `VMWARE_<TARGET>_PASSWORD` | Password for a target (e.g., `VMWARE_MY_VCENTER_PASSWORD`) |
+
+### Datastore JSON envelopes
+
+Add `--json` to `datastore list`, `datastore browse`, or `datastore scan-images`
+for the full successful result envelope, matching the MCP operation's result:
+`items`, `returned`, `limit`, `total`, `truncated`, `hint`, and any extra evidence
+such as `cache_note`. Unknown/null values remain unknown, not zero or complete.
+A successful image scan can carry a local-cache failure note; do not discard it.
+
+Without this option list prints its table and browse/scan-images retain their
+legacy JSON arrays. Other read commands already emit JSON by default. This flag
+does not alter reads, local-cache writes, Policy or auditing. Errors retain the
+existing text message and nonzero exit code; scripts must check the exit status.

@@ -208,6 +208,7 @@ def _usage_cell(usage_pct: float | None) -> Text:
 @handle_cli_errors
 @audited("list_all_datastores")
 def ds_list(
+    as_json: bool = typer.Option(False, "--json", help="Return the complete result envelope"),
     target: str | None = typer.Option(None, help="Target name"),
     config: str | None = typer.Option(None, "--config", help="Config file path"),
 ) -> None:
@@ -215,8 +216,11 @@ def ds_list(
     from vmware_storage.ops.inventory import list_datastores
 
     si = _get_connection(target, config)
-    result = list_datastores(si, include_vm_count=True)["items"]
+    result = list_datastores(si, include_vm_count=True)
     _audit.log_query(target=target or "default", resource="datastores", query_type="list")
+    if as_json:
+        _print_json(result)
+        return
     table = Table(title="Datastores")
     table.add_column("Name", style="bold")
     table.add_column("Type")
@@ -224,7 +228,7 @@ def ds_list(
     table.add_column("Free GB", justify="right")
     table.add_column("Usage %", justify="right")
     table.add_column("VMs", justify="right")
-    for ds in result:
+    for ds in result["items"]:
         table.add_row(
             # Text(), not str: a datastore may legally be called "[SSD] prod",
             # and vCenter's name is data, not markup we wrote.
@@ -245,6 +249,7 @@ def ds_browse(
     ds_name: str = typer.Argument(help="Datastore name"),
     path: str = typer.Option("", help="Subdirectory path"),
     pattern: str = typer.Option("*", help="Glob pattern"),
+    as_json: bool = typer.Option(False, "--json", help="Return the complete result envelope"),
     target: str | None = typer.Option(None, help="Target name"),
     config: str | None = typer.Option(None, "--config", help="Config file path"),
 ) -> None:
@@ -252,9 +257,9 @@ def ds_browse(
     from vmware_storage.ops.datastore_browser import browse_datastore
 
     si = _get_connection(target, config)
-    result = browse_datastore(si, ds_name, path=path, pattern=pattern)["items"]
+    result = browse_datastore(si, ds_name, path=path, pattern=pattern)
     _audit.log_query(target=target or "default", resource=ds_name, query_type="browse")
-    _print_json(result)
+    _print_json(result if as_json else result["items"])
 
 
 @ds_app.command("scan-images")
@@ -262,6 +267,7 @@ def ds_browse(
 @audited("scan_datastore_images")
 def ds_scan_images(
     ds_name: str = typer.Argument(help="Datastore name"),
+    as_json: bool = typer.Option(False, "--json", help="Return the complete result envelope"),
     target: str | None = typer.Option(None, help="Target name"),
     config: str | None = typer.Option(None, "--config", help="Config file path"),
 ) -> None:
@@ -271,9 +277,9 @@ def ds_scan_images(
     conn_mgr = ConnectionManager(load_config(Path(config) if config else None))
     name = conn_mgr.resolve_target_name(target)
     si = conn_mgr.connect(name)
-    result = scan_images(si, ds_name, target=name)["items"]
+    result = scan_images(si, ds_name, target=name)
     _audit.log_query(target=target or "default", resource=ds_name, query_type="scan_images")
-    _print_json(result)
+    _print_json(result if as_json else result["items"])
 
 
 # ---------------------------------------------------------------------------

@@ -116,6 +116,13 @@ The `add-target` command automatically rescans storage. Use `--dry-run` to previ
 
 ### Find Deployable Images Across Datastores
 
+For scripts, add `--json` to `datastore list`, `datastore browse`, or
+`datastore scan-images`. Successful output is the complete result envelope,
+including `items`, counts, truncation and any cache note. Without the flag,
+list keeps its table and browse/scan-images keep their legacy JSON arrays.
+Other read commands already output JSON by default. Failures still exit nonzero
+with the existing CLI error message.
+
 1. List all datastores: `vmware-storage datastore list`
 2. Scan for images: `vmware-storage datastore scan-images datastore01`
 3. Browse with a pattern: `vmware-storage datastore browse datastore01 --pattern "*.iso"`
