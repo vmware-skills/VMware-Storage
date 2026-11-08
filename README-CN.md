@@ -152,6 +152,10 @@ targets:
 
 ### 查找可部署镜像
 
+脚本可为 `datastore list`、`datastore browse`、`datastore scan-images` 添加 `--json`。
+成功时输出完整结果封装，保留 `items`、数量、截断状态及缓存提示。省略该选项时，list 仍为表格，
+browse/scan-images 仍为原有 JSON 数组。其他只读命令已默认输出 JSON；失败仍以非零退出码和现有 CLI 错误消息报告。
+
 1. 列出所有数据存储：`vmware-storage datastore list`
 2. 扫描镜像：`vmware-storage datastore scan-images datastore01`
 3. 按模式浏览：`vmware-storage datastore browse datastore01 --pattern "*.iso"`
