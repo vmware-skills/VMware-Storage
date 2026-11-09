@@ -14,7 +14,7 @@ allowed-tools:
 metadata: {"openclaw":{"requires":{"anyBins":["vmware-storage","uvx"]},"optional":{"env":["VMWARE_STORAGE_CONFIG","VMWARE_<TARGET>_PASSWORD","VMWARE_<TARGET>_USERNAME","VMWARE_AUDIT_APPROVED_BY"],"bins":["vmware-policy"]},"homepage":"https://github.com/vmware-skills/VMware-Storage","emoji":"🗄️","os":["macos","linux"]}}
 compatibility: >
   vmware-policy auto-installed as Python dependency (provides @vmware_tool decorator and audit logging). All write operations audited to ~/.vmware/audit.db.
-  Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-storage/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD (e.g., target "my-vcenter" → VMWARE_MY_VCENTER_PASSWORD). No webhooks or outbound network calls — this skill is local-only (stdio MCP + vSphere API). Audit logs written to ~/.vmware/audit.db (SQLite WAL, local only).
+  Credentials: Each vCenter/ESXi target requires a per-target password env var in ~/.vmware-storage/.env following the pattern VMWARE_<TARGET_NAME_UPPER>_PASSWORD (e.g., target "my-vcenter" → VMWARE_MY_VCENTER_PASSWORD). No webhooks; outbound API calls go to the configured vSphere endpoint. Default MCP is local stdio; opt-in authenticated HTTPS opens a listener. Audit logs written to ~/.vmware/audit.db (SQLite WAL, local only).
 ---
 
 # VMware Storage
@@ -304,7 +304,7 @@ vCenter Server / ESXi
 Datastores / iSCSI / vSAN
 ```
 
-The MCP server uses stdio transport (local only, no network listener). Connections to vSphere use SSL/TLS on port 443.
+By default the MCP server uses local stdio without a listener; opt-in HTTPS opens a listener and requires TLS plus caller authentication. Connections to vSphere use SSL/TLS on port 443.
 
 ## Audit & Safety
 

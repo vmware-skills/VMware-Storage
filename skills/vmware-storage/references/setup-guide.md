@@ -92,10 +92,18 @@ Any label works (`production`, `staging`, `lab`, or your own); the target's
 Passwords are **never stored in config.yaml**. They must be set as environment variables via the `.env` file.
 
 ```bash
-echo "VMWARE_MY_VCENTER_PASSWORD=your_password" > ~/.vmware-storage/.env
-echo "VMWARE_ESXI_STANDALONE_PASSWORD=root_password" >> ~/.vmware-storage/.env
-chmod 600 ~/.vmware-storage/.env
+(
+  umask 077
+  set -C  # Refuse existing files; edit an existing .env locally instead
+  cat > ~/.vmware-storage/.env <<'EOF'
+VMWARE_MY_VCENTER_PASSWORD=REPLACE_IN_LOCAL_EDITOR
+VMWARE_ESXI_STANDALONE_PASSWORD=REPLACE_IN_LOCAL_EDITOR
+EOF
+)
+# Before continuing, edit .env locally; never type live secrets into shell commands.
 ```
+
+This writes placeholders only. Enter passwords or tokens using a local editor after creation; do not paste live credentials into terminal commands, chat or commits. If the file exists, the command refuses to overwrite it; edit the existing file after checking its permissions are `600`.
 
 **Naming convention**: `VMWARE_<TARGET_NAME_UPPER>_PASSWORD` where `<TARGET_NAME_UPPER>` is the target `name` from config.yaml, uppercased, with hyphens replaced by underscores.
 
@@ -141,7 +149,7 @@ Add to your MCP config (`~/.claude.json` or Claude Desktop settings):
 ```
 
 > v1.5.15+ recommends the single-command form `vmware-storage mcp`. Pre-1.5.15 used
-> `uvx --from vmware-storage vmware-storage-mcp`, which still works but re-resolves from <!-- install-pin: historical -->
+> `uvx --from vmware-storage==2.6.0 vmware-storage-mcp`, which still works but re-resolves from
 > PyPI on each launch and breaks behind corporate TLS proxies. The legacy
 > `vmware-storage-mcp` entry point is also kept for backward compatibility.
 
@@ -166,14 +174,18 @@ extensions:
 docker compose up -d
 ```
 
-Or run manually:
+Or build and run locally from the checked-out release source:
 
 ```bash
-docker run -d \
+docker build -t vmware-storage:2.6.0 .
+docker run --pull=never -d \
   -v ~/.vmware-storage:/root/.vmware-storage:ro \
   -e VMWARE_STORAGE_CONFIG=/root/.vmware-storage/config.yaml \
-  vmware-storage
+  vmware-storage:2.6.0
 ```
+
+These commands run the image built locally above; `--pull=never` prevents a missing local image from falling back to a registry. The version tag identifies this build, not an immutable digest.
+
 
 ### Password obfuscation at rest
 
@@ -342,7 +354,7 @@ This prevents malicious file names on datastores from injecting prompts or instr
 
 ### Transport Security
 
-- The MCP server uses **stdio transport** (local only) -- no network listener is opened
+- By default the MCP server uses local **stdio** without a listener. Opt-in HTTPS opens the configured listener and requires TLS plus caller authentication
 - vSphere connections use SSL/TLS on port 443 by default
 - SSL certificate verification is **on by default** (`verify_ssl: true`); turn it off per target only for an isolated lab host with a self-signed certificate
 

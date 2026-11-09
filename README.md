@@ -15,6 +15,10 @@ VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+MCP uses local stdio by default. Opt-in HTTPS opens the configured listener and requires TLS plus caller authentication; it is a network service, not a local-only mode. Credential examples create owner-only placeholder files without overwriting existing files; edit secrets locally.
+
+Container examples build a local version-tagged image and run it with `--pull=never`, avoiding registry fallback. A local version tag is not an immutable image digest.
+
 ## Upgrading to 2.0
 
 2.0 renames 10 of its MCP tools (all but the four that already started with a verb) so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
@@ -42,10 +46,10 @@ against both the old and the new name, so one file serves both.
 
 ```bash
 # Via PyPI
-uv tool install vmware-storage
+uv tool install vmware-storage==2.6.0
 
 # Or pip
-pip install vmware-storage
+pip install vmware-storage==2.6.0
 ```
 
 ## Offline / Air-Gapped Install (from source)
@@ -83,12 +87,20 @@ mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit with your vCenter/ESXi credentials
 
-echo "VMWARE_MY_VCENTER_PASSWORD=your_password" > ~/.vmware-storage/.env
-chmod 600 ~/.vmware-storage/.env
+(
+  umask 077
+  set -C  # Refuse existing files; edit an existing .env locally instead
+  cat > ~/.vmware-storage/.env <<'EOF'
+VMWARE_MY_VCENTER_PASSWORD=REPLACE_IN_LOCAL_EDITOR
+EOF
+)
+# Before continuing, edit .env locally; never type live secrets into shell commands.
 
 # Verify
 vmware-storage doctor
 ```
+
+This writes placeholders only. Enter passwords or tokens using a local editor after creation; do not paste live credentials into terminal commands, chat or commits. If the file exists, the command refuses to overwrite it; edit the existing file after checking its permissions are `600`.
 
 ## MCP Tools (16)
 
@@ -170,7 +182,7 @@ vmware-storage doctor
 
 ## MCP Server
 
-**After `uv tool install vmware-storage`, start the MCP server with one command** (v1.5.15+):
+**After `uv tool install vmware-storage==2.6.0`, start the MCP server with one command** (v1.5.15+):
 
 ```bash
 # Recommended — single command, no network re-resolve
@@ -206,7 +218,7 @@ Add to your AI agent's MCP config:
 
 ```bash
 # Run without installing (requires PyPI access each launch)
-uvx --from vmware-storage vmware-storage mcp
+uvx --from vmware-storage==2.6.0 vmware-storage mcp
 
 # Legacy entry point (still works, kept for backward compatibility)
 vmware-storage-mcp
