@@ -7,6 +7,13 @@
   result envelope, including unknown totals, truncation and cache notes.
 - Preserve the existing default table/JSON-array formats and error behavior.
 
+## Unreleased — security documentation corrections
+
+Clarify actual capability, credential, local-write and transport boundaries where applicable.
+Pin documented setup/fallback tools and make credential examples owner-only before writing,
+without overwriting existing files. Runtime permissions, TLS defaults and approval behavior are unchanged.
+These edits do not establish a new ClawHub scan verdict.
+
 ## v2.5.0 — per-VM datastore usage and clearer storage refusals (2026-11-01)
 
 * New read-only `get_datastore_vm_usage(datastore_name, top_n=10)` reports per-VM committed, uncommitted and unshared space on one datastore, plus attributed/unattributed used space and VMs whose usage could not be measured. It uses one PropertyCollector pass, sorts largest committed usage first, and does not turn unknown into zero. The MCP surface now has 16 tools. Verified against a lab vCenter before this release branch.

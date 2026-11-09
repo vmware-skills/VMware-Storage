@@ -15,6 +15,10 @@ VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光�
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+MCP 默认使用本地 stdio。启用可选 HTTPS 后会打开配置的监听端口，并要求 TLS 与调用者认证；此时属于网络服务。凭据示例先创建仅当前用户可读写的占位文件，拒绝覆盖已有文件，再由用户在本地编辑秘密值。
+
+容器示例先在本地构建带版本标签的镜像，再用 `--pull=never` 运行，避免回退到镜像仓库拉取。本地版本标签不等于不可变的镜像摘要。
+
 ## 升级到 2.0
 
 2.0 把 MCP 工具名改成动词在前（已以动词开头的 4 个除外，共改名 10 处）（例如 `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`），完整的新旧名对照表见
@@ -38,10 +42,10 @@ vmware-policy ≥ 1.18 下仍然生效（`vmware-audit policy` 会列出因改�
 
 ```bash
 # 通过 PyPI
-uv tool install vmware-storage
+uv tool install vmware-storage==2.6.0
 
 # 或 pip
-pip install vmware-storage
+pip install vmware-storage==2.6.0
 ```
 
 ## 离线 / 气隙环境安装（从源码）
@@ -79,12 +83,20 @@ mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # 编辑 config.yaml，填入 vCenter/ESXi 地址和用户名
 
-echo "VMWARE_MY_VCENTER_PASSWORD=your_password" > ~/.vmware-storage/.env
-chmod 600 ~/.vmware-storage/.env
+(
+  umask 077
+  set -C  # 拒绝覆盖已有文件；已有 .env 请直接用本地编辑器修改
+  cat > ~/.vmware-storage/.env <<'EOF'
+VMWARE_MY_VCENTER_PASSWORD=REPLACE_IN_LOCAL_EDITOR
+EOF
+)
+# 继续前，先用本地编辑器填写 .env；不要在终端命令中输入真实秘密值。
 
 # 验证环境
 vmware-storage doctor
 ```
+
+模板只写入占位符。创建后用本地编辑器填写密码或令牌；不要把真实凭据粘贴到终端命令、聊天或提交中。若文件已存在，上述命令会拒绝覆盖；直接编辑现有文件并先确认权限为 `600`。
 
 ### config.yaml 示例
 
@@ -205,7 +217,7 @@ vmware-storage doctor
 
 ## MCP Server
 
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage` 后，**一条命令启动 MCP**：
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage==2.6.0` 后，**一条命令启动 MCP**：
 
 ```bash
 # 推荐 — 单命令，无网络依赖
@@ -241,7 +253,7 @@ docker compose up -d
 
 ```bash
 # 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-storage vmware-storage mcp
+uvx --from vmware-storage==2.6.0 vmware-storage mcp
 
 # 旧 entry point（仍可用，向后兼容）
 vmware-storage-mcp
