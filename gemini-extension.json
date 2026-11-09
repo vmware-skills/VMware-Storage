@@ -1,0 +1,16 @@
+{
+  "name": "vmware-storage",
+  "version": "2.6.0",
+  "description": "VMware vSphere storage management: datastores, iSCSI, vSAN. Domain-focused MCP skill.",
+  "mcpServers": {
+    "vmware-storage": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "vmware-storage==2.6.0",
+        "vmware-storage-mcp"
+      ]
+    }
+  }
+}
