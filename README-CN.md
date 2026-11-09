@@ -42,10 +42,10 @@ vmware-policy ≥ 1.18 下仍然生效（`vmware-audit policy` 会列出因改�
 
 ```bash
 # 通过 PyPI
-uv tool install vmware-storage==2.6.0
+uv tool install vmware-storage==2.6.1
 
 # 或 pip
-pip install vmware-storage==2.6.0
+pip install vmware-storage==2.6.1
 ```
 
 ## 离线 / 气隙环境安装（从源码）
@@ -217,7 +217,7 @@ vmware-storage doctor
 
 ## MCP Server
 
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage==2.6.0` 后，**一条命令启动 MCP**：
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage==2.6.1` 后，**一条命令启动 MCP**：
 
 ```bash
 # 推荐 — 单命令，无网络依赖
@@ -253,7 +253,7 @@ docker compose up -d
 
 ```bash
 # 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-storage==2.6.0 vmware-storage mcp
+uvx --from vmware-storage==2.6.1 vmware-storage mcp
 
 # 旧 entry point（仍可用，向后兼容）
 vmware-storage-mcp
