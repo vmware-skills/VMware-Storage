@@ -136,11 +136,7 @@ targets:
   "mcpServers": {
     "vmware-storage": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "vmware-storage==2.6.0",
-        "vmware-storage-mcp"
-      ],
+      "args": ["--from", "vmware-storage==2.6.0", "vmware-storage-mcp"],
       "env": {
         "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
       }
