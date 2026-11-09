@@ -46,10 +46,10 @@ against both the old and the new name, so one file serves both.
 
 ```bash
 # Via PyPI
-uv tool install vmware-storage==2.6.0
+uv tool install vmware-storage==2.6.1
 
 # Or pip
-pip install vmware-storage==2.6.0
+pip install vmware-storage==2.6.1
 ```
 
 ## Offline / Air-Gapped Install (from source)
@@ -182,7 +182,7 @@ vmware-storage doctor
 
 ## MCP Server
 
-**After `uv tool install vmware-storage==2.6.0`, start the MCP server with one command** (v1.5.15+):
+**After `uv tool install vmware-storage==2.6.1`, start the MCP server with one command** (v1.5.15+):
 
 ```bash
 # Recommended — single command, no network re-resolve
@@ -218,7 +218,7 @@ Add to your AI agent's MCP config:
 
 ```bash
 # Run without installing (requires PyPI access each launch)
-uvx --from vmware-storage==2.6.0 vmware-storage mcp
+uvx --from vmware-storage==2.6.1 vmware-storage mcp
 
 # Legacy entry point (still works, kept for backward compatibility)
 vmware-storage-mcp
