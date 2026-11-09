@@ -1,48 +1,51 @@
 <!-- mcp-name: io.github.vmware-skills/vmware-storage -->
+
 # VMware Storage
 
-For a read-only check of this skill with your model and agent host, use the shared [model-fit self-test](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md) in the marketplace root.
+[![PyPI](https://img.shields.io/pypi/v/vmware-storage)](https://pypi.org/project/vmware-storage/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](#readme-license)
 
-> **Author**: Wei Zhou, VMware by Broadcom — zhouwei008@gmail.com
-> This is a community-driven project by a VMware engineer, not an official VMware product.
-> For official VMware developer tools see [developer.broadcom.com](https://developer.broadcom.com).
+English | [中文](README-CN.md)
 
-[English](README.md) | [中文](README-CN.md)
+Maintainer: Wei Zhou · [zhouwei008@gmail.com](mailto:zhouwei008@gmail.com)
+
+Community-maintained open-source project; not an official VMware or Broadcom product.
+
+[Overview](#readme-overview) · [Quick Start](#readme-quick-start) · [MCP Configuration](#readme-mcp-configuration) · [Capabilities and Workflows](#readme-capabilities-and-workflows) · [Safety and Audit](#readme-safety-and-audit) · [Troubleshooting](#readme-troubleshooting) · [Companion Skills](#readme-companion-skills) · [Reference](#readme-reference) · [License](#readme-license)
+
+<a id="readme-overview"></a>
+
+## Overview
+
+Runs locally over stdio by default; configure required targets and credentials on your own machine.
 
 VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 16 MCP tools, domain-focused and lightweight.
 
 > Split from vmware-aiops for lighter context and local model compatibility.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 MCP uses local stdio by default. Opt-in HTTPS opens the configured listener and requires TLS plus caller authentication; it is a network service, not a local-only mode. Credential examples create owner-only placeholder files without overwriting existing files; edit secrets locally.
 
 Container examples build a local version-tagged image and run it with `--pull=never`, avoiding registry fallback. A local version tag is not an immutable image digest.
 
-## Upgrading to 2.0
+Full agent instructions: [`skills/vmware-storage/SKILL.md`](skills/vmware-storage/SKILL.md).
 
-2.0 renames 10 of its MCP tools (all but the four that already started with a verb) so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
-[RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first). Three tools also change a parameter: `browse_datastore` and `scan_datastore_images` take
-`datastore_name` (was `ds_name`, now the same as vmware-aiops' `browse_datastore`), and `list_all_datastores` gains an
-optional `limit` (same as vmware-monitor's). Everything else stays: same tools, safety gates and CLI commands (the CLI
-still takes the datastore name as before). If an agent prompt, script or `~/.vmware/rules.yaml` names a tool, update it — though deny
-rules written with the old names keep working with vmware-policy ≥ 1.18 (`vmware-audit policy` lists any rule the
-renames widened), and vmware-pilot ≥ 1.13 translates old names in saved workflows.
-If an install older than 2.0 shares that `rules.yaml`, give it vmware-policy ≥ 1.18.2 too: it matches each rule
-against both the old and the new name, so one file serves both.
+<a id="readme-quick-start"></a>
 
-## Companion Skills
+## Quick Start
 
-| Skill | Scope | Tools | Install |
-|-------|-------|:-----:|---------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** ⭐ entry point | VM lifecycle, deployment, guest ops, clusters | 49 | `uv tool install vmware-aiops` |
-| **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | Read-only monitoring, alarms, events, VM info | 27 | `uv tool install vmware-monitor` |
-| **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
-| **[vmware-nsx](https://github.com/vmware-skills/VMware-NSX)** | NSX networking: segments, gateways, NAT, IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
-| **[vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security)** | DFW microsegmentation, security groups, Traceflow | 21 | `uv tool install vmware-nsx-security` |
-| **[vmware-aria](https://github.com/vmware-skills/VMware-Aria)** | Aria Ops metrics, alerts, capacity planning | 28 | `uv tool install vmware-aria` |
+Requires Python `>=3.10` and `uv`.
 
-## Quick Install
+```bash
+uv tool install vmware-storage==2.6.1
+vmware-storage --help
+```
+
+Target, credential and local data setup: [setup guide](skills/vmware-storage/references/setup-guide.md).
+
+<details>
+<summary>Installation and configuration details (including offline setup)</summary>
+
+### Quick Install
 
 ```bash
 # Via PyPI
@@ -52,7 +55,8 @@ uv tool install vmware-storage==2.6.1
 pip install vmware-storage==2.6.1
 ```
 
-## Offline / Air-Gapped Install (from source)
+
+### Offline / Air-Gapped Install (from source)
 
 This project uses the modern PEP 517 build system (hatchling), so there is **no
 `setup.py`** by design — that is expected, not a missing file. If you cloned the
@@ -80,7 +84,8 @@ pip wheel . -w dist        # → dist/*.whl   (or: uv build, for just this packa
 pip install --no-index --find-links dist vmware-storage
 ```
 
-## Configuration
+
+### Configuration
 
 ```bash
 mkdir -p ~/.vmware-storage
@@ -102,85 +107,35 @@ vmware-storage doctor
 
 This writes placeholders only. Enter passwords or tokens using a local editor after creation; do not paste live credentials into terminal commands, chat or commits. If the file exists, the command refuses to overwrite it; edit the existing file after checking its permissions are `600`.
 
-## MCP Tools (16)
 
-| Category | Tools | Type |
-|----------|-------|------|
-| Datastore | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
-| iSCSI | `enable_iscsi`, `get_iscsi_status`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` | Read/Write |
-| vSAN | `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency` | Read |
-| FC / multipath | `list_fc_adapters`, `list_storage_device_paths` | Read |
-| Access | `get_access_info` — which account the server uses and whether it holds each tool's vSphere privileges (root folder) | Read |
+</details>
 
-## Auto-Remediation Patterns (PoC)
+<a id="readme-mcp-configuration"></a>
 
-The [`patterns/`](patterns/) directory hosts L5 auto-remediation candidate patterns from the Enterprise Harness Engineering framework. The first PoC pattern, [`patterns/iscsi-target-stale-rescan.yaml`](patterns/iscsi-target-stale-rescan.yaml), describes an iSCSI HBA rescan as a low-risk, reversible, repeatable operation. The pattern schema is documented here only — runtime enforcement is **not yet wired up**, so this is a reference design, not production auto-remediation.
+## MCP Configuration
 
-## Common Workflows
+Copy this configuration into your MCP client's local stdio settings. The client must be able to find `uvx`; the initial package installation requires access to a package index.
 
-### Set Up iSCSI Storage on a Host
-
-1. Enable iSCSI adapter: `vmware-storage iscsi enable esxi-01`
-2. Add target: `vmware-storage iscsi add-target esxi-01 10.0.0.100`
-3. Verify: `vmware-storage iscsi status esxi-01`
-
-The `add-target` command automatically rescans storage. Use `--dry-run` to preview any write command first.
-
-### Find Deployable Images Across Datastores
-
-For scripts, add `--json` to `datastore list`, `datastore browse`, or
-`datastore scan-images`. Successful output is the complete result envelope,
-including `items`, counts, truncation and any cache note. Without the flag,
-list keeps its table and browse/scan-images keep their legacy JSON arrays.
-Other read commands already output JSON by default. Failures still exit nonzero
-with the existing CLI error message.
-
-1. List all datastores: `vmware-storage datastore list`
-2. Scan for images: `vmware-storage datastore scan-images datastore01`
-3. Browse with a pattern: `vmware-storage datastore browse datastore01 --pattern "*.iso"`
-
-### vSAN Health Assessment
-
-1. Check health: `vmware-storage vsan health Cluster-Prod`
-2. Check capacity: `vmware-storage vsan capacity Cluster-Prod`
-3. If issues found, investigate with `vmware-monitor` for alarms and events
-
-### Check Fibre Channel Paths
-
-1. Dead or disabled paths behind a datastore: `vmware-storage paths devices --datastore ds-fc-01`
-2. Hosts that see a shared device through a different number of paths than their peers, or not at all: `vmware-storage paths devices --cluster Cluster-Prod --only-differences`
-3. WWPNs for the SAN team: `vmware-storage paths fc-adapters --cluster Cluster-Prod`
-
-Hosts that could not be read are listed in `hosts_not_read` and are never reported as missing a device. Path states are reported as vSphere reports them — `standby` is not flagged.
-
-## CLI
-
-```bash
-# Datastore
-vmware-storage datastore list
-vmware-storage datastore browse datastore01
-vmware-storage datastore scan-images datastore01
-
-# iSCSI
-vmware-storage iscsi status esxi-01
-vmware-storage iscsi enable esxi-01
-vmware-storage iscsi add-target esxi-01 192.168.1.100
-vmware-storage iscsi remove-target esxi-01 192.168.1.100
-vmware-storage iscsi rescan esxi-01
-
-# vSAN
-vmware-storage vsan health Cluster-Prod
-vmware-storage vsan capacity Cluster-Prod
-
-# Fibre Channel / multipath (read-only)
-vmware-storage paths fc-adapters --cluster Cluster-Prod
-vmware-storage paths devices --datastore ds-fc-01
-
-# Diagnostics
-vmware-storage doctor
+```json
+{
+  "mcpServers": {
+    "vmware-storage": {
+      "command": "uvx",
+      "args": ["--from", "vmware-storage==2.6.1", "vmware-storage-mcp"],
+      "env": {
+        "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
+      }
+    }
+  }
+}
 ```
 
-## MCP Server
+The following sections retain preinstalled CLI alternatives and product-specific MCP options.
+
+<details>
+<summary>Preinstalled CLI and additional MCP options</summary>
+
+### MCP Server
 
 **After `uv tool install vmware-storage==2.6.1`, start the MCP server with one command** (v1.5.15+):
 
@@ -195,7 +150,7 @@ VMWARE_STORAGE_CONFIG=/path/to/config.yaml vmware-storage mcp
 docker compose up -d
 ```
 
-### Agent Configuration
+#### Agent Configuration
 
 Add to your AI agent's MCP config:
 
@@ -229,34 +184,96 @@ vmware-storage-mcp
 
 </details>
 
-## Why a Separate Skill?
 
-`vmware-aiops` has 61 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
+</details>
 
-- **16 tools** — fits comfortably in small model context windows
-- **Domain-focused** — storage admins get only what they need
-- **Least privilege** — can run under a vCenter service account with storage read-only permissions
-- **Composable** — use alongside vmware-monitor or vmware-aiops as needed
+<a id="readme-capabilities-and-workflows"></a>
 
-## Version Compatibility
+## Capabilities and Workflows
 
-**Python**: 3.10+ (since v1.5.27 — previously 3.11+). Tested on 3.10 / 3.11 / 3.12.
+### MCP Tools (16)
 
-| vSphere / VCF | Support | Notes |
-|---------|---------|-------|
-| VCF 9.1 / vSphere 9.1 | Full | Released 2026-05-12. pyVmomi+vSAN SDK `<10.0` works via SOAP. |
-| VCF 9.0 / vSphere 9.0 | Full | pyVmomi 8.0.3+ with bundled vSAN SDK connects to vSphere 9. |
-| 8.0 | Full | vSAN SDK built into pyVmomi 8.0.3+ |
-| 7.0 | Full | All storage APIs work |
-| 6.7 | Compatible | iSCSI + datastore features work; vSAN limited |
+| Category | Tools | Type |
+|----------|-------|------|
+| Datastore | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
+| iSCSI | `enable_iscsi`, `get_iscsi_status`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` | Read/Write |
+| vSAN | `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency` | Read |
+| FC / multipath | `list_fc_adapters`, `list_storage_device_paths` | Read |
+| Access | `get_access_info` — which account the server uses and whether it holds each tool's vSphere privileges (root folder) | Read |
 
-#### Official Broadcom References
+### Auto-Remediation Patterns (PoC)
 
-- **SDKs**: <https://developer.broadcom.com/sdks> — VCF Python SDK, vSAN Management SDK (bundled in pyVmomi)
-- **REST APIs**: <https://developer.broadcom.com/xapis> — vSAN Management API, VCF API
-- **CLI Tools**: <https://developer.broadcom.com/tools> — PowerCLI 9.1, ESXCLI
+The [`patterns/`](patterns/) directory hosts L5 auto-remediation candidate patterns from the Enterprise Harness Engineering framework. The first PoC pattern, [`patterns/iscsi-target-stale-rescan.yaml`](patterns/iscsi-target-stale-rescan.yaml), describes an iSCSI HBA rescan as a low-risk, reversible, repeatable operation. The pattern schema is documented here only — runtime enforcement is **not yet wired up**, so this is a reference design, not production auto-remediation.
 
-## Safety
+### Common Workflows
+
+#### Set Up iSCSI Storage on a Host
+
+1. Enable iSCSI adapter: `vmware-storage iscsi enable esxi-01`
+2. Add target: `vmware-storage iscsi add-target esxi-01 10.0.0.100`
+3. Verify: `vmware-storage iscsi status esxi-01`
+
+The `add-target` command automatically rescans storage. Use `--dry-run` to preview any write command first.
+
+#### Find Deployable Images Across Datastores
+
+For scripts, add `--json` to `datastore list`, `datastore browse`, or
+`datastore scan-images`. Successful output is the complete result envelope,
+including `items`, counts, truncation and any cache note. Without the flag,
+list keeps its table and browse/scan-images keep their legacy JSON arrays.
+Other read commands already output JSON by default. Failures still exit nonzero
+with the existing CLI error message.
+
+1. List all datastores: `vmware-storage datastore list`
+2. Scan for images: `vmware-storage datastore scan-images datastore01`
+3. Browse with a pattern: `vmware-storage datastore browse datastore01 --pattern "*.iso"`
+
+#### vSAN Health Assessment
+
+1. Check health: `vmware-storage vsan health Cluster-Prod`
+2. Check capacity: `vmware-storage vsan capacity Cluster-Prod`
+3. If issues found, investigate with `vmware-monitor` for alarms and events
+
+#### Check Fibre Channel Paths
+
+1. Dead or disabled paths behind a datastore: `vmware-storage paths devices --datastore ds-fc-01`
+2. Hosts that see a shared device through a different number of paths than their peers, or not at all: `vmware-storage paths devices --cluster Cluster-Prod --only-differences`
+3. WWPNs for the SAN team: `vmware-storage paths fc-adapters --cluster Cluster-Prod`
+
+Hosts that could not be read are listed in `hosts_not_read` and are never reported as missing a device. Path states are reported as vSphere reports them — `standby` is not flagged.
+
+### CLI
+
+```bash
+# Datastore
+vmware-storage datastore list
+vmware-storage datastore browse datastore01
+vmware-storage datastore scan-images datastore01
+
+# iSCSI
+vmware-storage iscsi status esxi-01
+vmware-storage iscsi enable esxi-01
+vmware-storage iscsi add-target esxi-01 192.168.1.100
+vmware-storage iscsi remove-target esxi-01 192.168.1.100
+vmware-storage iscsi rescan esxi-01
+
+# vSAN
+vmware-storage vsan health Cluster-Prod
+vmware-storage vsan capacity Cluster-Prod
+
+# Fibre Channel / multipath (read-only)
+vmware-storage paths fc-adapters --cluster Cluster-Prod
+vmware-storage paths devices --datastore ds-fc-01
+
+# Diagnostics
+vmware-storage doctor
+```
+
+<a id="readme-safety-and-audit"></a>
+
+## Safety and Audit
+
+### Safety
 
 | Feature | Description |
 |---------|-------------|
@@ -267,21 +284,7 @@ vmware-storage-mcp
 | No VM operations | Cannot create, delete, or modify VMs |
 | Credential safety | Passwords only from environment variables, never config files |
 
-## Troubleshooting
-
-| Problem | Cause & Fix |
-|---------|-------------|
-| iSCSI enable fails with "already enabled" | Not an error — adapter is already active. Run `iscsi status` to see configured targets. |
-| "Datastore not found" when browsing | Datastore names are **case-sensitive**. Run `datastore list` to get the exact name. |
-| `get_vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
-| Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
-| "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
-| `doctor` fails with "no vSphere role", or every command fails with "session is not authenticated" | The login works but the account has no vSphere role. Assign one (Read-Only or higher) on the vCenter root folder (Administration > Access Control > Global Permissions). Mid-run, the same fault can be an expired session: run the command again. |
-| Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |
-| "Datastore browse did not finish within Ns" | The datastore is very large or busy. Narrow the search with a sub-path and a specific pattern (e.g. `datastore browse ds01 --path templates --pattern "*.ova"`) instead of browsing the root — do not just retry the same broad browse. |
-
-<!-- usage: remote-and-exposure -->
-## Remote access (HTTPS) and limiting tools
+### Remote access (HTTPS) and limiting tools
 
 By default `vmware-storage mcp` speaks stdio to one local client and offers every tool. Two options change that
 (vmware-policy ≥ 1.21.0).
@@ -343,6 +346,91 @@ Tools not offered do not appear in the client's tool list. A bad value or an unk
 least-privilege.
 
 Details: `skills/vmware-storage/references/setup-guide.md` ("Serving MCP over HTTPS", "Limiting which tools are offered").
+
+<a id="readme-troubleshooting"></a>
+
+## Troubleshooting
+
+### Troubleshooting
+
+| Problem | Cause & Fix |
+|---------|-------------|
+| iSCSI enable fails with "already enabled" | Not an error — adapter is already active. Run `iscsi status` to see configured targets. |
+| "Datastore not found" when browsing | Datastore names are **case-sensitive**. Run `datastore list` to get the exact name. |
+| `get_vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
+| Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
+| "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
+| `doctor` fails with "no vSphere role", or every command fails with "session is not authenticated" | The login works but the account has no vSphere role. Assign one (Read-Only or higher) on the vCenter root folder (Administration > Access Control > Global Permissions). Mid-run, the same fault can be an expired session: run the command again. |
+| Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |
+| "Datastore browse did not finish within Ns" | The datastore is very large or busy. Narrow the search with a sub-path and a specific pattern (e.g. `datastore browse ds01 --path templates --pattern "*.ova"`) instead of browsing the root — do not just retry the same broad browse. |
+
+<!-- usage: remote-and-exposure -->
+
+<a id="readme-companion-skills"></a>
+
+## Companion Skills
+
+The VMware Skills family contains 14 MCP servers and the shared Policy library. Choose tools by responsibility: [vmware-skills](https://github.com/vmware-skills).
+
+### Companion Skills
+
+| Skill | Scope | Tools | Install |
+|-------|-------|:-----:|---------|
+| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** ⭐ entry point | VM lifecycle, deployment, guest ops, clusters | 49 | `uv tool install vmware-aiops` |
+| **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | Read-only monitoring, alarms, events, VM info | 27 | `uv tool install vmware-monitor` |
+| **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
+| **[vmware-nsx](https://github.com/vmware-skills/VMware-NSX)** | NSX networking: segments, gateways, NAT, IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
+| **[vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security)** | DFW microsegmentation, security groups, Traceflow | 21 | `uv tool install vmware-nsx-security` |
+| **[vmware-aria](https://github.com/vmware-skills/VMware-Aria)** | Aria Ops metrics, alerts, capacity planning | 28 | `uv tool install vmware-aria` |
+
+<a id="readme-reference"></a>
+
+## Reference
+
+Release history: [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
+Read-only self-test with your own model and agent host: [model-fit self-test](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md).
+
+### Upgrading to 2.0
+
+2.0 renames 10 of its MCP tools (all but the four that already started with a verb) so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
+[RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first). Three tools also change a parameter: `browse_datastore` and `scan_datastore_images` take
+`datastore_name` (was `ds_name`, now the same as vmware-aiops' `browse_datastore`), and `list_all_datastores` gains an
+optional `limit` (same as vmware-monitor's). Everything else stays: same tools, safety gates and CLI commands (the CLI
+still takes the datastore name as before). If an agent prompt, script or `~/.vmware/rules.yaml` names a tool, update it — though deny
+rules written with the old names keep working with vmware-policy ≥ 1.18 (`vmware-audit policy` lists any rule the
+renames widened), and vmware-pilot ≥ 1.13 translates old names in saved workflows.
+If an install older than 2.0 shares that `rules.yaml`, give it vmware-policy ≥ 1.18.2 too: it matches each rule
+against both the old and the new name, so one file serves both.
+
+### Why a Separate Skill?
+
+`vmware-aiops` has 61 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
+
+- **16 tools** — fits comfortably in small model context windows
+- **Domain-focused** — storage admins get only what they need
+- **Least privilege** — can run under a vCenter service account with storage read-only permissions
+- **Composable** — use alongside vmware-monitor or vmware-aiops as needed
+
+### Version Compatibility
+
+**Python**: 3.10+ (since v1.5.27 — previously 3.11+). Tested on 3.10 / 3.11 / 3.12.
+
+| vSphere / VCF | Support | Notes |
+|---------|---------|-------|
+| VCF 9.1 / vSphere 9.1 | Full | Released 2026-05-12. pyVmomi+vSAN SDK `<10.0` works via SOAP. |
+| VCF 9.0 / vSphere 9.0 | Full | pyVmomi 8.0.3+ with bundled vSAN SDK connects to vSphere 9. |
+| 8.0 | Full | vSAN SDK built into pyVmomi 8.0.3+ |
+| 7.0 | Full | All storage APIs work |
+| 6.7 | Compatible | iSCSI + datastore features work; vSAN limited |
+
+##### Official Broadcom References
+
+- **SDKs**: <https://developer.broadcom.com/sdks> — VCF Python SDK, vSAN Management SDK (bundled in pyVmomi)
+- **REST APIs**: <https://developer.broadcom.com/xapis> — vSAN Management API, VCF API
+- **CLI Tools**: <https://developer.broadcom.com/tools> — PowerCLI 9.1, ESXCLI
+
+<a id="readme-license"></a>
 
 ## License
 
