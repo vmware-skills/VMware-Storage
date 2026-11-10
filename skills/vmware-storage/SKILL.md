@@ -42,7 +42,7 @@ VMware vSphere storage management — 16 MCP tools for datastores, iSCSI, vSAN, 
 ## Quick Install
 
 ```bash
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 vmware-storage init      # guided setup: writes config + .env (chmod 600, password grep-safe), then verifies
 vmware-storage doctor
 ```
@@ -274,7 +274,7 @@ Corporate TLS proxies inject certificates that uv's bundled CA store doesn't tru
 ## Setup
 
 ```bash
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 mkdir -p ~/.vmware-storage
 cp config.example.yaml ~/.vmware-storage/config.yaml
 # Edit config.yaml with your vCenter/ESXi targets

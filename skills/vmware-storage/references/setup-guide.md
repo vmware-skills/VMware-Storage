@@ -13,19 +13,19 @@ Complete setup and security guide for `vmware-storage`.
 ### Via uv (recommended)
 
 ```bash
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 ```
 
 ### Via pip
 
 ```bash
-pip install vmware-storage==2.6.1
+pip install vmware-storage==2.6.2
 ```
 
 ### From source
 
 ```bash
-git clone --branch v2.6.1 https://github.com/vmware-skills/VMware-Storage.git
+git clone --branch v2.6.2 https://github.com/vmware-skills/VMware-Storage.git
 cd VMware-Storage
 pip install -e .
 ```
@@ -149,7 +149,7 @@ Add to your MCP config (`~/.claude.json` or Claude Desktop settings):
 ```
 
 > v1.5.15+ recommends the single-command form `vmware-storage mcp`. Pre-1.5.15 used
-> `uvx --from vmware-storage==2.6.1 vmware-storage-mcp`, which still works but re-resolves from
+> `uvx --from vmware-storage==2.6.2 vmware-storage-mcp`, which still works but re-resolves from
 > PyPI on each launch and breaks behind corporate TLS proxies. The legacy
 > `vmware-storage-mcp` entry point is also kept for backward compatibility.
 
@@ -177,11 +177,11 @@ docker compose up -d
 Or build and run locally from the checked-out release source:
 
 ```bash
-docker build -t vmware-storage:2.6.1 .
+docker build -t vmware-storage:2.6.2 .
 docker run --pull=never -d \
   -v ~/.vmware-storage:/root/.vmware-storage:ro \
   -e VMWARE_STORAGE_CONFIG=/root/.vmware-storage/config.yaml \
-  vmware-storage:2.6.1
+  vmware-storage:2.6.2
 ```
 
 These commands run the image built locally above; `--pull=never` prevents a missing local image from falling back to a registry. The version tag identifies this build, not an immutable digest.

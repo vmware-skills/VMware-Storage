@@ -36,7 +36,7 @@ Full agent instructions: [`skills/vmware-storage/SKILL.md`](skills/vmware-storag
 Requires Python `>=3.10` and `uv`.
 
 ```bash
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 vmware-storage --help
 ```
 
@@ -49,10 +49,10 @@ Target, credential and local data setup: [setup guide](skills/vmware-storage/ref
 
 ```bash
 # Via PyPI
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 
 # Or pip
-pip install vmware-storage==2.6.1
+pip install vmware-storage==2.6.2
 ```
 
 
@@ -121,7 +121,7 @@ Copy this configuration into your MCP client's local stdio settings. The client 
   "mcpServers": {
     "vmware-storage": {
       "command": "uvx",
-      "args": ["--from", "vmware-storage==2.6.1", "vmware-storage-mcp"],
+      "args": ["--from", "vmware-storage==2.6.2", "vmware-storage-mcp"],
       "env": {
         "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
       }
@@ -137,7 +137,7 @@ The following sections retain preinstalled CLI alternatives and product-specific
 
 ### MCP Server
 
-**After `uv tool install vmware-storage==2.6.1`, start the MCP server with one command** (v1.5.15+):
+**After `uv tool install vmware-storage==2.6.2`, start the MCP server with one command** (v1.5.15+):
 
 ```bash
 # Recommended — single command, no network re-resolve
@@ -173,7 +173,7 @@ Add to your AI agent's MCP config:
 
 ```bash
 # Run without installing (requires PyPI access each launch)
-uvx --from vmware-storage==2.6.1 vmware-storage mcp
+uvx --from vmware-storage==2.6.2 vmware-storage mcp
 
 # Legacy entry point (still works, kept for backward compatibility)
 vmware-storage-mcp
@@ -435,3 +435,7 @@ against both the old and the new name, so one file serves both.
 ## License
 
 [MIT](LICENSE)
+
+MCP safety annotations are client hints, not enforced prompts or proof of
+independent human approval. Use the tool's actual preview/confirm contract and
+existing Policy/RBAC controls. Read-only inventory may still be sensitive.

@@ -10,13 +10,13 @@ Each operation is classified by autonomy level per the Enterprise Harness Engine
 |:-:|---|---|---|
 | **L1** | Read-only, raw data | Always auto-run | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images`, `get_iscsi_status`, vSAN status queries |
 | **L2** | Read + analysis / recommendation | Always auto-run | datastore capacity analysis, image registry queries, iSCSI target health correlation |
-| **L3** | Single write — user must approve | Only after explicit confirmation; high-risk ops require double-confirm + `--dry-run` (see Confirm column) | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`, vSAN cluster ops |
+| **L3** | Single write — user must approve | Authorized request; MCP previews until `confirm=true`; CLI destructive confirmation is separate | `enable_iscsi`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` |
 | **L4** | Multi-step plan / apply workflow | Plan generation auto; apply gated by user approval | *(roadmap — multi-host iSCSI rollout, vSAN expansion plans)* |
 | **L5** | Auto-remediation from learned pattern | Pattern library only; requires `risk:low` + `reversible:true` + `repeatable:true` + signed approval | **PoC pattern (v1.5.16+)**: [`patterns/iscsi-target-stale-rescan.yaml`](../../../patterns/iscsi-target-stale-rescan.yaml) — scans for stale iSCSI devices (`devices_inaccessible_count > 0`, missing expected devices, or `last_rescan_age_minutes > 60`); action: invoke `rescan_storage` on the affected `(host, target)`; classified low-risk because the rescan is idempotent and non-destructive (no data, config, or VM state is modified). Schema only — **not yet enforced by the runtime**. |
 
 **Notes**:
-- L1/L2 tools are always safe for agents to call without confirmation.
-- L3 tools always pass through the `@vmware_tool` decorator: connection check → policy check → audit log → double-confirm.
+- L1/L2 are infrastructure reads under the configured account; Policy, RBAC and audit still apply. Read access may reveal sensitive inventory.
+- L3 tools always pass through the `@vmware_tool` decorator: Policy and audit apply to every call. All four MCP writes default to a no-change preview until `confirm=true`; CLI destructive commands separately double-confirm. A model-supplied confirm flag is not proof of independent human approval.
 - L5 PoC pattern (`patterns/iscsi-target-stale-rescan.yaml`, v1.5.16+) is a **reference design**: it documents the candidate trigger / action / validation / circuit-breaker shape under `schema_version: 1` (see [vmware-policy auto-remediation pattern docs](https://github.com/vmware-skills/VMware-Policy/blob/main/docs/auto-remediation-patterns.md)). The pattern is `approval.status: poc_unsigned` and will only become live after `success_count_required: 5` + `failure_count_max: 0` + `distinct_operators_required: 2` + `days_observed: 90` are met and the pattern is signed.
 
 ## Datastore (4 tools)

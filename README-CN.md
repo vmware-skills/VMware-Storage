@@ -36,7 +36,7 @@ MCP 默认使用本地 stdio。启用可选 HTTPS 后会打开配置的监听端
 需要 Python `>=3.10` 和 `uv`。
 
 ```bash
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 vmware-storage --help
 ```
 
@@ -49,10 +49,10 @@ vmware-storage --help
 
 ```bash
 # 通过 PyPI
-uv tool install vmware-storage==2.6.1
+uv tool install vmware-storage==2.6.2
 
 # 或 pip
-pip install vmware-storage==2.6.1
+pip install vmware-storage==2.6.2
 ```
 
 
@@ -136,7 +136,7 @@ targets:
   "mcpServers": {
     "vmware-storage": {
       "command": "uvx",
-      "args": ["--from", "vmware-storage==2.6.1", "vmware-storage-mcp"],
+      "args": ["--from", "vmware-storage==2.6.2", "vmware-storage-mcp"],
       "env": {
         "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
       }
@@ -152,7 +152,7 @@ targets:
 
 ### MCP Server
 
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage==2.6.1` 后，**一条命令启动 MCP**：
+**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage==2.6.2` 后，**一条命令启动 MCP**：
 
 ```bash
 # 推荐 — 单命令，无网络依赖
@@ -188,7 +188,7 @@ docker compose up -d
 
 ```bash
 # 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-storage==2.6.1 vmware-storage mcp
+uvx --from vmware-storage==2.6.2 vmware-storage mcp
 
 # 旧 entry point（仍可用，向后兼容）
 vmware-storage-mcp
@@ -465,3 +465,6 @@ vmware-policy ≥ 1.18 下仍然生效（`vmware-audit policy` 会列出因改�
 ## 许可证
 
 [MIT](LICENSE)
+
+MCP 安全标注是客户端提示，不是强制弹窗，也不能证明独立的人类审批。应以工具
+实际的预览/确认契约及既有 Policy/RBAC 为准；只读库存也可能包含敏感信息。
