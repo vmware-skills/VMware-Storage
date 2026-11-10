@@ -1,6 +1,6 @@
 {
   "name": "@zw008/vmware-storage",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "description": "VMware vSphere storage with 16 MCP tools: datastores, iSCSI, vSAN, FC multipath.",
   "private": true,
   "license": "MIT",

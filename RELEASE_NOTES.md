@@ -11,6 +11,14 @@ Add the root Gemini CLI extension manifest and discovery metadata, using the exi
 
 Runtime infrastructure operations, permissions, TLS defaults and confirmation behavior are unchanged. No new vSphere/VCF 9.x or live product compatibility is claimed. ClawHub skill and bundle verdicts are checked separately after publication; documentation corrections are not a clean-scan claim.
 
+## v2.6.2 (2026-11-10) — Split MCP registrations with shared state
+
+Separate datastore and storage tool registration groups while preserving the original facade, shared connection/Policy/error state, metadata/order and confirmation gates. Extend structural CLI-write guard checks to extracted registrations and runtime delegation; retain positive controls.
+
+Validation: existing suites, complete CLI/MCP surface comparison, structural guard checks and security scanning; exact results are retained in the private release record. Live 9.1/Supervisor, PAIS, NSX and Horizon validation is not established by synthetic tests.
+
+中文：本轮修复和重构范围见上述说明；保留既有 Policy、审计及确认门。合成测试不代表 9.1/Supervisor、PAIS、NSX 或 Horizon 正向真机验证。
+
 ## v2.6.0 — complete datastore CLI JSON envelopes (2026-11-08)
 
 * Update public author/project contact metadata to `zhouwei008@gmail.com`.

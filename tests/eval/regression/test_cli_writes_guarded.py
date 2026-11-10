@@ -80,6 +80,12 @@ def _ops_calls(node: ast.AST, func_map: dict[str, str], mods: set[str]) -> set[s
         f = c.func
         if isinstance(f, ast.Name) and f.id in func_map:
             out.add(func_map[f.id])
+        elif isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and f.value.id == "runtime" and f.attr in func_map:
+            out.add(func_map[f.attr])
+        elif (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Attribute)
+              and isinstance(f.value.value, ast.Name) and f.value.value.id == "runtime"
+              and f.value.attr in mods):
+            out.add(f.attr)
         elif (
             isinstance(f, ast.Attribute)
             and isinstance(f.value, ast.Name)
@@ -91,15 +97,22 @@ def _ops_calls(node: ast.AST, func_map: dict[str, str], mods: set[str]) -> set[s
 
 def _write_ops() -> frozenset[str]:
     targets = _write_tool_names()
+    assert targets, "no write tools — vacuous"
+    # Include registration modules; the public server is now a facade.
+    server = TOOLS_SRC
+    paths = sorted(server.parent.rglob("*.py"))
+    assert paths, "no MCP source files"
+    tree = ast.Module(body=[n for path in paths
+                           for n in ast.parse(path.read_text(encoding="utf-8")).body],
+                      type_ignores=[])
+    func_map, mods = _ops_refs(tree)
+    found = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    assert targets <= found, f"write tool sources were not scanned: {targets - found}"
     ops: set[str] = set()
-    for path in _pyfiles(TOOLS_SRC):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        func_map, mods = _ops_refs(tree)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name in targets:
-                ops |= _ops_calls(node, func_map, mods)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in targets:
+            ops |= _ops_calls(node, func_map, mods)
     return frozenset(ops)
-
 
 def _decorator_names(node: ast.FunctionDef) -> set[str]:
     names: set[str] = set()
@@ -171,16 +184,21 @@ def test_high_blast_radius_commands_are_derived_and_guarded():
 
 
 def _op_to_mcp_tools() -> dict[str, set[str]]:
-    """Write ops function -> the MCP write tools whose body calls it."""
+    """Map all registered write sources, including shared runtime delegation."""
     targets = _write_tool_names()
+    paths = sorted(TOOLS_SRC.parent.rglob("*.py"))
+    assert paths
+    tree = ast.Module(body=[n for path in paths
+                           for n in ast.parse(path.read_text(encoding="utf-8")).body],
+                      type_ignores=[])
+    func_map, mods = _ops_refs(tree)
+    found = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    assert targets <= found, f"write tool sources missing: {targets - found}"
     out: dict[str, set[str]] = {}
-    for path in _pyfiles(TOOLS_SRC):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        func_map, mods = _ops_refs(tree)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name in targets:
-                for op in _ops_calls(node, func_map, mods):
-                    out.setdefault(op, set()).add(node.name)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name in targets:
+            for op in _ops_calls(node, func_map, mods):
+                out.setdefault(op, set()).add(node.name)
     return out
 
 
@@ -255,3 +273,9 @@ def test_guarded_cli_writes_carry_their_mcp_tool_name():
         "MCP tool, so one deny rule does not scope both surfaces — pass the MCP "
         "tool name to @guarded(...): " + "; ".join(mismatched)
     )
+
+
+def test_shared_runtime_delegation_is_not_invisible_to_the_write_scan():
+    """Mutation/control: an unsafe op moved behind runtime must remain visible."""
+    tree = ast.parse("def write():\n    runtime._op()\n    runtime.ops.remove()\n")
+    assert _ops_calls(tree, {"_op": "destroy"}, {"ops"}) == {"destroy", "remove"}
