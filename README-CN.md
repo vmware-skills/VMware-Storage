@@ -1,470 +1,63 @@
 <!-- mcp-name: io.github.vmware-skills/vmware-storage -->
 
-# VMware Storage
-
-[![PyPI](https://img.shields.io/pypi/v/vmware-storage)](https://pypi.org/project/vmware-storage/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](#readme-license)
-
-[English](README.md) | 中文
-
-维护者: Wei Zhou · [zhouwei008@gmail.com](mailto:zhouwei008@gmail.com)
-
-社区维护的开源项目，非 VMware 或 Broadcom 官方产品。
-
-[概述](#readme-overview) · [快速开始](#readme-quick-start) · [MCP 配置](#readme-mcp-configuration) · [能力与工作流](#readme-capabilities-and-workflows) · [安全与审计](#readme-safety-and-audit) · [故障排查](#readme-troubleshooting) · [配套 Skills](#readme-companion-skills) · [参考资料](#readme-reference) · [许可证](#readme-license)
+# VMware-Storage
 
 <a id="readme-overview"></a>
 
-## 概述
+先看清数据存储容量与路径，再决定变更。
 
-默认通过本地 Stdio 运行；请在本机配置所需目标和凭据。
+[English](README.md) · 简体中文
 
-VMware vSphere 存储管理：数据存储、iSCSI、vSAN，以及只读的光纤通道（FC）/ 多路径诊断 — 16 个 MCP 工具，领域专注、轻量级。
+社区维护 · MIT 开源 · 非 VMware/Broadcom 官方产品。
 
-> 从 vmware-aiops 拆分，更轻量的上下文，兼容本地小模型。
+[![18 秒调查示意演示](https://raw.githubusercontent.com/vmware-skills/marketplace/main/assets/demos/vmware-skills-zh.gif)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4)
 
+使用合成数据的示意动画，非实时录屏。[观看家族 AI 配音介绍（约 2 分钟）](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-zh.mp4)
 
-MCP 默认使用本地 stdio。启用可选 HTTPS 后会打开配置的监听端口，并要求 TLS 与调用者认证；此时属于网络服务。凭据示例先创建仅当前用户可读写的占位文件，拒绝覆盖已有文件，再由用户在本地编辑秘密值。
+<a id="readme-capabilities-and-workflows"></a>
 
-容器示例先在本地构建带版本标签的镜像，再用 `--pull=never` 运行，避免回退到镜像仓库拉取。本地版本标签不等于不可变的镜像摘要。
+## 能解决什么问题？
 
-完整的 Agent 指令见 [`skills/vmware-storage/SKILL.md`](skills/vmware-storage/SKILL.md).
+- 调查数据存储、文件与部署镜像。
+- 读取容量、健康与 FC/设备路径证据。
+- 明确管理受支持的 iSCSI 配置。
 
 <a id="readme-quick-start"></a>
 
 ## 快速开始
 
-需要 Python `>=3.10` 和 `uv`。
+安装已发布 CLI，并查看可用命令：
 
-```bash
+```sh
 uv tool install vmware-storage==2.6.2
 vmware-storage --help
 ```
 
-目标、凭据和本地数据目录设置见 [setup guide](skills/vmware-storage/references/setup-guide.md).
+需要 uv 与 Python >=3.10。远程查询前，在本地配置目标与凭据。[配置指南](skills/vmware-storage/references/setup-guide.md)。
 
-<details>
-<summary>安装与配置详情（含离线安装）</summary>
-
-### 快速安装
-
-```bash
-# 通过 PyPI
-uv tool install vmware-storage==2.6.2
-
-# 或 pip
-pip install vmware-storage==2.6.2
-```
-
-
-### 离线 / 气隙环境安装（从源码）
-
-本项目采用现代 PEP 517 构建系统（hatchling），因此**故意不提供 `setup.py`**
-——这是预期行为，不是缺失文件。如果你克隆源码后遇到
-`ERROR: File "setup.py" or "setup.cfg" not found ... editable mode
-currently requires a setuptools-based build`，说明你的 `pip` 版本低于 21.3，
-无法对非 setuptools 后端做*可编辑*（`-e`）安装。可编辑模式只是开发便利，
-运行工具并不需要它——任选其一：
-
-```bash
-# 在源码树中——普通（非可编辑）安装会构建 wheel：
-pip install .              # 不是  pip install -e .
-
-# ……或先升级 pip，可编辑安装也能用：
-pip install --upgrade pip && pip install -e .
-```
-
-若目标是**完全气隙的主机**，在联网机器上构建 wheel 再拷贝过去
-——目标主机全程无需联网：
-
-```bash
-# 在联网机器上，把本包及其依赖收集为 wheel：
-pip wheel . -w dist        # → dist/*.whl   （或：uv build，仅构建本包）
-
-# 把 dist/ 拷到气隙主机，然后离线安装：
-pip install --no-index --find-links dist vmware-storage
-```
-
-
-### 配置
-
-```bash
-mkdir -p ~/.vmware-storage
-cp config.example.yaml ~/.vmware-storage/config.yaml
-# 编辑 config.yaml，填入 vCenter/ESXi 地址和用户名
-
-(
-  umask 077
-  set -C  # 拒绝覆盖已有文件；已有 .env 请直接用本地编辑器修改
-  cat > ~/.vmware-storage/.env <<'EOF'
-VMWARE_MY_VCENTER_PASSWORD=REPLACE_IN_LOCAL_EDITOR
-EOF
-)
-# 继续前，先用本地编辑器填写 .env；不要在终端命令中输入真实秘密值。
-
-# 验证环境
-vmware-storage doctor
-```
-
-模板只写入占位符。创建后用本地编辑器填写密码或令牌；不要把真实凭据粘贴到终端命令、聊天或提交中。若文件已存在，上述命令会拒绝覆盖；直接编辑现有文件并先确认权限为 `600`。
-
-#### config.yaml 示例
-
-```yaml
-default_target: vcenter1
-targets:
-  vcenter1:
-    host: 192.168.1.10       # vCenter IP
-    user: administrator@vsphere.local
-    password_env: VMWARE_VCENTER1_PASSWORD
-  esxi-prod:
-    host: 192.168.1.20       # 直连 ESXi
-    user: root
-    password_env: VMWARE_ESXIPROD_PASSWORD
-```
-
-
-</details>
-
-<a id="readme-mcp-configuration"></a>
-
-## MCP 配置
-
-将以下配置复制到 MCP 客户端的本地 Stdio 配置中。客户端需要能找到 `uvx`；首次安装所需包时需要访问包源。
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "uvx",
-      "args": ["--from", "vmware-storage==2.6.2", "vmware-storage-mcp"],
-      "env": {
-        "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
-      }
-    }
-  }
-}
-```
-
-以下保留预先安装 CLI 的用法及各工具特有的 MCP 选项。
-
-<details>
-<summary>预先安装的 CLI 与其他 MCP 选项</summary>
-
-### MCP Server
-
-**v1.5.15+ 推荐方式**：完成 `uv tool install vmware-storage==2.6.2` 后，**一条命令启动 MCP**：
-
-```bash
-# 推荐 — 单命令，无网络依赖
-vmware-storage mcp
-
-# 指定配置路径
-VMWARE_STORAGE_CONFIG=/path/to/config.yaml vmware-storage mcp
-
-# 或通过 Docker
-docker compose up -d
-```
-
-#### Agent 配置
-
-将以下内容添加到 AI Agent 的 MCP 配置文件：
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "vmware-storage",
-      "args": ["mcp"],
-      "env": {
-        "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
-      }
-    }
-  }
-}
-```
-
-<details>
-<summary>备选方案：uvx（不安装）或 legacy 入口</summary>
-
-```bash
-# 不想安装，临时运行（每次需要联网 resolve 依赖）
-uvx --from vmware-storage==2.6.2 vmware-storage mcp
-
-# 旧 entry point（仍可用，向后兼容）
-vmware-storage-mcp
-```
-
-> **公司 TLS 代理网络下？** uvx 可能报 `invalid peer certificate: UnknownIssuer`。
-> 推荐使用上面的 `vmware-storage mcp`（无需联网），或 `export UV_NATIVE_TLS=true`。
-
-</details>
-
-更多 Agent 配置模板（Claude Code、Cursor、Goose、Continue 等）见 [examples/mcp-configs/](examples/mcp-configs/)。
-
-
-</details>
-
-<a id="readme-capabilities-and-workflows"></a>
-
-## 能力与工作流
-
-### MCP 工具（16 个）
-
-| 类别 | 工具 | 类型 |
-|------|------|------|
-| 数据存储 | `list_all_datastores`、`get_datastore_vm_usage`、`browse_datastore`、`scan_datastore_images`、`list_cached_images` | 只读 |
-| iSCSI | `enable_iscsi`、`get_iscsi_status`、`add_iscsi_target`、`remove_iscsi_target`、`rescan_storage` | 读/写 |
-| vSAN | `get_vsan_health`、`get_vsan_capacity`、`get_vsan_efficiency` | 只读 |
-| FC / 多路径 | `list_fc_adapters`、`list_storage_device_paths` | 只读 |
-| 访问权限 | `get_access_info` — server 使用哪个账号，以及它在根文件夹上是否拥有各工具所需的 vSphere 权限 | 只读 |
-
-#### 工具说明
-
-**数据存储**
-- `list_all_datastores` — 列出所有数据存储，含容量、使用率、可达性
-- `get_datastore_vm_usage` — 一个数据存储上哪些虚拟机占得最多（实际占用 GB，从大到小），以及不属于任何虚拟机的空间
-- `browse_datastore` — 浏览数据存储目录下的文件（支持 glob 过滤）
-- `scan_datastore_images` — 扫描可部署镜像（OVA、ISO、OVF、VMDK）
-- `list_cached_images` — 查询本地镜像注册表（支持按类型/数据存储/target 过滤）
-
-**iSCSI**
-- `enable_iscsi` — 在 ESXi 主机上启用软件 iSCSI 适配器
-- `get_iscsi_status` — 查看 iSCSI 适配器状态和已配置的发送目标
-- `add_iscsi_target` — 添加 iSCSI 发送目标并自动重扫
-- `remove_iscsi_target` — 移除 iSCSI 发送目标并自动重扫
-- `rescan_storage` — 强制重扫所有 HBA 和 VMFS 卷
-
-**vSAN**
-- `get_vsan_health` — 获取 vSAN 集群健康摘要和磁盘组详情
-- `get_vsan_capacity` — 获取 vSAN 容量概览（总量/已用/空闲）
-- `get_vsan_efficiency` — 获取集群的 vSAN 数据效率（去重 + 压缩）状态
-
-**FC / 多路径（只读）**
-- `list_fc_adapters` — 按主机列出 FC / FCoE HBA：vmhba、型号、驱动、状态、端口类型、WWPN/WWNN、上报的速率
-- `list_storage_device_paths` — 在一个集群 / 主机 / 数据存储范围内，按设备（NAA）查看多路径状态：哪些主机看得到、各状态路径数、工作路径、适配器、PSP/SATP、所在 VMFS 数据存储
-
-### 自动修复模式（PoC）
-
-[`patterns/`](patterns/) 目录存放企业级 Harness Engineering 框架下的 L5 自动修复**候选**模式。首个 PoC 模式 [`patterns/iscsi-target-stale-rescan.yaml`](patterns/iscsi-target-stale-rescan.yaml) 描述了 iSCSI HBA 重扫这一低风险、可逆、可重复的操作。当前仅定义了模式 schema，**运行时尚未集成**，因此是参考设计，并非生产可用的自动修复。
-
-### 常见工作流
-
-#### 在主机上配置 iSCSI 存储
-
-1. 启用 iSCSI 适配器：`vmware-storage iscsi enable esxi-01`
-2. 添加目标：`vmware-storage iscsi add-target esxi-01 10.0.0.100`
-3. 验证：`vmware-storage iscsi status esxi-01`
-
-`add-target` 命令会自动重扫存储。任何写操作前可加 `--dry-run` 预览。
-
-#### 查找可部署镜像
-
-脚本可为 `datastore list`、`datastore browse`、`datastore scan-images` 添加 `--json`。
-成功时输出完整结果封装，保留 `items`、数量、截断状态及缓存提示。省略该选项时，list 仍为表格，
-browse/scan-images 仍为原有 JSON 数组。其他只读命令已默认输出 JSON；失败仍以非零退出码和现有 CLI 错误消息报告。
-
-1. 列出所有数据存储：`vmware-storage datastore list`
-2. 扫描镜像：`vmware-storage datastore scan-images datastore01`
-3. 按模式浏览：`vmware-storage datastore browse datastore01 --pattern "*.iso"`
-
-#### vSAN 健康评估
-
-1. 检查健康：`vmware-storage vsan health Cluster-Prod`
-2. 检查容量：`vmware-storage vsan capacity Cluster-Prod`
-3. 若发现问题，用 `vmware-monitor` 查看告警和事件
-
-#### 检查光纤通道路径
-
-1. 某个数据存储背后的 dead / disabled 路径：`vmware-storage paths devices --datastore ds-fc-01`
-2. 看某个共享设备的路径数与同伴主机不同、或根本看不到它的主机：`vmware-storage paths devices --cluster Cluster-Prod --only-differences`
-3. 给 SAN 团队的 WWPN：`vmware-storage paths fc-adapters --cluster Cluster-Prod`
-
-读不到的主机列在 `hosts_not_read` 中，绝不会被报成"缺设备"。路径状态按 vSphere 上报的原样给出——`standby` 不会被标为问题。
-
-### CLI
-
-```bash
-# 数据存储
-vmware-storage datastore list
-vmware-storage datastore browse datastore01
-vmware-storage datastore scan-images datastore01
-
-# iSCSI（破坏性操作有双重确认 + --dry-run 预览）
-vmware-storage iscsi status esxi-01
-vmware-storage iscsi enable esxi-01 --dry-run
-vmware-storage iscsi enable esxi-01
-vmware-storage iscsi add-target esxi-01 192.168.1.100 --dry-run
-vmware-storage iscsi add-target esxi-01 192.168.1.100
-vmware-storage iscsi remove-target esxi-01 192.168.1.100
-vmware-storage iscsi rescan esxi-01
-
-# vSAN
-vmware-storage vsan health Cluster-Prod
-vmware-storage vsan capacity Cluster-Prod
-
-# 光纤通道 / 多路径（只读）
-vmware-storage paths fc-adapters --cluster Cluster-Prod
-vmware-storage paths devices --datastore ds-fc-01
-
-# 环境诊断
-vmware-storage doctor
-```
+Claude Code 及其他宿主安装方式见[家族门户](https://github.com/vmware-skills/marketplace/blob/main/README-CN.md)。
 
 <a id="readme-safety-and-audit"></a>
 
-## 安全与审计
+## 使用边界
 
-### 安全
+包含 iSCSI 配置写操作。清单与路径证据不能证明未测量的历史趋势或所有阵列兼容性。
 
-| 功能 | 说明 |
-|------|------|
-| 只读为主 | 16 个工具中 12 个只读 |
-| 默认只预览（MCP） | 4 个写工具接受 `confirm`（默认 `false`）：不带它的调用不做任何变更，只返回 `blast_radius`（主机、适配器；移除目标时还有该目标背后的路径、设备和数据存储）。某个数据存储会失去全部路径、或影响范围有任何部分读不到时，`confirm=true` 会被拒绝。旧的 `dry_run` 别名已在 2.4.3 移除，仍传它会被当作未知参数拒绝 |
-| 输入验证 | iSCSI 操作前验证 IP 地址和端口 |
-| 审计日志 | 所有操作记录到 `~/.vmware-storage/audit.log`（JSON Lines） |
-| 双重确认 | CLI iSCSI 写操作需两次确认 |
-| --dry-run | CLI iSCSI 写操作支持预览模式 |
-| 无 VM 操作 | 无法创建、删除或修改 VM |
-| 凭据安全 | 密码只从环境变量读取，不存于配置文件 |
-| Prompt 注入防护 | 来自 vSphere 的文件名和路径经过控制字符清理 |
-| TLS 说明 | 默认对 ESXi 自签名证书禁用 TLS 验证；生产环境建议启用 |
+<a id="readme-mcp-configuration"></a> <a id="readme-troubleshooting"></a> <a id="readme-reference"></a>
 
-### 远程访问（HTTPS）与限制工具
+## 详细文档
 
-默认情况下 `vmware-storage mcp` 通过 stdio 服务一个本地客户端，并提供全部工具。以下两个选项可以改变这一点
-（需 vmware-policy ≥ 1.21.0）。
-
-**通过 HTTPS 提供服务**，让其他机器上的客户端连接。每个调用者都需要一个 bearer token：
-
-```bash
-vmware-audit token create alice          # 只显示一次，交给 alice
-vmware-audit token list                  # 只列名字
-vmware-audit token revoke alice          # 下一个请求起即拒绝，无需重启
-vmware-storage mcp --transport https --host 0.0.0.0 --port 8443 \
-    --cert /etc/vmware-mcp/server.pem --key /etc/vmware-mcp/server-key.pem \
-    --public-name mcp.example.com
-```
-
-连接客户端（以 Claude Code 为例；任何支持 streamable HTTP 和自定义请求头的 MCP 客户端都可以）：
-
-```bash
-claude mcp add --transport http vmware-storage https://mcp.example.com:8443/mcp \
-    --header "Authorization: Bearer $VMWARE_MCP_TOKEN"
-```
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "type": "http",
-      "url": "https://mcp.example.com:8443/mcp",
-      "headers": { "Authorization": "Bearer ${VMWARE_MCP_TOKEN}" }
-    }
-  }
-}
-```
-
-- 没有 token 时服务不会启动；`--public-name` 之外的 Host/Origin 一律拒绝；绑定端口前会自检，确认未认证请求得到 401。
-  证书要用客户端信任、且覆盖这些名字的证书。
-- 在同一台机器上由反向代理终结 TLS 时，用 `--transport http --host 127.0.0.1 --public-name mcp.example.com`，
-  并让代理透传 `Authorization` 头。
-- 负载均衡或网关在另一台机器上时，保持 `--transport https`（自签证书也可以），在 `--public-name` 里写上负载均衡
-  转发时带的 `Host` 名，并让它透传 `Authorization`。健康检查可以用 `GET /healthz`：不需要 token，只返回
-  `{"status": "ok"}`（需 vmware-policy ≥ 1.23.0）。
-- 每个请求带上 `traceparent` 或 `X-Request-ID`，它会记进审计记录；用 `vmware-audit log --correlation-id ID`
-  就能查到平台上某一次请求对应的调用。
-- 审计日志把每个调用者记为 `token:<名字>`。调用并行执行，同一 target 上也一样：server 为每个 target 最多保持 `VMWARE_MCP_POOL_SIZE`（默认 2）个会话，每个会话都是在该 target 上的一次登录；一个调用最多等 300 秒拿到空闲会话（vmware-policy ≥ 1.22.0）。
-- **能连到这个端点的人，都以该 server 配置的账号操作。** token 只用来识别调用者，不在平台上授予任何权限。
-  每个权限级别单独起一个端点。`vmware-storage access-info` 可查看是哪个账号、它能做什么。
-- **一个端点给多人或多种角色用：** 先运行一次 `vmware-audit roles enable`，再给每个 token 指定角色（`vmware-audit token create 名字 --role reader`，或在 `roles.yaml` 里定义可用的工具和 target；需 vmware-policy ≥ 1.24.0）。角色只能限定这个 token 在本端点上能调用什么，不能超出账号本身的权限。详见 vmware-policy README 的「网络调用者的角色」一节。
-
-**只提供读工具，加上你选定的写工具：**
-
-```bash
-vmware-storage mcp --expose read --allow-write enable_iscsi
-# 或：VMWARE_STORAGE_MCP_EXPOSE=read VMWARE_STORAGE_MCP_ALLOW_WRITE=enable_iscsi vmware-storage mcp
-```
-
-未提供的工具不会出现在客户端的工具列表里。取值错误或写工具名不存在时服务直接退出（exit 2）。
-这只限制提供给客户端的工具，不是授权；账号本身仍应遵循最小权限。
-
-详见 `skills/vmware-storage/references/setup-guide.md`（"Serving MCP over HTTPS"、"Limiting which tools are offered"）。
-
-<a id="readme-troubleshooting"></a>
-
-## 故障排查
-
-### 常见问题排查
-
-| 问题 | 原因与解决 |
-|------|-----------|
-| iSCSI enable 报 "already enabled" | 不是错误 — 适配器已启用。运行 `iscsi status` 查看已配置的目标。 |
-| 浏览时报 "Datastore not found" | 数据存储名称**区分大小写**。运行 `datastore list` 获取准确名称。 |
-| `get_vsan_health` 返回 `overall_health: null` | `null` 表示**没有查询**（原因见 `health_not_queried_reason`），不是测量结果；只要是字符串就一定是 vSAN 自己给的答案，包括它自己的 `"unknown"`。常见原因：连的是独立 ESXi，而健康服务跑在 **vCenter** 上。 |
-| 重扫后未发现新 LUN | 添加目标后等待 15-30 秒再重扫。确认 ESXi 能访问目标 IP。 |
-| "Password not found" 错误 | 变量名规则：`VMWARE_<目标名大写>_PASSWORD`（连字符→下划线）。检查 `~/.vmware-storage/.env`。 |
-| `doctor` 报 "no vSphere role"，或每个命令都报 "session is not authenticated" | 能登录，但账号没有 vSphere 角色。在 vCenter 根文件夹上给它分配一个角色（Read-Only 或更高）：Administration > Access Control > Global Permissions。运行中出现同一错误也可能是会话过期：重跑命令即可。 |
-| 连接 vCenter 超时 | 使用 `vmware-storage doctor --skip-auth` 跳过高延迟网络的认证检查。 |
-
-<!-- usage: remote-and-exposure -->
+- [能力范围](skills/vmware-storage/references/capabilities.md)
+- [CLI 用法](skills/vmware-storage/references/cli-reference.md)
+- [Agent 使用约束](skills/vmware-storage/references/agent-guardrails.md)
+- [详细用法与架构](skills/vmware-storage/references/detailed-guide-CN.md)
+- [MCP 启动配置](.mcp.json)
+- [唯一技能指令正本](skills/vmware-storage/SKILL.md)
 
 <a id="readme-companion-skills"></a>
 
-## 配套 Skills
-
-VMware Skills 家族包含 14 个 MCP Server 和共享 Policy 库。按职责选择工具： [vmware-skills](https://github.com/vmware-skills).
-
-### 伴生 Skills
-
-| Skill | 范围 | 工具数 | 安装 |
-|-------|------|:-----:|------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** ⭐ 统一入口 | VM 生命周期、部署、Guest Ops、集群 | 49 | `uv tool install vmware-aiops` |
-| **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)**（只读） | 只读监控、告警、事件、VM 信息 | 27 | `uv tool install vmware-monitor` |
-| **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu 命名空间、TKC 集群生命周期 | 20 | `uv tool install vmware-vks` |
-| **[vmware-nsx](https://github.com/vmware-skills/VMware-NSX)** | NSX 网络：段、网关、NAT、IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
-| **[vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security)** | DFW 微分段、安全组、Traceflow | 21 | `uv tool install vmware-nsx-security` |
-| **[vmware-aria](https://github.com/vmware-skills/VMware-Aria)** | Aria Ops 指标、告警、容量规划 | 28 | `uv tool install vmware-aria` |
-
-<a id="readme-reference"></a>
-
-## 参考资料
-
-变更记录： [RELEASE_NOTES.md](RELEASE_NOTES.md).
-
-使用自己的模型和 Agent 宿主进行只读自测： [model-fit self-test](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md).
-
-### 升级到 2.0
-
-2.0 把 MCP 工具名改成动词在前（已以动词开头的 4 个除外，共改名 10 处）（例如 `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`），完整的新旧名对照表见
-[RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first)。另有三个工具改了参数：`browse_datastore` 和 `scan_datastore_images` 的参数 `ds_name` 改名为 `datastore_name`（与 vmware-aiops 的 `browse_datastore` 一致），`list_all_datastores` 新增可选参数 `limit`（与 vmware-monitor 一致）。其余不变：工具、安全确认门和 CLI 命令都一样（CLI 仍按原来的方式接收数据存储名）。
-如果 agent 提示词、脚本或 `~/.vmware/rules.yaml` 里写了工具名，请改成新名——不过用旧名写的 deny 规则在
-vmware-policy ≥ 1.18 下仍然生效（`vmware-audit policy` 会列出因改名而多匹配的规则），vmware-pilot ≥ 1.13 也会自动转换已保存工作流里的旧名。
-如果还有 2.0 之前的安装共用这个 `rules.yaml`，请把它的 vmware-policy 也升到 ≥ 1.18.2：它会按新旧两个名字匹配每条规则，一份文件两边都管用。
-
-### 为什么独立成一个 Skill？
-
-`vmware-aiops` 有 61 个 MCP 工具——对本地小模型（7B-14B）来说上下文占用太重。独立拆分后：
-
-- **16 个工具** — 完全适合小模型上下文窗口
-- **领域专注** — 存储管理员只看到需要的工具
-- **最小权限** — 可以配置只有存储只读权限的 vCenter 服务账号
-- **可组合** — 可与 vmware-monitor 或 vmware-aiops 同时运行
-
-### 版本兼容性
-
-**Python**: 3.10+ （自 v1.5.27 起；此前要求 3.11+）。已在 3.10 / 3.11 / 3.12 测试通过。
-
-| vSphere | 支持 | 说明 |
-|---------|------|------|
-| 8.0 | 完整 | vSAN SDK 内置于 pyVmomi 8.0.3+ |
-| 7.0 | 完整 | 所有存储 API 均可用 |
-| 6.7 | 兼容 | iSCSI + 数据存储功能正常；vSAN 功能有限 |
+属于 [VMware Skills 家族](https://github.com/vmware-skills/marketplace/blob/main/README-CN.md)：15 个 skill、14 个 MCP server 与一个共享 Policy 库。如果对你有用，欢迎 Star 家族门户。
 
 <a id="readme-license"></a>
 
-## 许可证
-
-[MIT](LICENSE)
-
-MCP 安全标注是客户端提示，不是强制弹窗，也不能证明独立的人类审批。应以工具
-实际的预览/确认契约及既有 Policy/RBAC 为准；只读库存也可能包含敏感信息。
+[问题与反馈](https://github.com/vmware-skills/VMware-Storage/issues) · [MIT](LICENSE)
