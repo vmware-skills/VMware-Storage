@@ -1,451 +1,48 @@
 <!-- mcp-name: io.github.vmware-skills/vmware-storage -->
 
-# VMware Storage
+# VMware-Storage
 
-[![PyPI](https://img.shields.io/pypi/v/vmware-storage)](https://pypi.org/project/vmware-storage/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](#readme-license)
+Understand datastore capacity and storage paths before making changes.
 
-English | [中文](README-CN.md)
+English · [简体中文](README-CN.md)
 
-Maintainer: Wei Zhou · [zhouwei008@gmail.com](mailto:zhouwei008@gmail.com)
+Community-maintained · MIT · Not an official VMware/Broadcom product.
 
-Community-maintained open-source project; not an official VMware or Broadcom product.
+[![18-second illustrative investigation demo](https://raw.githubusercontent.com/vmware-skills/marketplace/main/assets/demos/vmware-skills-en.gif)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-en.mp4)
 
-<!-- family-demo:start -->
-**Part of [VMware Skills](https://github.com/vmware-skills/marketplace)** — 15 skills, 14 MCP servers and a shared Policy library. Start with a read-only task and add modules as needed.
+Synthetic-data animation, not a live recording. [Watch the narrated family introduction (~2 min)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-en.mp4)
 
-[![18-second illustrative VMware investigation demo](https://raw.githubusercontent.com/vmware-skills/marketplace/main/assets/demos/vmware-skills-en.gif)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-en.mp4)
+## Why use it?
 
-[Watch the narrated introduction (~2 min)](https://github.com/vmware-skills/marketplace/blob/main/assets/demos/vmware-skills-en.mp4) · [Family overview and installation](https://github.com/vmware-skills/marketplace)
+- Inspect datastores, files and deployment images.
+- Read capacity, health and FC/device-path evidence.
+- Manage supported iSCSI configuration explicitly.
 
-Illustrative animation with synthetic data; not a live connection recording. AI-generated narration. If the family helps your work, star the shared portal to help others find it.
-<!-- family-demo:end -->
+## Get started
 
-[Overview](#readme-overview) · [Quick Start](#readme-quick-start) · [MCP Configuration](#readme-mcp-configuration) · [Capabilities and Workflows](#readme-capabilities-and-workflows) · [Safety and Audit](#readme-safety-and-audit) · [Troubleshooting](#readme-troubleshooting) · [Companion Skills](#readme-companion-skills) · [Reference](#readme-reference) · [License](#readme-license)
+Install the published CLI and inspect its commands:
 
-<a id="readme-overview"></a>
-
-## Overview
-
-Runs locally over stdio by default; configure required targets and credentials on your own machine.
-
-VMware vSphere storage management: datastores, iSCSI, vSAN, and read-only Fibre Channel / multipath diagnostics — 16 MCP tools, domain-focused and lightweight.
-
-> Split from vmware-aiops for lighter context and local model compatibility.
-
-
-MCP uses local stdio by default. Opt-in HTTPS opens the configured listener and requires TLS plus caller authentication; it is a network service, not a local-only mode. Credential examples create owner-only placeholder files without overwriting existing files; edit secrets locally.
-
-Container examples build a local version-tagged image and run it with `--pull=never`, avoiding registry fallback. A local version tag is not an immutable image digest.
-
-Full agent instructions: [`skills/vmware-storage/SKILL.md`](skills/vmware-storage/SKILL.md).
-
-<a id="readme-quick-start"></a>
-
-## Quick Start
-
-Requires Python `>=3.10` and `uv`.
-
-```bash
+```sh
 uv tool install vmware-storage==2.6.2
 vmware-storage --help
 ```
 
-Target, credential and local data setup: [setup guide](skills/vmware-storage/references/setup-guide.md).
+Requires uv and Python >=3.10. Configure targets and credentials locally before remote queries. [Setup guide](skills/vmware-storage/references/setup-guide.md).
 
-<details>
-<summary>Installation and configuration details (including offline setup)</summary>
+For Claude Code and other host installation paths, see the [family portal](https://github.com/vmware-skills/marketplace).
 
-### Quick Install
+## Know the boundaries
 
-```bash
-# Via PyPI
-uv tool install vmware-storage==2.6.2
+Includes iSCSI configuration writes. Inventory and path evidence do not establish unmeasured historical trends or universal array compatibility.
 
-# Or pip
-pip install vmware-storage==2.6.2
-```
+## Go deeper
 
+- [Capabilities](skills/vmware-storage/references/capabilities.md)
+- [CLI reference](skills/vmware-storage/references/cli-reference.md)
+- [Agent guardrails](skills/vmware-storage/references/agent-guardrails.md)
+- [Detailed usage and architecture](skills/vmware-storage/references/detailed-guide.md)
+- [Canonical skill instructions](skills/vmware-storage/SKILL.md)
 
-### Offline / Air-Gapped Install (from source)
+Part of [VMware Skills](https://github.com/vmware-skills/marketplace): 15 skills, 14 MCP servers and one shared Policy library. If it helps your work, star the family portal.
 
-This project uses the modern PEP 517 build system (hatchling), so there is **no
-`setup.py`** by design — that is expected, not a missing file. If you cloned the
-source and hit `ERROR: File "setup.py" or "setup.cfg" not found ... editable mode
-currently requires a setuptools-based build`, your `pip` is older than 21.3 and
-cannot do an *editable* (`-e`) install with a non-setuptools backend. Editable
-mode is a developer convenience, not needed to run the tool — do one of:
-
-```bash
-# From the source tree — a normal (non-editable) install builds a wheel:
-pip install .              # NOT  pip install -e .
-
-# ...or upgrade pip first, and editable works too:
-pip install --upgrade pip && pip install -e .
-```
-
-For a **truly air-gapped host**, build the wheels on a connected machine and copy
-them over — the target then needs no network:
-
-```bash
-# On a connected machine, collect this package + its dependencies as wheels:
-pip wheel . -w dist        # → dist/*.whl   (or: uv build, for just this package)
-
-# Copy dist/ to the air-gapped host, then install offline:
-pip install --no-index --find-links dist vmware-storage
-```
-
-
-### Configuration
-
-```bash
-mkdir -p ~/.vmware-storage
-cp config.example.yaml ~/.vmware-storage/config.yaml
-# Edit with your vCenter/ESXi credentials
-
-(
-  umask 077
-  set -C  # Refuse existing files; edit an existing .env locally instead
-  cat > ~/.vmware-storage/.env <<'EOF'
-VMWARE_MY_VCENTER_PASSWORD=REPLACE_IN_LOCAL_EDITOR
-EOF
-)
-# Before continuing, edit .env locally; never type live secrets into shell commands.
-
-# Verify
-vmware-storage doctor
-```
-
-This writes placeholders only. Enter passwords or tokens using a local editor after creation; do not paste live credentials into terminal commands, chat or commits. If the file exists, the command refuses to overwrite it; edit the existing file after checking its permissions are `600`.
-
-
-</details>
-
-<a id="readme-mcp-configuration"></a>
-
-## MCP Configuration
-
-Copy this configuration into your MCP client's local stdio settings. The client must be able to find `uvx`; the initial package installation requires access to a package index.
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "uvx",
-      "args": ["--from", "vmware-storage==2.6.2", "vmware-storage-mcp"],
-      "env": {
-        "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
-      }
-    }
-  }
-}
-```
-
-The following sections retain preinstalled CLI alternatives and product-specific MCP options.
-
-<details>
-<summary>Preinstalled CLI and additional MCP options</summary>
-
-### MCP Server
-
-**After `uv tool install vmware-storage==2.6.2`, start the MCP server with one command** (v1.5.15+):
-
-```bash
-# Recommended — single command, no network re-resolve
-vmware-storage mcp
-
-# With a custom config path
-VMWARE_STORAGE_CONFIG=/path/to/config.yaml vmware-storage mcp
-
-# Or via Docker
-docker compose up -d
-```
-
-#### Agent Configuration
-
-Add to your AI agent's MCP config:
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "command": "vmware-storage",
-      "args": ["mcp"],
-      "env": {
-        "VMWARE_STORAGE_CONFIG": "~/.vmware-storage/config.yaml"
-      }
-    }
-  }
-}
-```
-
-<details>
-<summary>Alternative: uvx (no install) or legacy entry point</summary>
-
-```bash
-# Run without installing (requires PyPI access each launch)
-uvx --from vmware-storage==2.6.2 vmware-storage mcp
-
-# Legacy entry point (still works, kept for backward compatibility)
-vmware-storage-mcp
-```
-
-> **Behind a corporate TLS proxy?** uvx may fail with `invalid peer certificate: UnknownIssuer`.
-> Use the recommended `vmware-storage mcp` form above (no network needed), or set `UV_NATIVE_TLS=true`.
-
-</details>
-
-
-</details>
-
-<a id="readme-capabilities-and-workflows"></a>
-
-## Capabilities and Workflows
-
-### MCP Tools (16)
-
-| Category | Tools | Type |
-|----------|-------|------|
-| Datastore | `list_all_datastores`, `get_datastore_vm_usage`, `browse_datastore`, `scan_datastore_images`, `list_cached_images` | Read |
-| iSCSI | `enable_iscsi`, `get_iscsi_status`, `add_iscsi_target`, `remove_iscsi_target`, `rescan_storage` | Read/Write |
-| vSAN | `get_vsan_health`, `get_vsan_capacity`, `get_vsan_efficiency` | Read |
-| FC / multipath | `list_fc_adapters`, `list_storage_device_paths` | Read |
-| Access | `get_access_info` — which account the server uses and whether it holds each tool's vSphere privileges (root folder) | Read |
-
-### Auto-Remediation Patterns (PoC)
-
-The [`patterns/`](patterns/) directory hosts L5 auto-remediation candidate patterns from the Enterprise Harness Engineering framework. The first PoC pattern, [`patterns/iscsi-target-stale-rescan.yaml`](patterns/iscsi-target-stale-rescan.yaml), describes an iSCSI HBA rescan as a low-risk, reversible, repeatable operation. The pattern schema is documented here only — runtime enforcement is **not yet wired up**, so this is a reference design, not production auto-remediation.
-
-### Common Workflows
-
-#### Set Up iSCSI Storage on a Host
-
-1. Enable iSCSI adapter: `vmware-storage iscsi enable esxi-01`
-2. Add target: `vmware-storage iscsi add-target esxi-01 10.0.0.100`
-3. Verify: `vmware-storage iscsi status esxi-01`
-
-The `add-target` command automatically rescans storage. Use `--dry-run` to preview any write command first.
-
-#### Find Deployable Images Across Datastores
-
-For scripts, add `--json` to `datastore list`, `datastore browse`, or
-`datastore scan-images`. Successful output is the complete result envelope,
-including `items`, counts, truncation and any cache note. Without the flag,
-list keeps its table and browse/scan-images keep their legacy JSON arrays.
-Other read commands already output JSON by default. Failures still exit nonzero
-with the existing CLI error message.
-
-1. List all datastores: `vmware-storage datastore list`
-2. Scan for images: `vmware-storage datastore scan-images datastore01`
-3. Browse with a pattern: `vmware-storage datastore browse datastore01 --pattern "*.iso"`
-
-#### vSAN Health Assessment
-
-1. Check health: `vmware-storage vsan health Cluster-Prod`
-2. Check capacity: `vmware-storage vsan capacity Cluster-Prod`
-3. If issues found, investigate with `vmware-monitor` for alarms and events
-
-#### Check Fibre Channel Paths
-
-1. Dead or disabled paths behind a datastore: `vmware-storage paths devices --datastore ds-fc-01`
-2. Hosts that see a shared device through a different number of paths than their peers, or not at all: `vmware-storage paths devices --cluster Cluster-Prod --only-differences`
-3. WWPNs for the SAN team: `vmware-storage paths fc-adapters --cluster Cluster-Prod`
-
-Hosts that could not be read are listed in `hosts_not_read` and are never reported as missing a device. Path states are reported as vSphere reports them — `standby` is not flagged.
-
-### CLI
-
-```bash
-# Datastore
-vmware-storage datastore list
-vmware-storage datastore browse datastore01
-vmware-storage datastore scan-images datastore01
-
-# iSCSI
-vmware-storage iscsi status esxi-01
-vmware-storage iscsi enable esxi-01
-vmware-storage iscsi add-target esxi-01 192.168.1.100
-vmware-storage iscsi remove-target esxi-01 192.168.1.100
-vmware-storage iscsi rescan esxi-01
-
-# vSAN
-vmware-storage vsan health Cluster-Prod
-vmware-storage vsan capacity Cluster-Prod
-
-# Fibre Channel / multipath (read-only)
-vmware-storage paths fc-adapters --cluster Cluster-Prod
-vmware-storage paths devices --datastore ds-fc-01
-
-# Diagnostics
-vmware-storage doctor
-```
-
-<a id="readme-safety-and-audit"></a>
-
-## Safety and Audit
-
-### Safety
-
-| Feature | Description |
-|---------|-------------|
-| Read-heavy | 12/16 tools are read-only |
-| Preview by default (MCP) | The 4 write tools take `confirm` (default `false`): a call without it changes nothing and returns `blast_radius` (host, adapters, and for target removal the paths, devices and datastores behind the target). `confirm=true` is refused when a datastore would lose every path or part of the blast radius could not be read. the old `dry_run` alias was removed in 2.4.3 and is refused as an unknown argument |
-| Input validation | IP addresses and ports validated before iSCSI operations |
-| Audit logging | All operations logged to `~/.vmware-storage/audit.log` |
-| No VM operations | Cannot create, delete, or modify VMs |
-| Credential safety | Passwords only from environment variables, never config files |
-
-### Remote access (HTTPS) and limiting tools
-
-By default `vmware-storage mcp` speaks stdio to one local client and offers every tool. Two options change that
-(vmware-policy ≥ 1.21.0).
-
-**Serve over HTTPS** so clients on other machines can connect. Every caller needs a bearer token:
-
-```bash
-vmware-audit token create alice          # prints the token once; give it to alice
-vmware-audit token list                  # names only
-vmware-audit token revoke alice          # refused from its next request, no restart
-vmware-storage mcp --transport https --host 0.0.0.0 --port 8443 \
-    --cert /etc/vmware-mcp/server.pem --key /etc/vmware-mcp/server-key.pem \
-    --public-name mcp.example.com
-```
-
-Connect a client (Claude Code shown; any MCP client that supports streamable HTTP and custom headers works):
-
-```bash
-claude mcp add --transport http vmware-storage https://mcp.example.com:8443/mcp \
-    --header "Authorization: Bearer $VMWARE_MCP_TOKEN"
-```
-
-```json
-{
-  "mcpServers": {
-    "vmware-storage": {
-      "type": "http",
-      "url": "https://mcp.example.com:8443/mcp",
-      "headers": { "Authorization": "Bearer ${VMWARE_MCP_TOKEN}" }
-    }
-  }
-}
-```
-
-- The server will not start without a token, refuses Host/Origin values outside `--public-name`, and checks
-  before it binds that unauthenticated requests get 401. Use a certificate your clients trust for those names.
-- Behind a TLS-terminating reverse proxy on the same machine use `--transport http --host 127.0.0.1
-  --public-name mcp.example.com` and pass the `Authorization` header through.
-- Behind a load balancer or gateway on another machine, keep `--transport https` (a self-signed certificate is
-  fine), list in `--public-name` the host name the balancer sends as `Host`, and have it forward `Authorization`.
-  Its health probe can use `GET /healthz`, which needs no token and returns only `{"status": "ok"}`
-  (vmware-policy ≥ 1.23.0).
-- Send `traceparent` or `X-Request-ID` with each request to have it stored on the audit row;
-  `vmware-audit log --correlation-id ID` then finds the calls behind one platform request.
-- The audit log records each caller as `token:<name>`. Calls run side by side, also on the same target: the server keeps up to `VMWARE_MCP_POOL_SIZE` (default 2) sessions per target, each one a login on that target, and a call waits at most 300 s for a free session (vmware-policy ≥ 1.22.0).
-- **Everyone who can reach the endpoint acts with this server's account.** Tokens identify callers; they grant
-  nothing on the platform. Run one endpoint per privilege level. `vmware-storage access-info` shows which account that is and what it may do.
-- **Several people or roles on one endpoint:** run `vmware-audit roles enable` once, then give each token a role (`vmware-audit token create NAME --role reader`, or a role in `roles.yaml` naming tools and targets; vmware-policy ≥ 1.24.0). A role limits what the token may call on this endpoint; it cannot grant more than the account has. See vmware-policy's README, "Roles for network callers".
-
-**Offer only read tools, plus the writes you choose:**
-
-```bash
-vmware-storage mcp --expose read --allow-write enable_iscsi
-# or: VMWARE_STORAGE_MCP_EXPOSE=read VMWARE_STORAGE_MCP_ALLOW_WRITE=enable_iscsi vmware-storage mcp
-```
-
-Tools not offered do not appear in the client's tool list. A bad value or an unknown write tool stops the server
-(exit 2). This limits what clients are offered; it is not authorization, so the account itself should be
-least-privilege.
-
-Details: `skills/vmware-storage/references/setup-guide.md` ("Serving MCP over HTTPS", "Limiting which tools are offered").
-
-<a id="readme-troubleshooting"></a>
-
-## Troubleshooting
-
-### Troubleshooting
-
-| Problem | Cause & Fix |
-|---------|-------------|
-| iSCSI enable fails with "already enabled" | Not an error — adapter is already active. Run `iscsi status` to see configured targets. |
-| "Datastore not found" when browsing | Datastore names are **case-sensitive**. Run `datastore list` to get the exact name. |
-| `get_vsan_health` returns `overall_health: null` | `null` = not asked (see `health_not_queried_reason`), never a measurement; a string is always vSAN's own answer, including its own `"unknown"`. Usual cause: connected to standalone ESXi, but the health service runs in **vCenter**. |
-| Rescan doesn't discover new LUNs | Wait 15-30 seconds after adding targets, then rescan again. Verify target IP is reachable from ESXi. |
-| "Password not found" error | Variable names follow `VMWARE_<TARGET_UPPER>_PASSWORD` (hyphens → underscores). Check `~/.vmware-storage/.env`. |
-| `doctor` fails with "no vSphere role", or every command fails with "session is not authenticated" | The login works but the account has no vSphere role. Assign one (Read-Only or higher) on the vCenter root folder (Administration > Access Control > Global Permissions). Mid-run, the same fault can be an expired session: run the command again. |
-| Connection timeout to vCenter | Use `vmware-storage doctor --skip-auth` to bypass auth checks on high-latency networks. |
-| "Datastore browse did not finish within Ns" | The datastore is very large or busy. Narrow the search with a sub-path and a specific pattern (e.g. `datastore browse ds01 --path templates --pattern "*.ova"`) instead of browsing the root — do not just retry the same broad browse. |
-
-<!-- usage: remote-and-exposure -->
-
-<a id="readme-companion-skills"></a>
-
-## Companion Skills
-
-The VMware Skills family contains 14 MCP servers and the shared Policy library. Choose tools by responsibility: [vmware-skills](https://github.com/vmware-skills).
-
-### Companion Skills
-
-| Skill | Scope | Tools | Install |
-|-------|-------|:-----:|---------|
-| **[vmware-aiops](https://github.com/vmware-skills/VMware-AIops)** ⭐ entry point | VM lifecycle, deployment, guest ops, clusters | 49 | `uv tool install vmware-aiops` |
-| **[vmware-monitor](https://github.com/vmware-skills/VMware-Monitor)** | Read-only monitoring, alarms, events, VM info | 27 | `uv tool install vmware-monitor` |
-| **[vmware-vks](https://github.com/vmware-skills/VMware-VKS)** | Tanzu Namespaces, TKC cluster lifecycle | 20 | `uv tool install vmware-vks` |
-| **[vmware-nsx](https://github.com/vmware-skills/VMware-NSX)** | NSX networking: segments, gateways, NAT, IPAM | 33 | `uv tool install vmware-nsx-mgmt` |
-| **[vmware-nsx-security](https://github.com/vmware-skills/VMware-NSX-Security)** | DFW microsegmentation, security groups, Traceflow | 21 | `uv tool install vmware-nsx-security` |
-| **[vmware-aria](https://github.com/vmware-skills/VMware-Aria)** | Aria Ops metrics, alerts, capacity planning | 28 | `uv tool install vmware-aria` |
-
-<a id="readme-reference"></a>
-
-## Reference
-
-Release history: [RELEASE_NOTES.md](RELEASE_NOTES.md).
-
-Read-only self-test with your own model and agent host: [model-fit self-test](https://github.com/vmware-skills/marketplace/blob/main/MODEL_FIT_SELF_TEST.md).
-
-### Upgrading to 2.0
-
-2.0 renames 10 of its MCP tools (all but the four that already started with a verb) so every name starts with a verb (e.g. `fc_adapter_list` → `list_fc_adapters`, `storage_device_paths` → `list_storage_device_paths`, `storage_iscsi_add_target` → `add_iscsi_target`). The full old → new table is in
-[RELEASE_NOTES.md](RELEASE_NOTES.md#v200--mcp-tools-renamed-verb-first). Three tools also change a parameter: `browse_datastore` and `scan_datastore_images` take
-`datastore_name` (was `ds_name`, now the same as vmware-aiops' `browse_datastore`), and `list_all_datastores` gains an
-optional `limit` (same as vmware-monitor's). Everything else stays: same tools, safety gates and CLI commands (the CLI
-still takes the datastore name as before). If an agent prompt, script or `~/.vmware/rules.yaml` names a tool, update it — though deny
-rules written with the old names keep working with vmware-policy ≥ 1.18 (`vmware-audit policy` lists any rule the
-renames widened), and vmware-pilot ≥ 1.13 translates old names in saved workflows.
-If an install older than 2.0 shares that `rules.yaml`, give it vmware-policy ≥ 1.18.2 too: it matches each rule
-against both the old and the new name, so one file serves both.
-
-### Why a Separate Skill?
-
-`vmware-aiops` has 61 MCP tools — too heavy for local LLMs (7B-14B). By splitting storage into its own skill:
-
-- **16 tools** — fits comfortably in small model context windows
-- **Domain-focused** — storage admins get only what they need
-- **Least privilege** — can run under a vCenter service account with storage read-only permissions
-- **Composable** — use alongside vmware-monitor or vmware-aiops as needed
-
-### Version Compatibility
-
-**Python**: 3.10+ (since v1.5.27 — previously 3.11+). Tested on 3.10 / 3.11 / 3.12.
-
-| vSphere / VCF | Support | Notes |
-|---------|---------|-------|
-| VCF 9.1 / vSphere 9.1 | Full | Released 2026-05-12. pyVmomi+vSAN SDK `<10.0` works via SOAP. |
-| VCF 9.0 / vSphere 9.0 | Full | pyVmomi 8.0.3+ with bundled vSAN SDK connects to vSphere 9. |
-| 8.0 | Full | vSAN SDK built into pyVmomi 8.0.3+ |
-| 7.0 | Full | All storage APIs work |
-| 6.7 | Compatible | iSCSI + datastore features work; vSAN limited |
-
-##### Official Broadcom References
-
-- **SDKs**: <https://developer.broadcom.com/sdks> — VCF Python SDK, vSAN Management SDK (bundled in pyVmomi)
-- **REST APIs**: <https://developer.broadcom.com/xapis> — vSAN Management API, VCF API
-- **CLI Tools**: <https://developer.broadcom.com/tools> — PowerCLI 9.1, ESXCLI
-
-<a id="readme-license"></a>
-
-## License
-
-[MIT](LICENSE)
-
-MCP safety annotations are client hints, not enforced prompts or proof of
-independent human approval. Use the tool's actual preview/confirm contract and
-existing Policy/RBAC controls. Read-only inventory may still be sensitive.
+[Issues and feedback](https://github.com/vmware-skills/VMware-Storage/issues) · [MIT](LICENSE)
