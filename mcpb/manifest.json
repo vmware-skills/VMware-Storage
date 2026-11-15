@@ -1,0 +1,73 @@
+{
+  "manifest_version": "0.4",
+  "name": "vmware-storage",
+  "display_name": "VMware Storage",
+  "version": "2.6.2",
+  "description": "VMware vSphere storage management: datastores, iSCSI, vSAN. Domain-focused MCP skill.",
+  "long_description": "Runs the published vmware-storage 2.6.2 MCP server locally. This extension starts with read-only tools (expose = read); set it to all to offer write tools, which stay governed by the shared policy and are recorded in the local audit log. Configure targets and credentials with the setup guide first, then point this extension at that config.",
+  "author": {
+    "name": "Wei Zhou",
+    "url": "https://github.com/zw008"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vmware-skills/VMware-Storage"
+  },
+  "homepage": "https://github.com/vmware-skills/VMware-Storage",
+  "documentation": "https://github.com/vmware-skills/VMware-Storage/blob/main/skills/vmware-storage/references/setup-guide.md",
+  "support": "https://github.com/vmware-skills/VMware-Storage/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "uv",
+    "entry_point": "server/main.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "server/main.py"
+      ],
+      "env": {
+        "VMWARE_STORAGE_CONFIG": "${user_config.config_path}",
+        "VMWARE_STORAGE_MCP_EXPOSE": "${user_config.expose}"
+      }
+    }
+  },
+  "user_config": {
+    "config_path": {
+      "type": "file",
+      "title": "vmware-storage config file",
+      "description": "config.yaml from the setup guide. Passwords stay in the .env file next to it.",
+      "required": true,
+      "default": "${HOME}/.vmware-storage/config.yaml"
+    },
+    "expose": {
+      "type": "string",
+      "title": "Tools to offer",
+      "description": "read = read-only tools only (default); all = every tool, including writes.",
+      "required": true,
+      "default": "read"
+    }
+  },
+  "tools_generated": true,
+  "keywords": [
+    "vmware",
+    "vsphere",
+    "datastore",
+    "iscsi",
+    "vsan",
+    "storage"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  }
+}

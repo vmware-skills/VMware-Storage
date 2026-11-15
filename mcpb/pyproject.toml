@@ -1,0 +1,6 @@
+[project]
+name = "vmware-storage-mcpb"
+version = "2.6.2"
+description = "Claude Desktop extension shim that runs the published vmware-storage MCP server"
+requires-python = ">=3.10"
+dependencies = ["vmware-storage==2.6.2"]
